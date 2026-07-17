@@ -1,11 +1,15 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFormState } from "react-dom";
 import Image from "next/image";
 import {
+  Check,
   Dumbbell,
   ImagePlus,
+  Pencil,
   Plus,
+  QrCode,
   Target,
   Trash2,
   UserPlus,
@@ -13,8 +17,17 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { Aluno, ExercicioTreino, StatusMatricula, Treino } from "@/lib/types";
+import { Aluno, ExercicioTreino, Plano, StatusMatricula, Treino } from "@/lib/types";
 import { badgeStatusMatricula, cn } from "@/lib/utils";
+import FormActions from "@/components/ui/FormActions";
+import ConfirmButton from "@/components/ui/ConfirmButton";
+import {
+  atualizarAluno,
+  criarAluno,
+  criarTreino,
+  excluirAluno,
+  excluirTreino,
+} from "@/app/painel/[slug]/alunos/actions";
 
 type NovoExercicio = {
   nome_exercicio: string;
@@ -35,174 +48,50 @@ const EX_VAZIO: NovoExercicio = {
 };
 
 export default function GestaoAlunos({
+  slug,
   alunosIniciais,
   treinosIniciais,
+  planos,
 }: {
+  slug: string;
   alunosIniciais: Aluno[];
   treinosIniciais: Treino[];
+  planos: Plano[];
 }) {
-  const [alunos, setAlunos] = useState<Aluno[]>(alunosIniciais);
-  const [treinos, setTreinos] = useState<Treino[]>(treinosIniciais);
+  const alunos = alunosIniciais;
+  const treinos = treinosIniciais;
+
   const [selecionadoId, setSelecionadoId] = useState<string | null>(
     alunosIniciais[0]?.id ?? null
   );
+  const [mostrarNovoAluno, setMostrarNovoAluno] = useState(alunos.length === 0);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
-  // ---- Formulário de novo aluno ----
-  const [novoAluno, setNovoAluno] = useState({
-    nome: "",
-    cpf: "",
-    status: "ativa" as StatusMatricula,
-    foto_perfil_url: "",
-  });
-
-  const cadastrarAluno = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!novoAluno.nome.trim()) return;
-    const id = `alu-${Date.now()}`;
-    const aluno: Aluno = {
-      id,
-      academia_id: alunosIniciais[0]?.academia_id ?? "demo",
-      nome: novoAluno.nome.trim(),
-      cpf: novoAluno.cpf || null,
-      email: null,
-      telefone: null,
-      foto_perfil_url: novoAluno.foto_perfil_url || null,
-      data_nascimento: null,
-      status_matricula: novoAluno.status,
-      plano_id: null,
-      matricula_codigo: `IP-${String(alunos.length + 1).padStart(4, "0")}`,
-      criado_em: new Date().toISOString(),
-      atualizado_em: new Date().toISOString(),
-    };
-    setAlunos((prev) => [aluno, ...prev]);
-    setSelecionadoId(id);
-    setNovoAluno({ nome: "", cpf: "", status: "ativa", foto_perfil_url: "" });
-  };
-
-  const treinosDoAluno = useMemo(
-    () => treinos.filter((t) => t.aluno_id === selecionadoId),
-    [treinos, selecionadoId]
-  );
+  const treinosDoAluno = treinos.filter((t) => t.aluno_id === selecionadoId);
   const alunoSelecionado = alunos.find((a) => a.id === selecionadoId) ?? null;
 
-  // ---- Construtor de ficha de treino ----
-  const [nomeTreino, setNomeTreino] = useState("");
-  const [objetivo, setObjetivo] = useState("Hipertrofia");
-  const [exercicios, setExercicios] = useState<NovoExercicio[]>([{ ...EX_VAZIO }]);
-
-  const setEx = (i: number, patch: Partial<NovoExercicio>) =>
-    setExercicios((prev) =>
-      prev.map((ex, idx) => (idx === i ? { ...ex, ...patch } : ex))
-    );
-
-  const addLinhaEx = () => setExercicios((p) => [...p, { ...EX_VAZIO }]);
-  const rmLinhaEx = (i: number) =>
-    setExercicios((p) => (p.length > 1 ? p.filter((_, idx) => idx !== i) : p));
-
-  const salvarTreino = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selecionadoId || !nomeTreino.trim()) return;
-    const treinoId = `trn-${Date.now()}`;
-    const exs: ExercicioTreino[] = exercicios
-      .filter((ex) => ex.nome_exercicio.trim())
-      .map((ex, idx) => ({
-        id: `ex-${treinoId}-${idx}`,
-        treino_id: treinoId,
-        nome_exercicio: ex.nome_exercicio.trim(),
-        series: Number(ex.series) || 0,
-        repeticoes: ex.repeticoes || "0",
-        carga_kg: Number(ex.carga_kg) || 0,
-        descanso_segundos: 60,
-        imagem_demonstracao_url: ex.imagem_demonstracao_url || null,
-        video_demonstracao_url: ex.video_demonstracao_url || null,
-        observacoes: null,
-        ordem: idx + 1,
-        criado_em: new Date().toISOString(),
-      }));
-
-    const treino: Treino = {
-      id: treinoId,
-      academia_id: alunoSelecionado?.academia_id ?? "demo",
-      aluno_id: selecionadoId,
-      nome_treino: nomeTreino.trim(),
-      objetivo,
-      ordem: treinosDoAluno.length + 1,
-      ativo: true,
-      criado_em: new Date().toISOString(),
-      atualizado_em: new Date().toISOString(),
-      exercicios: exs,
-    };
-    setTreinos((prev) => [...prev, treino]);
-    setNomeTreino("");
-    setObjetivo("Hipertrofia");
-    setExercicios([{ ...EX_VAZIO }]);
-  };
-
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_1fr]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,400px)_1fr]">
       {/* Coluna esquerda: cadastro + lista de alunos */}
       <div className="space-y-6">
-        <form onSubmit={cadastrarAluno} className="surface rounded-2xl p-5">
-          <h2 className="flex items-center gap-2 font-semibold text-white">
-            <UserPlus className="h-4 w-4 text-volt-300" /> Cadastrar aluno
-          </h2>
-
-          <div className="mt-4 space-y-3">
-            <Field label="Nome completo">
-              <input
-                value={novoAluno.nome}
-                onChange={(e) =>
-                  setNovoAluno({ ...novoAluno, nome: e.target.value })
-                }
-                placeholder="Ex: João da Silva"
-                className="inp"
-              />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="CPF">
-                <input
-                  value={novoAluno.cpf}
-                  onChange={(e) =>
-                    setNovoAluno({ ...novoAluno, cpf: e.target.value })
-                  }
-                  placeholder="000.000.000-00"
-                  className="inp"
-                />
-              </Field>
-              <Field label="Status">
-                <select
-                  value={novoAluno.status}
-                  onChange={(e) =>
-                    setNovoAluno({
-                      ...novoAluno,
-                      status: e.target.value as StatusMatricula,
-                    })
-                  }
-                  className="inp"
-                >
-                  <option value="ativa">Ativa</option>
-                  <option value="pendente">Pendente</option>
-                  <option value="trancada">Trancada</option>
-                  <option value="inativa">Inativa</option>
-                </select>
-              </Field>
-            </div>
-            <Field label="Foto de perfil">
-              <ImageUpload
-                value={novoAluno.foto_perfil_url}
-                onChange={(url) =>
-                  setNovoAluno({ ...novoAluno, foto_perfil_url: url })
-                }
-                aspect="aspect-square"
-                hint="Foto do aluno (estado original)"
-              />
-            </Field>
-          </div>
-
-          <button type="submit" className="btn-volt mt-4 w-full">
-            <Plus className="h-4 w-4" /> Adicionar aluno
+        {mostrarNovoAluno ? (
+          <FormularioAluno
+            slug={slug}
+            planos={planos}
+            onCancelar={alunos.length > 0 ? () => setMostrarNovoAluno(false) : undefined}
+            onSalvo={(id) => {
+              setMostrarNovoAluno(false);
+              setSelecionadoId(id);
+            }}
+          />
+        ) : (
+          <button
+            onClick={() => setMostrarNovoAluno(true)}
+            className="btn-volt w-full"
+          >
+            <UserPlus className="h-4 w-4" /> Cadastrar aluno
           </button>
-        </form>
+        )}
 
         <div className="surface rounded-2xl">
           <div className="border-b border-ink-700 px-5 py-3">
@@ -213,53 +102,36 @@ export default function GestaoAlunos({
               </span>
             </h2>
           </div>
-          <ul className="max-h-[420px] divide-y divide-ink-700/70 overflow-auto">
-            {alunos.map((a) => (
-              <li key={a.id}>
-                <button
-                  onClick={() => setSelecionadoId(a.id)}
-                  className={cn(
-                    "flex w-full items-center gap-3 px-4 py-3 text-left transition",
-                    selecionadoId === a.id
-                      ? "bg-volt-500/10"
-                      : "hover:bg-ink-700/40"
-                  )}
-                >
-                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-ink-600">
-                    {a.foto_perfil_url ? (
-                      <Image
-                        src={a.foto_perfil_url}
-                        alt={a.nome}
-                        fill
-                        sizes="40px"
-                        className="media-native object-cover"
-                      />
-                    ) : (
-                      <div className="grid h-full place-items-center bg-ink-700 text-slate-500">
-                        <UserRound className="h-4 w-4" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-white">
-                      {a.nome}
-                    </p>
-                    <p className="truncate text-xs text-slate-500">
-                      {a.matricula_codigo}
-                    </p>
-                  </div>
-                  <span
-                    className={cn(
-                      "chip text-[10px]",
-                      badgeStatusMatricula(a.status_matricula)
-                    )}
-                  >
-                    {a.status_matricula}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          {alunos.length === 0 ? (
+            <p className="px-5 py-6 text-sm text-slate-500">
+              Nenhum aluno cadastrado ainda.
+            </p>
+          ) : (
+            <ul className="max-h-[560px] divide-y divide-ink-700/70 overflow-auto">
+              {alunos.map((a) =>
+                editandoId === a.id ? (
+                  <li key={a.id} className="p-4">
+                    <FormularioAluno
+                      slug={slug}
+                      planos={planos}
+                      alunoExistente={a}
+                      onCancelar={() => setEditandoId(null)}
+                      onSalvo={() => setEditandoId(null)}
+                    />
+                  </li>
+                ) : (
+                  <LinhaAluno
+                    key={a.id}
+                    slug={slug}
+                    aluno={a}
+                    ativo={selecionadoId === a.id}
+                    onSelecionar={() => setSelecionadoId(a.id)}
+                    onEditar={() => setEditandoId(a.id)}
+                  />
+                )
+              )}
+            </ul>
+          )}
         </div>
       </div>
 
@@ -285,139 +157,12 @@ export default function GestaoAlunos({
               Selecione um aluno para montar a ficha.
             </p>
           ) : (
-            <form onSubmit={salvarTreino} className="mt-4 space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Nome do treino">
-                  <input
-                    value={nomeTreino}
-                    onChange={(e) => setNomeTreino(e.target.value)}
-                    placeholder="Ex: Treino A - Peito e Tríceps"
-                    className="inp"
-                  />
-                </Field>
-                <Field label="Objetivo">
-                  <div className="relative">
-                    <Target className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                    <input
-                      value={objetivo}
-                      onChange={(e) => setObjetivo(e.target.value)}
-                      placeholder="Ex: Hipertrofia"
-                      className="inp pl-9"
-                    />
-                  </div>
-                </Field>
-              </div>
-
-              {/* Linhas de exercício */}
-              <div className="space-y-4">
-                {exercicios.map((ex, i) => (
-                  <div
-                    key={i}
-                    className="rounded-xl border border-ink-600 bg-ink-900/50 p-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                        Exercício {i + 1}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => rmLinhaEx(i)}
-                        className="text-slate-500 transition hover:text-red-400"
-                        aria-label="Remover exercício"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    <div className="mt-3 grid gap-3 md:grid-cols-[1fr_minmax(0,180px)]">
-                      <div className="space-y-3">
-                        <input
-                          value={ex.nome_exercicio}
-                          onChange={(e) =>
-                            setEx(i, { nome_exercicio: e.target.value })
-                          }
-                          placeholder="Nome do exercício"
-                          className="inp"
-                        />
-                        <div className="grid grid-cols-3 gap-2">
-                          <Field label="Séries">
-                            <input
-                              type="number"
-                              min={0}
-                              value={ex.series}
-                              onChange={(e) =>
-                                setEx(i, { series: Number(e.target.value) })
-                              }
-                              className="inp"
-                            />
-                          </Field>
-                          <Field label="Reps">
-                            <input
-                              value={ex.repeticoes}
-                              onChange={(e) =>
-                                setEx(i, { repeticoes: e.target.value })
-                              }
-                              placeholder="10-12"
-                              className="inp"
-                            />
-                          </Field>
-                          <Field label="Carga (kg)">
-                            <input
-                              type="number"
-                              min={0}
-                              step="0.5"
-                              value={ex.carga_kg}
-                              onChange={(e) =>
-                                setEx(i, { carga_kg: Number(e.target.value) })
-                              }
-                              className="inp"
-                            />
-                          </Field>
-                        </div>
-                      </div>
-
-                      {/* Upload da imagem real do equipamento/movimento */}
-                      <ImageUpload
-                        value={ex.imagem_demonstracao_url}
-                        onChange={(url) =>
-                          setEx(i, { imagem_demonstracao_url: url })
-                        }
-                        aspect="aspect-[4/3]"
-                        hint="Imagem do equipamento"
-                      />
-
-                      {/* Vídeo de demonstração (clipe curto, <= 10s, em loop) */}
-                      <Field label="Vídeo de demonstração (≤ 10s)">
-                        <div className="flex items-center gap-2">
-                          <Video className="h-4 w-4 flex-none text-volt-300" />
-                          <input
-                            type="url"
-                            value={ex.video_demonstracao_url}
-                            onChange={(e) =>
-                              setEx(i, { video_demonstracao_url: e.target.value })
-                            }
-                            placeholder="URL do clipe (mp4/webm) — Supabase Storage"
-                            className="inp"
-                          />
-                        </div>
-                      </Field>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={addLinhaEx}
-                className="btn-ghost w-full"
-              >
-                <Plus className="h-4 w-4" /> Adicionar exercício
-              </button>
-
-              <button type="submit" className="btn-volt w-full">
-                <Dumbbell className="h-4 w-4" /> Salvar ficha de treino
-              </button>
-            </form>
+            <FormularioTreino
+              key={alunoSelecionado.id}
+              slug={slug}
+              alunoId={alunoSelecionado.id}
+              proximaOrdem={treinosDoAluno.length + 1}
+            />
           )}
         </div>
 
@@ -438,13 +183,20 @@ export default function GestaoAlunos({
                     key={t.id}
                     className="rounded-xl border border-ink-600 bg-ink-900/40 p-4"
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <p className="font-medium text-white">{t.nome_treino}</p>
-                      {t.objetivo && (
-                        <span className="chip border-magenta-500/30 bg-magenta-500/10 text-magenta-400">
-                          {t.objetivo}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {t.objetivo && (
+                          <span className="chip border-magenta-500/30 bg-magenta-500/10 text-magenta-400">
+                            {t.objetivo}
+                          </span>
+                        )}
+                        <ConfirmButton
+                          action={() => excluirTreino(slug, t.id)}
+                          confirmText={`Excluir a ficha "${t.nome_treino}"?`}
+                          label="Excluir ficha"
+                        />
+                      </div>
                     </div>
                     <p className="mt-1 text-xs text-slate-500">
                       {t.exercicios?.length ?? 0} exercícios
@@ -471,6 +223,398 @@ export default function GestaoAlunos({
 }
 
 // ---------------------------------------------------------------------------
+// Linha da lista de alunos (com link para o app do aluno, editar e excluir)
+// ---------------------------------------------------------------------------
+function LinhaAluno({
+  slug,
+  aluno,
+  ativo,
+  onSelecionar,
+  onEditar,
+}: {
+  slug: string;
+  aluno: Aluno;
+  ativo: boolean;
+  onSelecionar: () => void;
+  onEditar: () => void;
+}) {
+  const [copiado, setCopiado] = useState(false);
+
+  const copiarLink = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const link = `${window.location.origin}/aluno/${slug}/${aluno.id}`;
+    await navigator.clipboard.writeText(link);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 1600);
+  };
+
+  return (
+    <li>
+      <div
+        onClick={onSelecionar}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === "Enter" && onSelecionar()}
+        className={cn(
+          "flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition",
+          ativo ? "bg-volt-500/10" : "hover:bg-ink-700/40"
+        )}
+      >
+        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-ink-600">
+          {aluno.foto_perfil_url ? (
+            <Image
+              src={aluno.foto_perfil_url}
+              alt={aluno.nome}
+              fill
+              sizes="40px"
+              className="media-native object-cover"
+            />
+          ) : (
+            <div className="grid h-full place-items-center bg-ink-700 text-slate-500">
+              <UserRound className="h-4 w-4" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-white">{aluno.nome}</p>
+          <p className="truncate text-xs text-slate-500">
+            {aluno.matricula_codigo}
+          </p>
+        </div>
+        <span
+          className={cn(
+            "chip text-[10px]",
+            badgeStatusMatricula(aluno.status_matricula)
+          )}
+        >
+          {aluno.status_matricula}
+        </span>
+        <button
+          type="button"
+          onClick={copiarLink}
+          title="Copiar link do app do aluno"
+          className="grid h-8 w-8 flex-none place-items-center rounded-lg text-slate-500 transition hover:bg-ink-700 hover:text-volt-300"
+        >
+          {copiado ? (
+            <Check className="h-4 w-4 text-volt-300" />
+          ) : (
+            <QrCode className="h-4 w-4" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEditar();
+          }}
+          title="Editar aluno"
+          className="grid h-8 w-8 flex-none place-items-center rounded-lg text-slate-500 transition hover:bg-ink-700 hover:text-white"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <span onClick={(e) => e.stopPropagation()}>
+          <ConfirmButton
+            action={() => excluirAluno(slug, aluno.id)}
+            confirmText={`Excluir o aluno "${aluno.nome}"? Treinos e histórico serão removidos.`}
+            label="Excluir aluno"
+          />
+        </span>
+      </div>
+    </li>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Formulário de cadastro/edição de aluno
+// ---------------------------------------------------------------------------
+function FormularioAluno({
+  slug,
+  planos,
+  alunoExistente,
+  onCancelar,
+  onSalvo,
+}: {
+  slug: string;
+  planos: Plano[];
+  alunoExistente?: Aluno;
+  onCancelar?: () => void;
+  onSalvo: (id: string) => void;
+}) {
+  const acao = alunoExistente
+    ? atualizarAluno.bind(null, slug, alunoExistente.id)
+    : criarAluno.bind(null, slug);
+  const [estado, formAction] = useFormState(acao, {});
+  const [fotoUrl, setFotoUrl] = useState(alunoExistente?.foto_perfil_url ?? "");
+
+  useEffect(() => {
+    if (estado.ok) onSalvo(alunoExistente?.id ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado.savedAt]);
+
+  return (
+    <form action={formAction} className="surface rounded-2xl p-5">
+      <h2 className="flex items-center gap-2 font-semibold text-white">
+        <UserPlus className="h-4 w-4 text-volt-300" />
+        {alunoExistente ? "Editar aluno" : "Cadastrar aluno"}
+      </h2>
+
+      {estado.erro && (
+        <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          {estado.erro}
+        </p>
+      )}
+
+      <div className="mt-4 space-y-3">
+        <Field label="Nome completo">
+          <input
+            name="nome"
+            defaultValue={alunoExistente?.nome}
+            placeholder="Ex: João da Silva"
+            className="inp"
+            required
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="CPF">
+            <input
+              name="cpf"
+              defaultValue={alunoExistente?.cpf ?? ""}
+              placeholder="000.000.000-00"
+              className="inp"
+            />
+          </Field>
+          <Field label="Status">
+            <select
+              name="status"
+              defaultValue={alunoExistente?.status_matricula ?? "ativa"}
+              className="inp"
+            >
+              <option value="ativa">Ativa</option>
+              <option value="pendente">Pendente</option>
+              <option value="trancada">Trancada</option>
+              <option value="inativa">Inativa</option>
+            </select>
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="E-mail">
+            <input
+              name="email"
+              type="email"
+              defaultValue={alunoExistente?.email ?? ""}
+              placeholder="aluno@email.com"
+              className="inp"
+            />
+          </Field>
+          <Field label="Telefone">
+            <input
+              name="telefone"
+              defaultValue={alunoExistente?.telefone ?? ""}
+              placeholder="(11) 90000-0000"
+              className="inp"
+            />
+          </Field>
+        </div>
+        <Field label="Plano">
+          <select
+            name="plano_id"
+            defaultValue={alunoExistente?.plano_id ?? ""}
+            className="inp"
+          >
+            <option value="">Nenhum</option>
+            {planos.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nome}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Foto de perfil">
+          <input type="hidden" name="foto_perfil_url" value={fotoUrl} />
+          <ImageUpload
+            value={fotoUrl}
+            onChange={setFotoUrl}
+            aspect="aspect-square"
+            hint="Foto do aluno (estado original)"
+          />
+        </Field>
+      </div>
+
+      <FormActions
+        onCancelar={onCancelar}
+        salvarLabel={alunoExistente ? "Salvar alterações" : "Adicionar aluno"}
+        className="mt-4"
+      />
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Formulário de nova ficha de treino
+// ---------------------------------------------------------------------------
+function FormularioTreino({
+  slug,
+  alunoId,
+  proximaOrdem,
+}: {
+  slug: string;
+  alunoId: string;
+  proximaOrdem: number;
+}) {
+  const acao = criarTreino.bind(null, slug, alunoId);
+  const [estado, formAction] = useFormState(acao, {});
+  const [nomeTreino, setNomeTreino] = useState("");
+  const [objetivo, setObjetivo] = useState("Hipertrofia");
+  const [exercicios, setExercicios] = useState<NovoExercicio[]>([{ ...EX_VAZIO }]);
+
+  useEffect(() => {
+    if (estado.ok) {
+      setNomeTreino("");
+      setObjetivo("Hipertrofia");
+      setExercicios([{ ...EX_VAZIO }]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado.savedAt]);
+
+  const setEx = (i: number, patch: Partial<NovoExercicio>) =>
+    setExercicios((prev) =>
+      prev.map((ex, idx) => (idx === i ? { ...ex, ...patch } : ex))
+    );
+
+  const addLinhaEx = () => setExercicios((p) => [...p, { ...EX_VAZIO }]);
+  const rmLinhaEx = (i: number) =>
+    setExercicios((p) => (p.length > 1 ? p.filter((_, idx) => idx !== i) : p));
+
+  return (
+    <form action={formAction} className="mt-4 space-y-4">
+      <input type="hidden" name="exercicios_json" value={JSON.stringify(exercicios)} />
+
+      {estado.erro && (
+        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          {estado.erro}
+        </p>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Nome do treino">
+          <input
+            value={nomeTreino}
+            onChange={(e) => setNomeTreino(e.target.value)}
+            name="nome_treino"
+            placeholder={`Ex: Treino ${String.fromCharCode(64 + proximaOrdem)} - Peito e Tríceps`}
+            className="inp"
+            required
+          />
+        </Field>
+        <Field label="Objetivo">
+          <div className="relative">
+            <Target className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <input
+              value={objetivo}
+              onChange={(e) => setObjetivo(e.target.value)}
+              name="objetivo"
+              placeholder="Ex: Hipertrofia"
+              className="inp pl-9"
+            />
+          </div>
+        </Field>
+      </div>
+
+      <div className="space-y-4">
+        {exercicios.map((ex, i) => (
+          <div
+            key={i}
+            className="rounded-xl border border-ink-600 bg-ink-900/50 p-4"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Exercício {i + 1}
+              </span>
+              <button
+                type="button"
+                onClick={() => rmLinhaEx(i)}
+                className="text-slate-500 transition hover:text-red-400"
+                aria-label="Remover exercício"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-3 grid gap-3 md:grid-cols-[1fr_minmax(0,180px)]">
+              <div className="space-y-3">
+                <input
+                  value={ex.nome_exercicio}
+                  onChange={(e) => setEx(i, { nome_exercicio: e.target.value })}
+                  placeholder="Nome do exercício"
+                  className="inp"
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  <Field label="Séries">
+                    <input
+                      type="number"
+                      min={0}
+                      value={ex.series}
+                      onChange={(e) => setEx(i, { series: Number(e.target.value) })}
+                      className="inp"
+                    />
+                  </Field>
+                  <Field label="Reps">
+                    <input
+                      value={ex.repeticoes}
+                      onChange={(e) => setEx(i, { repeticoes: e.target.value })}
+                      placeholder="10-12"
+                      className="inp"
+                    />
+                  </Field>
+                  <Field label="Carga (kg)">
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.5"
+                      value={ex.carga_kg}
+                      onChange={(e) => setEx(i, { carga_kg: Number(e.target.value) })}
+                      className="inp"
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              <ImageUpload
+                value={ex.imagem_demonstracao_url}
+                onChange={(url) => setEx(i, { imagem_demonstracao_url: url })}
+                aspect="aspect-[4/3]"
+                hint="Imagem do equipamento"
+              />
+
+              <Field label="Vídeo de demonstração (≤ 10s)">
+                <div className="flex items-center gap-2">
+                  <Video className="h-4 w-4 flex-none text-volt-300" />
+                  <input
+                    type="url"
+                    value={ex.video_demonstracao_url}
+                    onChange={(e) =>
+                      setEx(i, { video_demonstracao_url: e.target.value })
+                    }
+                    placeholder="URL do clipe (mp4/webm) — Supabase Storage"
+                    className="inp"
+                  />
+                </div>
+              </Field>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button type="button" onClick={addLinhaEx} className="btn-ghost w-full">
+        <Plus className="h-4 w-4" /> Adicionar exercício
+      </button>
+
+      <FormActions salvarLabel="Salvar ficha de treino" />
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Subcomponentes
 // ---------------------------------------------------------------------------
 
@@ -493,9 +637,9 @@ function Field({
 
 /**
  * Upload de imagem com preview. Aceita colar uma URL OU selecionar um arquivo
- * local (convertido para data URL apenas na demonstração — em produção, envie
- * para o Supabase Storage). A imagem é exibida em seu estado nativo (sem
- * filtros) e sem retângulos de fundo desnecessários.
+ * local (convertido para data URL — em produção, envie para o Supabase
+ * Storage e cole a URL pública). A imagem é exibida em seu estado nativo
+ * (sem filtros) e sem retângulos de fundo desnecessários.
  */
 function ImageUpload({
   value,

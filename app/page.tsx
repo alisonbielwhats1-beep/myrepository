@@ -3,15 +3,14 @@ import {
   Activity,
   ArrowRight,
   BarChart3,
+  DollarSign,
   Dumbbell,
+  LogIn,
   QrCode,
-  ScanLine,
   Smartphone,
+  Users,
 } from "lucide-react";
 import Logo from "@/components/Logo";
-import { MOCK_ACADEMIA } from "@/lib/mock-data";
-
-const slug = MOCK_ACADEMIA.slug_url;
 
 const features = [
   {
@@ -21,18 +20,18 @@ const features = [
   },
   {
     icon: Dumbbell,
-    title: "Treinos com fotos reais",
-    desc: "Fichas montadas com imagens nativas dos movimentos, séries e cargas.",
+    title: "Treinos com vídeo",
+    desc: "Fichas montadas com demonstrações reais dos movimentos, séries e cargas.",
   },
   {
-    icon: BarChart3,
-    title: "Dashboard de BI",
-    desc: "Gympass vs. Direto, horários de pico e faturamento cruzado.",
+    icon: DollarSign,
+    title: "Financeiro completo",
+    desc: "Receitas, despesas por categoria, lucro e fluxo de caixa mensal.",
   },
   {
-    icon: Smartphone,
-    title: "PWA instalável",
-    desc: "Experiência de app nativo, dark mode e funcionamento offline.",
+    icon: Users,
+    title: "Multi-tenant seguro",
+    desc: "Cada academia só enxerga seus próprios alunos e dados — isolamento por login.",
   },
 ];
 
@@ -47,11 +46,8 @@ export default function Home() {
         <header className="flex items-center justify-between">
           <Logo />
           <nav className="flex items-center gap-3">
-            <Link href={`/aluno/${slug}`} className="btn-ghost">
-              <Smartphone className="h-4 w-4" /> App do Aluno
-            </Link>
-            <Link href={`/painel/${slug}`} className="btn-volt">
-              Painel <ArrowRight className="h-4 w-4" />
+            <Link href="/login" className="btn-volt">
+              <LogIn className="h-4 w-4" /> Entrar
             </Link>
           </nav>
         </header>
@@ -67,62 +63,46 @@ export default function Home() {
               <span className="text-volt-300">app premium</span>.
             </h1>
             <p className="mt-5 max-w-md text-lg text-slate-300">
-              Gestão completa de treinos, controle de catraca e inteligência de
-              negócio — tudo em uma plataforma vibrante e instalável no celular.
+              Gestão completa de alunos, treinos, financeiro, funcionários e
+              controle de catraca — cada academia com seus próprios dados,
+              totalmente isolados.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href={`/painel/${slug}`} className="btn-volt text-base">
-                Abrir Painel da Academia <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link href={`/aluno/${slug}`} className="btn-ghost text-base">
-                <QrCode className="h-4 w-4" /> Ver App do Aluno
+              <Link href="/login" className="btn-volt text-base">
+                Entrar no painel <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
-            <p className="mt-4 text-xs text-slate-500">
-              Demonstração com dados fictícios · academia{" "}
-              <span className="text-slate-300">{MOCK_ACADEMIA.nome_fantasia}</span>
-            </p>
           </div>
 
-          {/* mock visual */}
+          {/* ilustração */}
           <div className="relative mx-auto w-full max-w-sm animate-fade-up">
             <div className="surface rounded-3xl p-5 shadow-card">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-slate-300">
-                  <ScanLine className="h-4 w-4 text-volt-300" /> Acesso liberado
+                  <Smartphone className="h-4 w-4 text-volt-300" /> App do aluno
                 </div>
                 <span className="chip border-volt-500/30 bg-volt-500/10 text-volt-300">
-                  ao vivo
+                  isolado por academia
                 </span>
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                {[
-                  { k: "Acessos hoje", v: "128" },
-                  { k: "Ativos", v: "342" },
-                  { k: "MRR", v: "R$ 41k" },
-                ].map((s) => (
-                  <div key={s.k} className="rounded-xl bg-ink-700/60 p-3">
-                    <div className="text-xl font-bold text-white">{s.v}</div>
-                    <div className="text-[10px] uppercase tracking-wide text-slate-400">
-                      {s.k}
-                    </div>
-                  </div>
-                ))}
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-gradient-to-br from-volt-500/20 to-transparent p-4">
                   <Dumbbell className="h-5 w-5 text-volt-300" />
                   <div className="mt-6 text-sm font-semibold text-white">
-                    Treino A
+                    Treinos
                   </div>
-                  <div className="text-xs text-slate-400">Peito e Tríceps</div>
+                  <div className="text-xs text-slate-400">
+                    vídeo de demonstração
+                  </div>
                 </div>
                 <div className="rounded-xl bg-gradient-to-br from-magenta-500/20 to-transparent p-4">
                   <BarChart3 className="h-5 w-5 text-magenta-400" />
                   <div className="mt-6 text-sm font-semibold text-white">
-                    BI ativo
+                    Dashboard
                   </div>
-                  <div className="text-xs text-slate-400">Pico às 19h</div>
+                  <div className="text-xs text-slate-400">
+                    só da sua academia
+                  </div>
                 </div>
               </div>
             </div>

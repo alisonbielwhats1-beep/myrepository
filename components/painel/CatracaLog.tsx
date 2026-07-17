@@ -1,60 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useFormState, useFormStatus } from "react-dom";
 import Image from "next/image";
 import {
   CheckCircle2,
   DoorOpen,
+  Loader2,
   Plus,
   UserRound,
+  X,
   XCircle,
   Zap,
 } from "lucide-react";
-import { AcessoCatraca, Aluno, OrigemAcesso } from "@/lib/types";
+import { AcessoCatraca, Aluno } from "@/lib/types";
 import { CORES_ORIGEM, cn, formatHora, timeAgo } from "@/lib/utils";
+import { registrarAcesso } from "@/app/painel/[slug]/recepcao/actions";
 
-/**
- * Log de acessos da catraca em "tempo real". No modo demonstração, o botão
- * "Simular acesso" injeta uma nova entrada no topo (efeito de porteiro ao vivo).
- */
+/** Log de acessos da catraca — lista real, com registro manual de entrada. */
 export default function CatracaLog({
   acessosIniciais,
   alunos,
+  slug,
 }: {
   acessosIniciais: AcessoCatraca[];
   alunos: Aluno[];
+  slug: string;
 }) {
-  const [acessos, setAcessos] = useState<AcessoCatraca[]>(acessosIniciais);
-
-  const origens: OrigemAcesso[] = ["Direto", "Gympass", "TotalPass"];
-  const repassePorOrigem: Record<OrigemAcesso, number> = {
-    Direto: 0,
-    Gympass: 12.5,
-    TotalPass: 10,
-  };
-
-  const simularAcesso = () => {
-    if (alunos.length === 0) return;
-    const aluno = alunos[Math.floor(Math.random() * alunos.length)];
-    const origem = origens[Math.floor(Math.random() * origens.length)];
-    const liberado = aluno.status_matricula === "ativa";
-    const novo: AcessoCatraca = {
-      id: `acc-${Date.now()}`,
-      academia_id: aluno.academia_id,
-      aluno_id: aluno.id,
-      origem,
-      valor_repasse: repassePorOrigem[origem],
-      data_hora_entrada: new Date().toISOString(),
-      status_liberacao: liberado ? "liberado" : "negado",
-      observacao: liberado ? null : "Matrícula pendente",
-      aluno: {
-        id: aluno.id,
-        nome: aluno.nome,
-        foto_perfil_url: aluno.foto_perfil_url,
-      },
-    };
-    setAcessos((prev) => [novo, ...prev]);
-  };
+  const [mostrarForm, setMostrarForm] = useState(false);
 
   return (
     <div className="surface rounded-2xl">
@@ -64,15 +37,33 @@ export default function CatracaLog({
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-volt-400 opacity-75" />
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-volt-300" />
           </span>
-          <h2 className="font-semibold text-white">Acessos ao vivo</h2>
+          <h2 className="font-semibold text-white">Acessos</h2>
         </div>
-        <button onClick={simularAcesso} className="btn-volt">
-          <Plus className="h-4 w-4" /> Simular acesso
+        <button
+          onClick={() => setMostrarForm((v) => !v)}
+          className={mostrarForm ? "btn-ghost" : "btn-volt"}
+          disabled={alunos.length === 0}
+          title={alunos.length === 0 ? "Cadastre um aluno primeiro" : undefined}
+        >
+          {mostrarForm ? (
+            <X className="h-4 w-4" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
+          {mostrarForm ? "Fechar" : "Registrar entrada"}
         </button>
       </div>
 
+      {mostrarForm && (
+        <FormularioAcesso
+          slug={slug}
+          alunos={alunos}
+          onSalvo={() => setMostrarForm(false)}
+        />
+      )}
+
       <ul className="divide-y divide-ink-700/70">
-        {acessos.map((a) => {
+        {acessosIniciais.map((a) => {
           const liberado = a.status_liberacao === "liberado";
           return (
             <li
@@ -139,7 +130,7 @@ export default function CatracaLog({
           );
         })}
 
-        {acessos.length === 0 && (
+        {acessosIniciais.length === 0 && (
           <li className="flex flex-col items-center gap-2 px-5 py-12 text-slate-500">
             <DoorOpen className="h-8 w-8" />
             Nenhum acesso registrado ainda.
@@ -147,5 +138,76 @@ export default function CatracaLog({
         )}
       </ul>
     </div>
+  );
+}
+
+function FormularioAcesso({
+  slug,
+  alunos,
+  onSalvo,
+}: {
+  slug: string;
+  alunos: Aluno[];
+  onSalvo: () => void;
+}) {
+  const acao = registrarAcesso.bind(null, slug);
+  const [estado, formAction] = useFormState(acao, {});
+
+  useEffect(() => {
+    if (estado.ok) onSalvo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado.savedAt]);
+
+  return (
+    <form
+      action={formAction}
+      className="flex flex-wrap items-end gap-3 border-b border-ink-700 bg-ink-900/40 px-5 py-4"
+    >
+      {estado.erro && (
+        <p className="w-full rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          {estado.erro}
+        </p>
+      )}
+      <label className="min-w-[220px] flex-1">
+        <span className="mb-1 block text-xs font-medium text-slate-400">
+          Aluno
+        </span>
+        <select name="aluno_id" className="inp" required defaultValue="">
+          <option value="" disabled>
+            Selecione...
+          </option>
+          {alunos.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.nome}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span className="mb-1 block text-xs font-medium text-slate-400">
+          Origem
+        </span>
+        <select name="origem" className="inp" defaultValue="Direto">
+          <option value="Direto">Direto</option>
+          <option value="Gympass">Gympass</option>
+          <option value="TotalPass">TotalPass</option>
+        </select>
+      </label>
+      <BotaoRegistrar />
+    </form>
+  );
+}
+
+function BotaoRegistrar() {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" disabled={pending} className="btn-volt">
+      {pending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Plus className="h-4 w-4" />
+      )}
+      {pending ? "Registrando..." : "Registrar"}
+    </button>
   );
 }

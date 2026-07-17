@@ -7,6 +7,8 @@ import {
   BarChart,
   Cell,
   Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -23,6 +25,12 @@ export type PontoFaturamento = {
   mensalidades: number;
   parcerias: number;
 };
+export type PontoFinanceiroMensal = {
+  mes: string;
+  receita: number;
+  despesa: number;
+};
+export type PontoEvolucaoAlunos = { mes: string; alunos: number };
 
 const tooltipStyle = {
   backgroundColor: "#12141d",
@@ -147,6 +155,78 @@ export function GraficoFaturamento({ dados }: { dados: PontoFaturamento[] }) {
           fill="url(#gradParc)"
         />
       </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Barras lado a lado: receita paga vs. despesa paga por mês. */
+export function GraficoFinanceiroMensal({
+  dados,
+}: {
+  dados: PontoFinanceiroMensal[];
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <BarChart data={dados} margin={{ left: -8, right: 8, top: 8 }}>
+        <XAxis
+          dataKey="mes"
+          tick={{ fill: "#64748b", fontSize: 11 }}
+          axisLine={{ stroke: "#242838" }}
+          tickLine={false}
+        />
+        <YAxis
+          tick={{ fill: "#64748b", fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          formatter={(v: number) =>
+            v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+          }
+        />
+        <Legend
+          iconType="circle"
+          wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }}
+        />
+        <Bar dataKey="receita" name="Receita" radius={[6, 6, 0, 0]} fill="#adff42" />
+        <Bar dataKey="despesa" name="Despesa" radius={[6, 6, 0, 0]} fill="#f81cc0" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Linha: evolução do número de alunos cadastrados mês a mês. */
+export function GraficoEvolucaoAlunos({
+  dados,
+}: {
+  dados: PontoEvolucaoAlunos[];
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <LineChart data={dados} margin={{ left: -20, right: 8, top: 8 }}>
+        <XAxis
+          dataKey="mes"
+          tick={{ fill: "#64748b", fontSize: 11 }}
+          axisLine={{ stroke: "#242838" }}
+          tickLine={false}
+        />
+        <YAxis
+          tick={{ fill: "#64748b", fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          allowDecimals={false}
+        />
+        <Tooltip contentStyle={tooltipStyle} />
+        <Line
+          type="monotone"
+          dataKey="alunos"
+          name="Alunos"
+          stroke="#3ee6ff"
+          strokeWidth={2.5}
+          dot={{ r: 3, fill: "#3ee6ff" }}
+        />
+      </LineChart>
     </ResponsiveContainer>
   );
 }

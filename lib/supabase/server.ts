@@ -1,15 +1,25 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+function envOrThrow(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `Variável de ambiente ${name} não configurada. Copie .env.local.example ` +
+        `para .env.local e preencha com as chaves do seu projeto Supabase.`
+    );
+  }
+  return value;
+}
+
 /**
- * Cliente Supabase para uso em Server Components / Route Handlers.
- * Retorna `null` quando não configurado (modo mock).
+ * Cliente Supabase para uso em Server Components, Server Actions e Route
+ * Handlers. Roda com a sessão do cookie do usuário atual — políticas de RLS
+ * multi-tenant se aplicam automaticamente a toda consulta feita com ele.
  */
 export function createClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anon) return null;
-
+  const url = envOrThrow("NEXT_PUBLIC_SUPABASE_URL");
+  const anon = envOrThrow("NEXT_PUBLIC_SUPABASE_ANON_KEY");
   const cookieStore = cookies();
 
   return createServerClient(url, anon, {
@@ -30,17 +40,9 @@ export function createClient() {
           );
         } catch {
           // Server Component sem permissão de escrita de cookie — ignorável
-          // quando há middleware de refresh de sessão.
+          // porque o middleware já cuida do refresh de sessão.
         }
       },
     },
   });
-}
-
-/** Indica se o app deve operar em modo de demonstração (dados mock). */
-export function isMockMode(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const forced = process.env.NEXT_PUBLIC_USE_MOCK === "true";
-  return forced || !url || !anon;
 }

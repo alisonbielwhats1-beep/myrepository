@@ -5,9 +5,8 @@ import { usePathname } from "next/navigation";
 import { Dumbbell, QrCode, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function AlunoTabBar({ slug }: { slug: string }) {
+export default function AlunoTabBar({ base }: { base: string }) {
   const pathname = usePathname();
-  const base = `/aluno/${slug}`;
 
   const tabs = [
     { href: base, label: "Acesso", icon: QrCode, exact: true },

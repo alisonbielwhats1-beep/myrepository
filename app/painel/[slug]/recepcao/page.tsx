@@ -1,7 +1,9 @@
-import { DoorOpen, TrendingUp, UserCheck, Wallet } from "lucide-react";
+import { Clock3, DoorOpen, UserCheck, Wallet } from "lucide-react";
+import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import CatracaLog from "@/components/painel/CatracaLog";
 import StatTile from "@/components/painel/StatTile";
-import { getAcademia, getAcessos, getAlunos } from "@/lib/data";
+import { requireSessao } from "@/lib/auth";
+import { getAcessos, getAlunos } from "@/lib/data";
 import { formatBRL } from "@/lib/utils";
 
 export default async function RecepcaoPage({
@@ -9,9 +11,11 @@ export default async function RecepcaoPage({
 }: {
   params: { slug: string };
 }) {
-  const academia = await getAcademia(params.slug);
-  const acessos = await getAcessos(academia?.id ?? "");
-  const alunos = await getAlunos(academia?.id ?? "");
+  const sessao = await requireSessao(params.slug);
+  const [acessos, alunos] = await Promise.all([
+    getAcessos(sessao.academia.id),
+    getAlunos(sessao.academia.id),
+  ]);
 
   const hoje = new Date().toDateString();
   const acessosHoje = acessos.filter(
@@ -26,8 +30,24 @@ export default async function RecepcaoPage({
   );
   const ativos = alunos.filter((a) => a.status_matricula === "ativa").length;
 
+  // Horário com mais entradas hoje, calculado a partir de dados reais.
+  const contagemHora = new Map<number, number>();
+  for (const a of acessosHoje) {
+    const h = new Date(a.data_hora_entrada).getHours();
+    contagemHora.set(h, (contagemHora.get(h) ?? 0) + 1);
+  }
+  let horaPico: number | null = null;
+  let maxAcessos = 0;
+  for (const [h, n] of contagemHora) {
+    if (n > maxAcessos) {
+      maxAcessos = n;
+      horaPico = h;
+    }
+  }
+
   return (
     <div className="space-y-6">
+      <Breadcrumbs slug={params.slug} items={[{ label: "Recepção / Catraca" }]} />
       <div>
         <h1 className="text-2xl font-bold text-white">Recepção &amp; Catraca</h1>
         <p className="text-sm text-slate-400">
@@ -58,15 +78,15 @@ export default async function RecepcaoPage({
           accent="magenta"
         />
         <StatTile
-          icon={TrendingUp}
-          label="Pico previsto"
-          value="19h"
-          hint="+34% vs. média"
+          icon={Clock3}
+          label="Pico de hoje"
+          value={horaPico !== null ? `${String(horaPico).padStart(2, "0")}h` : "—"}
+          hint={horaPico !== null ? `${maxAcessos} acessos` : "sem acessos hoje"}
           accent="slate"
         />
       </div>
 
-      <CatracaLog acessosIniciais={acessos} alunos={alunos} />
+      <CatracaLog acessosIniciais={acessos} alunos={alunos} slug={params.slug} />
     </div>
   );
 }

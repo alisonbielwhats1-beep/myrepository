@@ -3,6 +3,40 @@
 export type StatusMatricula = "ativa" | "inativa" | "trancada" | "pendente";
 export type OrigemAcesso = "Direto" | "Gympass" | "TotalPass";
 export type StatusLiberacao = "liberado" | "negado" | "pendente";
+export type StatusFuncionario = "ativo" | "inativo";
+export type TipoReceita = "mensalidade" | "matricula" | "venda_produto" | "outra";
+export type StatusPagamento = "pago" | "pendente";
+export type CategoriaDespesa =
+  | "energia_eletrica"
+  | "agua"
+  | "internet"
+  | "aluguel"
+  | "salarios"
+  | "manutencao"
+  | "equipamentos"
+  | "impostos"
+  | "produtos_limpeza"
+  | "outros";
+
+export const CATEGORIAS_DESPESA: { value: CategoriaDespesa; label: string }[] = [
+  { value: "energia_eletrica", label: "Energia elétrica" },
+  { value: "agua", label: "Água" },
+  { value: "internet", label: "Internet" },
+  { value: "aluguel", label: "Aluguel" },
+  { value: "salarios", label: "Salários" },
+  { value: "manutencao", label: "Manutenção" },
+  { value: "equipamentos", label: "Equipamentos" },
+  { value: "impostos", label: "Impostos" },
+  { value: "produtos_limpeza", label: "Produtos de limpeza" },
+  { value: "outros", label: "Outros gastos" },
+];
+
+export const TIPOS_RECEITA: { value: TipoReceita; label: string }[] = [
+  { value: "mensalidade", label: "Mensalidade" },
+  { value: "matricula", label: "Matrícula" },
+  { value: "venda_produto", label: "Venda de produto" },
+  { value: "outra", label: "Outra receita" },
+];
 
 export interface Academia {
   id: string;
@@ -82,4 +116,81 @@ export interface AcessoCatraca {
   status_liberacao: StatusLiberacao;
   observacao: string | null;
   aluno?: Pick<Aluno, "id" | "nome" | "foto_perfil_url"> | null;
+}
+
+export interface Funcionario {
+  id: string;
+  academia_id: string;
+  nome: string;
+  cargo: string;
+  telefone: string | null;
+  email: string | null;
+  cpf: string | null;
+  data_admissao: string | null;
+  salario: number | null;
+  status: StatusFuncionario;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface Receita {
+  id: string;
+  academia_id: string;
+  aluno_id: string | null;
+  tipo: TipoReceita;
+  descricao: string;
+  valor: number;
+  data: string;
+  status: StatusPagamento;
+  observacoes: string | null;
+  criado_em: string;
+  atualizado_em: string;
+  aluno?: Pick<Aluno, "id" | "nome"> | null;
+}
+
+export interface Despesa {
+  id: string;
+  academia_id: string;
+  descricao: string;
+  categoria: CategoriaDespesa;
+  valor: number;
+  data: string;
+  status: StatusPagamento;
+  observacoes: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+/** Perfil do administrador autenticado + a academia que ele gerencia. */
+export interface SessaoAcademia {
+  userId: string;
+  nome: string;
+  email: string;
+  academia: Academia;
+}
+
+/** Ficha pública do aluno (retorno da RPC obter_ficha_aluno). Sem CPF/e-mail/telefone. */
+export interface FichaAlunoPublica {
+  aluno: {
+    id: string;
+    nome: string;
+    foto_perfil_url: string | null;
+    status_matricula: StatusMatricula;
+    matricula_codigo: string | null;
+    plano_nome: string | null;
+  };
+  academia: {
+    id: string;
+    nome_fantasia: string;
+    slug_url: string;
+  };
+  treinos: FichaTreinoPublico[];
+}
+
+export interface FichaTreinoPublico {
+  id: string;
+  nome_treino: string;
+  objetivo: string | null;
+  ordem: number;
+  exercicios: ExercicioTreino[];
 }

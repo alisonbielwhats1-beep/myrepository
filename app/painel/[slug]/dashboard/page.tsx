@@ -6,6 +6,7 @@ import {
   PieChart,
   Users,
 } from "lucide-react";
+import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import StatTile from "@/components/painel/StatTile";
 import {
   GraficoFaturamento,
@@ -15,19 +16,29 @@ import {
   PontoHora,
   PontoOrigem,
 } from "@/components/painel/DashboardCharts";
-import { getAcademia, getAcessos, getAlunos, getPlanos } from "@/lib/data";
+import { requireSessao } from "@/lib/auth";
+import { getAcessos, getAlunos, getReceitas } from "@/lib/data";
 import { OrigemAcesso } from "@/lib/types";
 import { formatBRL } from "@/lib/utils";
 
-export default async function DashboardPage({
+const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+export default async function RelatoriosPage({
   params,
 }: {
   params: { slug: string };
 }) {
-  const academia = await getAcademia(params.slug);
-  const acessos = await getAcessos(academia?.id ?? "", 500);
-  const alunos = await getAlunos(academia?.id ?? "");
-  const planos = await getPlanos(academia?.id ?? "");
+  const sessao = await requireSessao(params.slug);
+
+  const seteDiasAtras = new Date(Date.now() - 6 * 86400_000)
+    .toISOString()
+    .slice(0, 10);
+
+  const [acessos, alunos, receitas] = await Promise.all([
+    getAcessos(sessao.academia.id, 500),
+    getAlunos(sessao.academia.id),
+    getReceitas(sessao.academia.id, seteDiasAtras),
+  ]);
 
   // ---- Acessos por origem (Gympass vs. Direto vs. TotalPass) ----
   const contagemOrigem: Record<OrigemAcesso, number> = {
@@ -40,56 +51,54 @@ export default async function DashboardPage({
     Object.keys(contagemOrigem) as OrigemAcesso[]
   ).map((origem) => ({ origem, acessos: contagemOrigem[origem] }));
 
-  // ---- Horários de pico (agrupado por faixa de hora) ----
+  // ---- Horários de pico (agrupado por faixa de hora, 100% dados reais) ----
   const faixas = ["06h", "09h", "12h", "15h", "18h", "21h"];
-  const baseHoras: Record<string, number> = Object.fromEntries(
+  const contagemHoras: Record<string, number> = Object.fromEntries(
     faixas.map((f) => [f, 0])
   );
   for (const a of acessos) {
     const h = new Date(a.data_hora_entrada).getHours();
     const faixa =
       h < 8 ? "06h" : h < 11 ? "09h" : h < 14 ? "12h" : h < 17 ? "15h" : h < 20 ? "18h" : "21h";
-    baseHoras[faixa] += 1;
+    contagemHoras[faixa] += 1;
   }
-  // Realça o padrão de pico noturno típico de academias (demonstração).
-  const reforco: Record<string, number> = {
-    "06h": 18,
-    "09h": 12,
-    "12h": 22,
-    "15h": 14,
-    "18h": 41,
-    "21h": 27,
-  };
   const dadosHoras: PontoHora[] = faixas.map((hora) => ({
     hora,
-    acessos: baseHoras[hora] + (reforco[hora] ?? 0),
+    acessos: contagemHoras[hora],
   }));
   const horaPico = dadosHoras.reduce((max, p) =>
     p.acessos > max.acessos ? p : max
   );
 
-  // ---- Faturamento cruzado (mensalidades x parcerias, últimos 7 dias) ----
-  const planoPorId = new Map(planos.map((p) => [p.id, p]));
-  const mrr = alunos
-    .filter((a) => a.status_matricula === "ativa")
-    .reduce(
-      (acc, a) => acc + (a.plano_id ? planoPorId.get(a.plano_id)?.valor_mensal ?? 0 : 0),
-      0
-    );
-  const repasseTotal = acessos.reduce((acc, a) => acc + (a.valor_repasse ?? 0), 0);
+  // ---- Faturamento cruzado (últimos 7 dias, dados reais dia a dia) ----
+  const repassePorDia = new Map<string, number>();
+  for (const a of acessos) {
+    const dia = a.data_hora_entrada.slice(0, 10);
+    if (dia < seteDiasAtras) continue;
+    repassePorDia.set(dia, (repassePorDia.get(dia) ?? 0) + (a.valor_repasse ?? 0));
+  }
+  const receitaPorDia = new Map<string, number>();
+  for (const r of receitas) {
+    if (r.status !== "pago") continue;
+    receitaPorDia.set(r.data, (receitaPorDia.get(r.data) ?? 0) + Number(r.valor));
+  }
 
-  const diasSemana = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-  const pesosMensal = [0.9, 1.0, 0.95, 1.05, 1.2, 1.4, 0.6];
-  const pesosParc = [0.8, 0.9, 1.0, 1.1, 1.3, 1.5, 0.7];
-  const somaMensal = pesosMensal.reduce((a, b) => a + b, 0);
-  const somaParc = pesosParc.reduce((a, b) => a + b, 0);
-  const dadosFaturamento: PontoFaturamento[] = diasSemana.map((dia, i) => ({
-    dia,
-    mensalidades: Math.round((mrr * pesosMensal[i]) / somaMensal),
-    parcerias: Math.round((repasseTotal * 30 * pesosParc[i]) / somaParc),
-  }));
+  const dadosFaturamento: PontoFaturamento[] = Array.from({ length: 7 }).map(
+    (_, i) => {
+      const d = new Date(Date.now() - (6 - i) * 86400_000);
+      const iso = d.toISOString().slice(0, 10);
+      return {
+        dia: DIAS_SEMANA[d.getDay()],
+        mensalidades: Math.round((receitaPorDia.get(iso) ?? 0) * 100) / 100,
+        parcerias: Math.round((repassePorDia.get(iso) ?? 0) * 100) / 100,
+      };
+    }
+  );
 
-  const faturamentoTotal = mrr + repasseTotal;
+  const faturamentoTotal7d = dadosFaturamento.reduce(
+    (acc, p) => acc + p.mensalidades + p.parcerias,
+    0
+  );
   const ativos = alunos.filter((a) => a.status_matricula === "ativa").length;
   const pctGympass = acessos.length
     ? Math.round((contagemOrigem.Gympass / acessos.length) * 100)
@@ -97,8 +106,9 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs slug={params.slug} items={[{ label: "Relatórios / BI" }]} />
       <div>
-        <h1 className="text-2xl font-bold text-white">Dashboard de BI</h1>
+        <h1 className="text-2xl font-bold text-white">Relatórios / BI</h1>
         <p className="text-sm text-slate-400">
           Inteligência de negócio: acessos, horários de pico e faturamento
           cruzado.
@@ -117,15 +127,15 @@ export default async function DashboardPage({
         <StatTile
           icon={Clock}
           label="Horário de pico"
-          value={horaPico.hora}
-          hint={`${horaPico.acessos} acessos`}
+          value={acessos.length ? horaPico.hora : "—"}
+          hint={acessos.length ? `${horaPico.acessos} acessos` : "sem dados ainda"}
           accent="cyan"
         />
         <StatTile
           icon={DollarSign}
-          label="Faturamento total"
-          value={formatBRL(faturamentoTotal)}
-          hint="MRR + repasses"
+          label="Faturamento (7 dias)"
+          value={formatBRL(faturamentoTotal7d)}
+          hint="mensalidades + repasses"
           accent="magenta"
         />
         <StatTile
@@ -149,7 +159,11 @@ export default async function DashboardPage({
           <p className="mb-2 text-xs text-slate-500">
             Gympass vs. Direto vs. TotalPass
           </p>
-          <GraficoOrigem dados={dadosOrigem} />
+          {acessos.length ? (
+            <GraficoOrigem dados={dadosOrigem} />
+          ) : (
+            <EstadoVazio texto="Nenhum acesso registrado ainda." />
+          )}
         </div>
 
         <div className="surface rounded-2xl p-5">
@@ -160,7 +174,11 @@ export default async function DashboardPage({
           <p className="mb-2 text-xs text-slate-500">
             Volume de acessos por faixa horária
           </p>
-          <GraficoHorarios dados={dadosHoras} />
+          {acessos.length ? (
+            <GraficoHorarios dados={dadosHoras} />
+          ) : (
+            <EstadoVazio texto="Nenhum acesso registrado ainda." />
+          )}
         </div>
       </div>
 
@@ -169,14 +187,23 @@ export default async function DashboardPage({
         <div className="flex items-center gap-2">
           <DollarSign className="h-4 w-4 text-magenta-400" />
           <h2 className="font-semibold text-white">
-            Faturamento cruzado (semana)
+            Faturamento cruzado (7 dias)
           </h2>
         </div>
         <p className="mb-2 text-xs text-slate-500">
-          Cruzamento de mensalidades recorrentes com repasses de parcerias
+          Receitas pagas (mensalidades, matrículas, produtos) x repasses de
+          parcerias (Gympass/TotalPass), dia a dia
         </p>
         <GraficoFaturamento dados={dadosFaturamento} />
       </div>
+    </div>
+  );
+}
+
+function EstadoVazio({ texto }: { texto: string }) {
+  return (
+    <div className="grid h-[260px] place-items-center text-sm text-slate-500">
+      {texto}
     </div>
   );
 }

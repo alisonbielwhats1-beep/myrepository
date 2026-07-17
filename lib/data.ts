@@ -1,73 +1,98 @@
-// Camada de acesso a dados — usada pelos Server Components.
-// Escolhe entre Supabase (quando configurado) e dados de demonstração (mock).
+// Camada de acesso a dados — usada por Server Components e Server Actions.
+// Toda consulta roda com a sessão do usuário logado; o RLS multi-tenant do
+// banco garante que só os dados da academia do admin autenticado voltam.
 
-import { createClient, isMockMode } from "./supabase/server";
+import { createClient } from "./supabase/server";
 import {
-  MOCK_ACADEMIA,
-  MOCK_ACESSOS,
-  MOCK_ALUNOS,
-  MOCK_PLANOS,
-  MOCK_TREINOS,
-} from "./mock-data";
-import { Academia, AcessoCatraca, Aluno, Plano, Treino } from "./types";
+  AcessoCatraca,
+  Aluno,
+  Despesa,
+  FichaAlunoPublica,
+  Funcionario,
+  Plano,
+  Receita,
+  Treino,
+} from "./types";
 
-export async function getAcademia(slug: string): Promise<Academia | null> {
-  if (isMockMode()) return MOCK_ACADEMIA;
+/**
+ * Lookup público mínimo de academia por slug (nome, cor) via RPC
+ * `obter_academia_publica` — usado apenas pela tela do aluno (sem login).
+ * Não retorna endereço/telefone completos das tabelas internas.
+ */
+export async function getAcademiaPublica(slug: string): Promise<{
+  id: string;
+  nome_fantasia: string;
+  slug_url: string;
+  cor_primaria: string | null;
+} | null> {
   const supabase = createClient();
-  if (!supabase) return MOCK_ACADEMIA;
-  const { data } = await supabase
-    .from("academias")
-    .select("*")
-    .eq("slug_url", slug)
-    .maybeSingle();
-  return (data as Academia) ?? MOCK_ACADEMIA;
+  const { data, error } = await supabase.rpc("obter_academia_publica", {
+    p_slug: slug,
+  });
+  if (error) throw new Error(`Falha ao carregar academia: ${error.message}`);
+  return data && (data as { id: string }).id ? data : null;
 }
 
 export async function getAlunos(academiaId: string): Promise<Aluno[]> {
-  if (isMockMode()) return MOCK_ALUNOS;
   const supabase = createClient();
-  if (!supabase) return MOCK_ALUNOS;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("alunos")
     .select("*")
     .eq("academia_id", academiaId)
     .order("criado_em", { ascending: false });
-  return (data as Aluno[]) ?? MOCK_ALUNOS;
+  if (error) throw new Error(`Falha ao carregar alunos: ${error.message}`);
+  return (data as Aluno[]) ?? [];
 }
 
-export async function getAluno(alunoId: string): Promise<Aluno | null> {
-  if (isMockMode()) return MOCK_ALUNOS.find((a) => a.id === alunoId) ?? MOCK_ALUNOS[0];
+export async function getAluno(
+  academiaId: string,
+  alunoId: string
+): Promise<Aluno | null> {
   const supabase = createClient();
-  if (!supabase) return MOCK_ALUNOS[0];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("alunos")
     .select("*")
     .eq("id", alunoId)
+    .eq("academia_id", academiaId)
     .maybeSingle();
+  if (error) throw new Error(`Falha ao carregar aluno: ${error.message}`);
   return (data as Aluno) ?? null;
 }
 
 export async function getPlanos(academiaId: string): Promise<Plano[]> {
-  if (isMockMode()) return MOCK_PLANOS;
   const supabase = createClient();
-  if (!supabase) return MOCK_PLANOS;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("planos")
     .select("*")
     .eq("academia_id", academiaId)
     .order("valor_mensal", { ascending: false });
-  return (data as Plano[]) ?? MOCK_PLANOS;
+  if (error) throw new Error(`Falha ao carregar planos: ${error.message}`);
+  return (data as Plano[]) ?? [];
 }
 
-export async function getTreinosDoAluno(alunoId: string): Promise<Treino[]> {
-  if (isMockMode()) return MOCK_TREINOS.filter((t) => t.aluno_id === alunoId);
+export async function getTreinosDoAluno(
+  academiaId: string,
+  alunoId: string
+): Promise<Treino[]> {
   const supabase = createClient();
-  if (!supabase) return MOCK_TREINOS;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("treinos")
     .select("*, exercicios:exercicios_treino(*)")
+    .eq("academia_id", academiaId)
     .eq("aluno_id", alunoId)
     .order("ordem", { ascending: true });
+  if (error) throw new Error(`Falha ao carregar treinos: ${error.message}`);
+  return (data as Treino[]) ?? [];
+}
+
+export async function getTodosOsTreinos(academiaId: string): Promise<Treino[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("treinos")
+    .select("*, exercicios:exercicios_treino(*)")
+    .eq("academia_id", academiaId)
+    .order("ordem", { ascending: true });
+  if (error) throw new Error(`Falha ao carregar treinos: ${error.message}`);
   return (data as Treino[]) ?? [];
 }
 
@@ -75,19 +100,77 @@ export async function getAcessos(
   academiaId: string,
   limite = 50
 ): Promise<AcessoCatraca[]> {
-  if (isMockMode())
-    return [...MOCK_ACESSOS].sort(
-      (a, b) =>
-        new Date(b.data_hora_entrada).getTime() -
-        new Date(a.data_hora_entrada).getTime()
-    );
   const supabase = createClient();
-  if (!supabase) return MOCK_ACESSOS;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("acessos_catraca")
     .select("*, aluno:alunos(id, nome, foto_perfil_url)")
     .eq("academia_id", academiaId)
     .order("data_hora_entrada", { ascending: false })
     .limit(limite);
-  return (data as AcessoCatraca[]) ?? MOCK_ACESSOS;
+  if (error) throw new Error(`Falha ao carregar acessos: ${error.message}`);
+  return (data as AcessoCatraca[]) ?? [];
+}
+
+export async function getFuncionarios(
+  academiaId: string
+): Promise<Funcionario[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("funcionarios")
+    .select("*")
+    .eq("academia_id", academiaId)
+    .order("nome", { ascending: true });
+  if (error) throw new Error(`Falha ao carregar funcionários: ${error.message}`);
+  return (data as Funcionario[]) ?? [];
+}
+
+/** Receitas desde `desde` (ISO date), mais recentes primeiro. */
+export async function getReceitas(
+  academiaId: string,
+  desde?: string
+): Promise<Receita[]> {
+  const supabase = createClient();
+  let query = supabase
+    .from("receitas")
+    .select("*, aluno:alunos(id, nome)")
+    .eq("academia_id", academiaId)
+    .order("data", { ascending: false });
+  if (desde) query = query.gte("data", desde);
+  const { data, error } = await query;
+  if (error) throw new Error(`Falha ao carregar receitas: ${error.message}`);
+  return (data as Receita[]) ?? [];
+}
+
+/** Despesas desde `desde` (ISO date), mais recentes primeiro. */
+export async function getDespesas(
+  academiaId: string,
+  desde?: string
+): Promise<Despesa[]> {
+  const supabase = createClient();
+  let query = supabase
+    .from("despesas")
+    .select("*")
+    .eq("academia_id", academiaId)
+    .order("data", { ascending: false });
+  if (desde) query = query.gte("data", desde);
+  const { data, error } = await query;
+  if (error) throw new Error(`Falha ao carregar despesas: ${error.message}`);
+  return (data as Despesa[]) ?? [];
+}
+
+/**
+ * Ficha pública do aluno (nome, foto, treinos e exercícios — nunca CPF/
+ * e-mail/telefone) via RPC `obter_ficha_aluno`. Não exige login: é o link
+ * único usado pela tela do aluno.
+ */
+export async function getFichaAlunoPublica(
+  alunoId: string
+): Promise<FichaAlunoPublica | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_ficha_aluno", {
+    p_aluno_id: alunoId,
+  });
+  if (error) throw new Error(`Falha ao carregar ficha do aluno: ${error.message}`);
+  if (!data || !(data as FichaAlunoPublica).aluno) return null;
+  return data as FichaAlunoPublica;
 }

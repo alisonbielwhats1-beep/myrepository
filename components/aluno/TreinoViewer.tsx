@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import { Target } from "lucide-react";
-import { Treino } from "@/lib/types";
+import { FichaTreinoPublico } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import ExercicioCard from "./ExercicioCard";
 
-export default function TreinoViewer({ treinos }: { treinos: Treino[] }) {
+export default function TreinoViewer({
+  treinos,
+}: {
+  treinos: FichaTreinoPublico[];
+}) {
   const [ativo, setAtivo] = useState(0);
 
   if (treinos.length === 0) {

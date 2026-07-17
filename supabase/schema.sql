@@ -1,10 +1,14 @@
 -- =============================================================================
 -- GymFlow — Esquema completo do banco de dados (Supabase / PostgreSQL)
--- SaaS Multi-tenant para gestão de academias: alunos, planos, treinos,
--- exercícios e controle de catraca (acessos).
+-- SaaS Multi-tenant para gestão de academias: autenticação de administradores,
+-- alunos, planos, treinos, exercícios, catraca, financeiro e funcionários.
 --
--- Execute este arquivo inteiro no SQL Editor do Supabase.
--- Ordem: extensões -> tipos -> tabelas -> índices -> RLS -> seed.
+-- Execute este arquivo inteiro no SQL Editor do Supabase (projeto novo).
+-- Ordem: extensões -> tipos -> tabelas -> índices -> triggers -> RLS -> RPC.
+--
+-- Este script NÃO cria nenhum usuário de login. Depois de rodá-lo, crie a
+-- primeira academia + administrador com `npm run criar-academia` (ver
+-- scripts/criar-academia.mjs e o README).
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -28,6 +32,25 @@ begin
 
   if not exists (select 1 from pg_type where typname = 'status_liberacao_enum') then
     create type status_liberacao_enum as enum ('liberado', 'negado', 'pendente');
+  end if;
+
+  if not exists (select 1 from pg_type where typname = 'status_funcionario_enum') then
+    create type status_funcionario_enum as enum ('ativo', 'inativo');
+  end if;
+
+  if not exists (select 1 from pg_type where typname = 'tipo_receita_enum') then
+    create type tipo_receita_enum as enum ('mensalidade', 'matricula', 'venda_produto', 'outra');
+  end if;
+
+  if not exists (select 1 from pg_type where typname = 'categoria_despesa_enum') then
+    create type categoria_despesa_enum as enum (
+      'energia_eletrica', 'agua', 'internet', 'aluguel', 'salarios',
+      'manutencao', 'equipamentos', 'impostos', 'produtos_limpeza', 'outros'
+    );
+  end if;
+
+  if not exists (select 1 from pg_type where typname = 'status_pagamento_enum') then
+    create type status_pagamento_enum as enum ('pago', 'pendente');
   end if;
 end$$;
 
@@ -53,7 +76,25 @@ create table if not exists public.academias (
 comment on table public.academias is 'Tenant raiz. Cada academia isola seus próprios dados.';
 
 -- -----------------------------------------------------------------------------
--- 2.2 alunos
+-- 2.2 perfis_admin — vínculo 1:1 entre um usuário do Supabase Auth e a
+-- academia que ele administra. É a chave de todo o isolamento multi-tenant:
+-- toda política de RLS abaixo resolve `academia_id_atual()` a partir daqui.
+-- -----------------------------------------------------------------------------
+create table if not exists public.perfis_admin (
+  id            uuid        primary key references auth.users(id) on delete cascade,
+  academia_id   uuid        not null references public.academias(id) on delete cascade,
+  nome          text        not null,
+  email         text        not null,
+  criado_em     timestamptz not null default now()
+);
+
+comment on table public.perfis_admin is
+  'Vincula um usuário autenticado (auth.users) à academia que ele administra.';
+
+create index if not exists idx_perfis_admin_academia on public.perfis_admin(academia_id);
+
+-- -----------------------------------------------------------------------------
+-- 2.3 alunos
 -- -----------------------------------------------------------------------------
 create table if not exists public.alunos (
   id                uuid                   primary key default gen_random_uuid(),
@@ -75,7 +116,7 @@ create table if not exists public.alunos (
 comment on table public.alunos is 'Alunos vinculados a uma academia (tenant).';
 
 -- -----------------------------------------------------------------------------
--- 2.3 planos
+-- 2.4 planos
 -- -----------------------------------------------------------------------------
 create table if not exists public.planos (
   id                 uuid          primary key default gen_random_uuid(),
@@ -104,7 +145,7 @@ begin
 end$$;
 
 -- -----------------------------------------------------------------------------
--- 2.4 treinos (ficha de treino de um aluno)
+-- 2.5 treinos (ficha de treino de um aluno)
 -- -----------------------------------------------------------------------------
 create table if not exists public.treinos (
   id            uuid        primary key default gen_random_uuid(),
@@ -121,7 +162,7 @@ create table if not exists public.treinos (
 comment on table public.treinos is 'Fichas de treino (ex: Treino A, B, C) de cada aluno.';
 
 -- -----------------------------------------------------------------------------
--- 2.5 exercicios_treino (exercícios dentro de uma ficha)
+-- 2.6 exercicios_treino (exercícios dentro de uma ficha)
 -- -----------------------------------------------------------------------------
 create table if not exists public.exercicios_treino (
   id                        uuid          primary key default gen_random_uuid(),
@@ -141,7 +182,7 @@ create table if not exists public.exercicios_treino (
 comment on table public.exercicios_treino is 'Exercícios que compõem cada ficha de treino.';
 
 -- -----------------------------------------------------------------------------
--- 2.6 acessos_catraca (log de entradas na catraca)
+-- 2.7 acessos_catraca (log de entradas na catraca)
 -- -----------------------------------------------------------------------------
 create table if not exists public.acessos_catraca (
   id                 uuid                    primary key default gen_random_uuid(),
@@ -156,19 +197,92 @@ create table if not exists public.acessos_catraca (
 
 comment on table public.acessos_catraca is 'Registro de acessos na catraca, com origem e repasse financeiro.';
 
+-- -----------------------------------------------------------------------------
+-- 2.8 funcionarios
+-- -----------------------------------------------------------------------------
+create table if not exists public.funcionarios (
+  id              uuid                      primary key default gen_random_uuid(),
+  academia_id     uuid                      not null references public.academias(id) on delete cascade,
+  nome            text                      not null,
+  cargo           text                      not null,
+  telefone        text,
+  email           text,
+  cpf             text,
+  data_admissao   date,
+  salario         numeric(10,2)             default 0,
+  status          status_funcionario_enum   not null default 'ativo',
+  criado_em       timestamptz               not null default now(),
+  atualizado_em   timestamptz               not null default now(),
+  unique (academia_id, cpf)
+);
+
+comment on table public.funcionarios is 'Funcionários de cada academia.';
+
+create index if not exists idx_funcionarios_academia on public.funcionarios(academia_id);
+create index if not exists idx_funcionarios_status    on public.funcionarios(status);
+
+-- -----------------------------------------------------------------------------
+-- 2.9 receitas — mensalidades, matrículas, venda de produtos, outras receitas
+-- -----------------------------------------------------------------------------
+create table if not exists public.receitas (
+  id            uuid                    primary key default gen_random_uuid(),
+  academia_id   uuid                    not null references public.academias(id) on delete cascade,
+  aluno_id      uuid                    references public.alunos(id) on delete set null,
+  tipo          tipo_receita_enum       not null default 'outra',
+  descricao     text                    not null,
+  valor         numeric(10,2)           not null default 0,
+  data          date                    not null default current_date,
+  status        status_pagamento_enum   not null default 'pendente',
+  observacoes   text,
+  criado_em     timestamptz             not null default now(),
+  atualizado_em timestamptz             not null default now()
+);
+
+comment on table public.receitas is
+  'Receitas da academia: mensalidades, matrículas, venda de produtos e outras.';
+
+create index if not exists idx_receitas_academia on public.receitas(academia_id);
+create index if not exists idx_receitas_data      on public.receitas(data);
+create index if not exists idx_receitas_status    on public.receitas(status);
+create index if not exists idx_receitas_tipo      on public.receitas(tipo);
+create index if not exists idx_receitas_aluno     on public.receitas(aluno_id);
+
+-- -----------------------------------------------------------------------------
+-- 2.10 despesas
+-- -----------------------------------------------------------------------------
+create table if not exists public.despesas (
+  id            uuid                     primary key default gen_random_uuid(),
+  academia_id   uuid                     not null references public.academias(id) on delete cascade,
+  descricao     text                     not null,
+  categoria     categoria_despesa_enum   not null default 'outros',
+  valor         numeric(10,2)            not null default 0,
+  data          date                     not null default current_date,
+  status        status_pagamento_enum    not null default 'pendente',
+  observacoes   text,
+  criado_em     timestamptz              not null default now(),
+  atualizado_em timestamptz              not null default now()
+);
+
+comment on table public.despesas is 'Despesas operacionais de cada academia.';
+
+create index if not exists idx_despesas_academia  on public.despesas(academia_id);
+create index if not exists idx_despesas_data       on public.despesas(data);
+create index if not exists idx_despesas_status     on public.despesas(status);
+create index if not exists idx_despesas_categoria  on public.despesas(categoria);
+
 -- =============================================================================
--- 3. ÍNDICES
+-- 3. ÍNDICES (tabelas originais)
 -- =============================================================================
-create index if not exists idx_alunos_academia            on public.alunos(academia_id);
-create index if not exists idx_alunos_status               on public.alunos(status_matricula);
-create index if not exists idx_planos_academia             on public.planos(academia_id);
-create index if not exists idx_treinos_academia            on public.treinos(academia_id);
-create index if not exists idx_treinos_aluno               on public.treinos(aluno_id);
-create index if not exists idx_exercicios_treino           on public.exercicios_treino(treino_id);
-create index if not exists idx_acessos_academia            on public.acessos_catraca(academia_id);
-create index if not exists idx_acessos_aluno               on public.acessos_catraca(aluno_id);
-create index if not exists idx_acessos_data                on public.acessos_catraca(data_hora_entrada);
-create index if not exists idx_acessos_origem              on public.acessos_catraca(origem);
+create index if not exists idx_alunos_academia    on public.alunos(academia_id);
+create index if not exists idx_alunos_status       on public.alunos(status_matricula);
+create index if not exists idx_planos_academia     on public.planos(academia_id);
+create index if not exists idx_treinos_academia    on public.treinos(academia_id);
+create index if not exists idx_treinos_aluno       on public.treinos(aluno_id);
+create index if not exists idx_exercicios_treino   on public.exercicios_treino(treino_id);
+create index if not exists idx_acessos_academia    on public.acessos_catraca(academia_id);
+create index if not exists idx_acessos_aluno       on public.acessos_catraca(aluno_id);
+create index if not exists idx_acessos_data        on public.acessos_catraca(data_hora_entrada);
+create index if not exists idx_acessos_origem      on public.acessos_catraca(origem);
 
 -- =============================================================================
 -- 4. TRIGGERS — atualizar `atualizado_em`
@@ -184,7 +298,9 @@ $$ language plpgsql;
 do $$
 declare t text;
 begin
-  foreach t in array array['academias','alunos','planos','treinos'] loop
+  foreach t in array array[
+    'academias', 'alunos', 'planos', 'treinos', 'funcionarios', 'receitas', 'despesas'
+  ] loop
     execute format(
       'drop trigger if exists trg_%1$s_upd on public.%1$s;
        create trigger trg_%1$s_upd before update on public.%1$s
@@ -193,114 +309,232 @@ begin
 end$$;
 
 -- =============================================================================
--- 5. ROW LEVEL SECURITY (isolamento multi-tenant)
+-- 5. FUNÇÃO DE ISOLAMENTO MULTI-TENANT
+--
+-- Resolve a academia do usuário autenticado atual. SECURITY DEFINER para
+-- poder ler `perfis_admin` mesmo com RLS habilitado ali (evita recursão).
+-- Toda política de tenant abaixo usa esta função — nunca compare academia_id
+-- diretamente com uma coluna vinda do cliente.
+-- =============================================================================
+create or replace function public.academia_id_atual()
+returns uuid
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select academia_id from public.perfis_admin where id = auth.uid();
+$$;
+
+comment on function public.academia_id_atual() is
+  'Academia do administrador autenticado (via perfis_admin). Base de todo o RLS multi-tenant.';
+
+-- =============================================================================
+-- 6. ROW LEVEL SECURITY (isolamento multi-tenant)
 -- =============================================================================
 alter table public.academias         enable row level security;
+alter table public.perfis_admin      enable row level security;
 alter table public.alunos            enable row level security;
 alter table public.planos            enable row level security;
 alter table public.treinos           enable row level security;
 alter table public.exercicios_treino enable row level security;
 alter table public.acessos_catraca   enable row level security;
+alter table public.funcionarios      enable row level security;
+alter table public.receitas          enable row level security;
+alter table public.despesas          enable row level security;
 
--- Política de demonstração: leitura pública (anon) para permitir a vitrine do PWA.
--- Em produção, restrinja por `auth.uid()` / claims de tenant do usuário logado.
+-- 6.1 perfis_admin: cada admin só enxerga o próprio perfil.
+drop policy if exists "perfil_proprio_select" on public.perfis_admin;
+create policy "perfil_proprio_select" on public.perfis_admin
+  for select to authenticated using (id = auth.uid());
+
+-- 6.2 academias: o admin só vê/edita a própria academia.
+drop policy if exists "academia_tenant_select" on public.academias;
+create policy "academia_tenant_select" on public.academias
+  for select to authenticated using (id = public.academia_id_atual());
+
+drop policy if exists "academia_tenant_update" on public.academias;
+create policy "academia_tenant_update" on public.academias
+  for update to authenticated
+  using (id = public.academia_id_atual())
+  with check (id = public.academia_id_atual());
+
+-- 6.3 Tabelas com coluna academia_id direta: select/insert/update/delete
+-- restritos ao tenant do admin autenticado.
 do $$
 declare
   tbl text;
 begin
   foreach tbl in array array[
-    'academias','alunos','planos','treinos','exercicios_treino','acessos_catraca'
+    'alunos', 'planos', 'treinos', 'acessos_catraca',
+    'funcionarios', 'receitas', 'despesas'
   ] loop
-    execute format('drop policy if exists "leitura_publica_%1$s" on public.%1$s;', tbl);
+    execute format('drop policy if exists "tenant_select_%1$s" on public.%1$s;', tbl);
     execute format(
-      'create policy "leitura_publica_%1$s" on public.%1$s for select using (true);', tbl);
+      'create policy "tenant_select_%1$s" on public.%1$s
+         for select to authenticated using (academia_id = public.academia_id_atual());', tbl);
 
-    execute format('drop policy if exists "escrita_service_%1$s" on public.%1$s;', tbl);
+    execute format('drop policy if exists "tenant_insert_%1$s" on public.%1$s;', tbl);
     execute format(
-      'create policy "escrita_service_%1$s" on public.%1$s
+      'create policy "tenant_insert_%1$s" on public.%1$s
+         for insert to authenticated with check (academia_id = public.academia_id_atual());', tbl);
+
+    execute format('drop policy if exists "tenant_update_%1$s" on public.%1$s;', tbl);
+    execute format(
+      'create policy "tenant_update_%1$s" on public.%1$s
+         for update to authenticated
+         using (academia_id = public.academia_id_atual())
+         with check (academia_id = public.academia_id_atual());', tbl);
+
+    execute format('drop policy if exists "tenant_delete_%1$s" on public.%1$s;', tbl);
+    execute format(
+      'create policy "tenant_delete_%1$s" on public.%1$s
+         for delete to authenticated using (academia_id = public.academia_id_atual());', tbl);
+
+    execute format('drop policy if exists "leitura_publica_%1$s" on public.%1$s;', tbl);
+    execute format('drop policy if exists "escrita_service_%1$s" on public.%1$s;', tbl);
+  end loop;
+end$$;
+
+-- 6.4 exercicios_treino não tem academia_id direta: resolve via treinos.
+drop policy if exists "leitura_publica_exercicios_treino" on public.exercicios_treino;
+drop policy if exists "escrita_service_exercicios_treino" on public.exercicios_treino;
+
+drop policy if exists "tenant_select_exercicios_treino" on public.exercicios_treino;
+create policy "tenant_select_exercicios_treino" on public.exercicios_treino
+  for select to authenticated using (
+    treino_id in (select id from public.treinos where academia_id = public.academia_id_atual())
+  );
+
+drop policy if exists "tenant_insert_exercicios_treino" on public.exercicios_treino;
+create policy "tenant_insert_exercicios_treino" on public.exercicios_treino
+  for insert to authenticated with check (
+    treino_id in (select id from public.treinos where academia_id = public.academia_id_atual())
+  );
+
+drop policy if exists "tenant_update_exercicios_treino" on public.exercicios_treino;
+create policy "tenant_update_exercicios_treino" on public.exercicios_treino
+  for update to authenticated
+  using (treino_id in (select id from public.treinos where academia_id = public.academia_id_atual()))
+  with check (treino_id in (select id from public.treinos where academia_id = public.academia_id_atual()));
+
+drop policy if exists "tenant_delete_exercicios_treino" on public.exercicios_treino;
+create policy "tenant_delete_exercicios_treino" on public.exercicios_treino
+  for delete to authenticated using (
+    treino_id in (select id from public.treinos where academia_id = public.academia_id_atual())
+  );
+
+-- 6.5 service_role sempre tem acesso total (usado pelo script de provisionamento
+-- e por rotinas administrativas server-side).
+do $$
+declare
+  tbl text;
+begin
+  foreach tbl in array array[
+    'academias', 'perfis_admin', 'alunos', 'planos', 'treinos', 'exercicios_treino',
+    'acessos_catraca', 'funcionarios', 'receitas', 'despesas'
+  ] loop
+    execute format('drop policy if exists "service_role_total_%1$s" on public.%1$s;', tbl);
+    execute format(
+      'create policy "service_role_total_%1$s" on public.%1$s
          for all to service_role using (true) with check (true);', tbl);
   end loop;
 end$$;
 
 -- =============================================================================
--- 6. SEED — dados de demonstração
+-- 7. RPC PÚBLICA — ficha do aluno sem login
+--
+-- O aluno ainda não tem autenticação própria (item 3 do escopo). Em vez de
+-- liberar leitura pública direta nas tabelas (o que vazaria todos os alunos
+-- de todas as academias), expomos apenas esta função: dado um `aluno_id`
+-- (link único, não listável, compartilhado pela recepção/QR), ela retorna só
+-- os campos necessários para a tela do aluno — nunca CPF, e-mail ou telefone.
 -- =============================================================================
-do $$
-declare
-  v_academia_id uuid;
-  v_plano_black uuid;
-  v_plano_fit   uuid;
-  v_aluno1      uuid;
-  v_aluno2      uuid;
-  v_aluno3      uuid;
-  v_treino_a    uuid;
-  v_treino_b    uuid;
-begin
-  -- Academia (tenant)
-  insert into public.academias (nome_fantasia, slug_url, endereco, telefone, cor_primaria)
-  values ('IronPulse Academia', 'ironpulse', 'Av. Paulista, 1000 - São Paulo/SP', '(11) 99999-0000', '#adff42')
-  on conflict (slug_url) do update set nome_fantasia = excluded.nome_fantasia
-  returning id into v_academia_id;
+create or replace function public.obter_ficha_aluno(p_aluno_id uuid)
+returns jsonb
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select jsonb_build_object(
+    'aluno', (
+      select jsonb_build_object(
+        'id', a.id,
+        'nome', a.nome,
+        'foto_perfil_url', a.foto_perfil_url,
+        'status_matricula', a.status_matricula,
+        'matricula_codigo', a.matricula_codigo,
+        'plano_nome', p.nome
+      )
+      from public.alunos a
+      left join public.planos p on p.id = a.plano_id
+      where a.id = p_aluno_id
+    ),
+    'academia', (
+      select jsonb_build_object(
+        'id', ac.id,
+        'nome_fantasia', ac.nome_fantasia,
+        'slug_url', ac.slug_url
+      )
+      from public.academias ac
+      join public.alunos a on a.academia_id = ac.id
+      where a.id = p_aluno_id
+    ),
+    'treinos', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', t.id,
+        'nome_treino', t.nome_treino,
+        'objetivo', t.objetivo,
+        'ordem', t.ordem,
+        'exercicios', (
+          select coalesce(jsonb_agg(jsonb_build_object(
+            'id', e.id,
+            'treino_id', e.treino_id,
+            'nome_exercicio', e.nome_exercicio,
+            'series', e.series,
+            'repeticoes', e.repeticoes,
+            'carga_kg', e.carga_kg,
+            'descanso_segundos', e.descanso_segundos,
+            'imagem_demonstracao_url', e.imagem_demonstracao_url,
+            'video_demonstracao_url', e.video_demonstracao_url,
+            'observacoes', e.observacoes,
+            'ordem', e.ordem,
+            'criado_em', e.criado_em
+          ) order by e.ordem), '[]'::jsonb)
+          from public.exercicios_treino e
+          where e.treino_id = t.id
+        )
+      ) order by t.ordem)
+      from public.treinos t
+      where t.aluno_id = p_aluno_id and t.ativo = true
+    ), '[]'::jsonb)
+  )
+  where exists (select 1 from public.alunos where id = p_aluno_id);
+$$;
 
-  -- Planos
-  insert into public.planos (academia_id, nome, descricao, valor_mensal, recorrencia_meses)
-  values (v_academia_id, 'Black Anual', 'Acesso total + aulas + avaliação', 129.90, 12)
-  returning id into v_plano_black;
+comment on function public.obter_ficha_aluno(uuid) is
+  'Leitura pública e restrita (sem CPF/e-mail/telefone) da ficha de um aluno, para a tela do aluno sem login.';
 
-  insert into public.planos (academia_id, nome, descricao, valor_mensal, recorrencia_meses)
-  values (v_academia_id, 'Fit Mensal', 'Acesso à musculação', 89.90, 1)
-  returning id into v_plano_fit;
+grant execute on function public.obter_ficha_aluno(uuid) to anon, authenticated;
 
-  -- Alunos
-  insert into public.alunos (academia_id, nome, cpf, email, telefone, foto_perfil_url, status_matricula, plano_id, matricula_codigo)
-  values (v_academia_id, 'Marina Costa', '111.111.111-11', 'marina@exemplo.com', '(11) 98888-1111',
-          'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&q=80', 'ativa', v_plano_black, 'IP-0001')
-  returning id into v_aluno1;
+-- 7.1 Lookup público mínimo de academia por slug (nome/cor para a marca do PWA).
+create or replace function public.obter_academia_publica(p_slug text)
+returns jsonb
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select jsonb_build_object(
+    'id', id, 'nome_fantasia', nome_fantasia, 'slug_url', slug_url, 'cor_primaria', cor_primaria
+  )
+  from public.academias where slug_url = p_slug;
+$$;
 
-  insert into public.alunos (academia_id, nome, cpf, email, telefone, foto_perfil_url, status_matricula, plano_id, matricula_codigo)
-  values (v_academia_id, 'Rafael Nunes', '222.222.222-22', 'rafael@exemplo.com', '(11) 98888-2222',
-          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80', 'ativa', v_plano_fit, 'IP-0002')
-  returning id into v_aluno2;
-
-  insert into public.alunos (academia_id, nome, cpf, email, telefone, foto_perfil_url, status_matricula, plano_id, matricula_codigo)
-  values (v_academia_id, 'Juliana Alves', '333.333.333-33', 'juliana@exemplo.com', '(11) 98888-3333',
-          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&q=80', 'pendente', v_plano_black, 'IP-0003')
-  returning id into v_aluno3;
-
-  -- Treinos da Marina
-  insert into public.treinos (academia_id, aluno_id, nome_treino, objetivo, ordem)
-  values (v_academia_id, v_aluno1, 'Treino A - Peito e Tríceps', 'Hipertrofia', 1)
-  returning id into v_treino_a;
-
-  insert into public.treinos (academia_id, aluno_id, nome_treino, objetivo, ordem)
-  values (v_academia_id, v_aluno1, 'Treino B - Costas e Bíceps', 'Hipertrofia', 2)
-  returning id into v_treino_b;
-
-  -- Exercícios do Treino A
-  insert into public.exercicios_treino (treino_id, nome_exercicio, series, repeticoes, carga_kg, descanso_segundos, imagem_demonstracao_url, ordem) values
-    (v_treino_a, 'Supino Reto com Barra',        4, '8-10', 60.0, 90, 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=80', 1),
-    (v_treino_a, 'Supino Inclinado Halteres',    3, '10-12', 24.0, 75, 'https://images.unsplash.com/photo-1584863231364-2edc166de576?w=600&q=80', 2),
-    (v_treino_a, 'Crucifixo na Máquina',         3, '12-15', 35.0, 60, 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600&q=80', 3),
-    (v_treino_a, 'Tríceps Corda',                4, '12',    30.0, 60, 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=600&q=80', 4),
-    (v_treino_a, 'Tríceps Francês',              3, '10-12', 18.0, 60, 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80', 5);
-
-  -- Exercícios do Treino B
-  insert into public.exercicios_treino (treino_id, nome_exercicio, series, repeticoes, carga_kg, descanso_segundos, imagem_demonstracao_url, ordem) values
-    (v_treino_b, 'Puxada Frontal',               4, '10-12', 55.0, 90, 'https://images.unsplash.com/photo-1598971639058-fab3c3109a00?w=600&q=80', 1),
-    (v_treino_b, 'Remada Curvada',               4, '8-10',  50.0, 90, 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=600&q=80', 2),
-    (v_treino_b, 'Rosca Direta Barra',           3, '10-12', 25.0, 60, 'https://images.unsplash.com/photo-1590487988256-9ed24133863e?w=600&q=80', 3),
-    (v_treino_b, 'Rosca Alternada',              3, '12',    16.0, 60, 'https://images.unsplash.com/photo-1532029837206-abbe2b7620e3?w=600&q=80', 4);
-
-  -- Acessos na catraca (variados para o dashboard de BI)
-  insert into public.acessos_catraca (academia_id, aluno_id, origem, valor_repasse, data_hora_entrada, status_liberacao) values
-    (v_academia_id, v_aluno1, 'Direto',    0.00, now() - interval '2 hours',  'liberado'),
-    (v_academia_id, v_aluno2, 'Gympass',   12.50, now() - interval '3 hours',  'liberado'),
-    (v_academia_id, v_aluno1, 'Direto',    0.00, now() - interval '1 day',     'liberado'),
-    (v_academia_id, v_aluno3, 'TotalPass', 10.00, now() - interval '5 hours',  'liberado'),
-    (v_academia_id, v_aluno2, 'Gympass',   12.50, now() - interval '26 hours', 'liberado'),
-    (v_academia_id, v_aluno3, 'Direto',    0.00, now() - interval '30 minutes','negado');
-end$$;
+grant execute on function public.obter_academia_publica(text) to anon, authenticated;
 
 -- =============================================================================
--- Fim do schema.
+-- Fim do schema. Nenhum dado de demonstração é inserido por este script.
+-- Use `npm run criar-academia` para provisionar a primeira academia + admin.
 -- =============================================================================
