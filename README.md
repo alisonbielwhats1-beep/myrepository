@@ -123,12 +123,22 @@ em `public/videos/` são placeholders prontos — substitua pelos vídeos reais
 
 ---
 
-## ☁️ Deploy (versão oficial na web)
+## ☁️ Deploy (versão pública na web)
 
-Publique com a **Vercel**: importe o repositório em
-<https://vercel.com/new>, adicione (opcionalmente) as variáveis do Supabase e
-faça o deploy — a Vercel gera uma URL pública para compartilhar. Sem variáveis,
-sobe em modo demonstração.
+Deploy em **um clique** na Vercel — gera uma URL pública (ex.: `gymflow.vercel.app`)
+para compartilhar. O `vercel.json` já vem configurado e, sem variáveis do
+Supabase, o app sobe em **modo demonstração** (com os vídeos incluídos).
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Falisonbielwhats1-beep%2Fmyrepository&project-name=gymflow&repository-name=gymflow)
+
+Passo a passo manual (alternativa):
+
+1. Acesse <https://vercel.com/new> e faça login com o GitHub.
+2. Importe o repositório `alisonbielwhats1-beep/myrepository`.
+3. (Opcional) Em *Environment Variables*, adicione
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` e
+   `NEXT_PUBLIC_USE_MOCK=false` para usar dados reais.
+4. **Deploy** — a URL pública é gerada em segundos.
 
 ---
 
