@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Check, Dumbbell, RotateCcw, Timer, Weight } from "lucide-react";
+import { Check, Dumbbell, PlayCircle, RotateCcw, Timer, Weight } from "lucide-react";
 import { ExercicioTreino } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /**
- * Card de exercício da visão do aluno. Mostra a foto NATIVA do movimento
- * (sem filtros — classe `media-native`), séries, repetições, carga e um
- * botão "Concluído" por exercício.
+ * Card de exercício da visão do aluno. Mostra a demonstração NATIVA do
+ * movimento (sem filtros — classe `media-native`): um clipe de vídeo curto
+ * (<= 10s) em loop quando disponível, caindo para a foto e, por fim, um
+ * ícone. Exibe séries, repetições, carga e um botão "Concluído".
  */
 export default function ExercicioCard({ ex }: { ex: ExercicioTreino }) {
   const [feito, setFeito] = useState(false);
@@ -21,9 +22,25 @@ export default function ExercicioCard({ ex }: { ex: ExercicioTreino }) {
         feito && "border-volt-500/40 bg-volt-500/[0.06]"
       )}
     >
-      {/* Foto nativa do movimento — sem retângulo de fundo poluindo a mídia */}
+      {/* Mídia nativa do movimento — sem retângulo de fundo poluindo a mídia */}
       <div className="relative aspect-[16/10] w-full bg-ink-900">
-        {ex.imagem_demonstracao_url ? (
+        {ex.video_demonstracao_url ? (
+          <>
+            <video
+              src={ex.video_demonstracao_url}
+              poster={ex.imagem_demonstracao_url ?? undefined}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              className="media-native h-full w-full object-cover"
+            />
+            <span className="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink-950/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-200 backdrop-blur-sm">
+              <PlayCircle className="h-3 w-3 text-volt-300" /> Demonstração
+            </span>
+          </>
+        ) : ex.imagem_demonstracao_url ? (
           <Image
             src={ex.imagem_demonstracao_url}
             alt={ex.nome_exercicio}

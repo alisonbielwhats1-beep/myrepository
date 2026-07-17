@@ -53,6 +53,7 @@ export interface ExercicioTreino {
   carga_kg: number | null;
   descanso_segundos: number | null;
   imagem_demonstracao_url: string | null;
+  video_demonstracao_url: string | null;
   observacoes: string | null;
   ordem: number;
   criado_em: string;

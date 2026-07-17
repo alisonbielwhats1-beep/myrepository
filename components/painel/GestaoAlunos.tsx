@@ -10,6 +10,7 @@ import {
   Trash2,
   UserPlus,
   UserRound,
+  Video,
   X,
 } from "lucide-react";
 import { Aluno, ExercicioTreino, StatusMatricula, Treino } from "@/lib/types";
@@ -21,6 +22,7 @@ type NovoExercicio = {
   repeticoes: string;
   carga_kg: number;
   imagem_demonstracao_url: string;
+  video_demonstracao_url: string;
 };
 
 const EX_VAZIO: NovoExercicio = {
@@ -29,6 +31,7 @@ const EX_VAZIO: NovoExercicio = {
   repeticoes: "12",
   carga_kg: 0,
   imagem_demonstracao_url: "",
+  video_demonstracao_url: "",
 };
 
 export default function GestaoAlunos({
@@ -111,6 +114,7 @@ export default function GestaoAlunos({
         carga_kg: Number(ex.carga_kg) || 0,
         descanso_segundos: 60,
         imagem_demonstracao_url: ex.imagem_demonstracao_url || null,
+        video_demonstracao_url: ex.video_demonstracao_url || null,
         observacoes: null,
         ordem: idx + 1,
         criado_em: new Date().toISOString(),
@@ -381,6 +385,22 @@ export default function GestaoAlunos({
                         aspect="aspect-[4/3]"
                         hint="Imagem do equipamento"
                       />
+
+                      {/* Vídeo de demonstração (clipe curto, <= 10s, em loop) */}
+                      <Field label="Vídeo de demonstração (≤ 10s)">
+                        <div className="flex items-center gap-2">
+                          <Video className="h-4 w-4 flex-none text-volt-300" />
+                          <input
+                            type="url"
+                            value={ex.video_demonstracao_url}
+                            onChange={(e) =>
+                              setEx(i, { video_demonstracao_url: e.target.value })
+                            }
+                            placeholder="URL do clipe (mp4/webm) — Supabase Storage"
+                            className="inp"
+                          />
+                        </div>
+                      </Field>
                     </div>
                   </div>
                 ))}

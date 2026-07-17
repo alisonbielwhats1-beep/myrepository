@@ -132,6 +132,7 @@ create table if not exists public.exercicios_treino (
   carga_kg                  numeric(10,2) default 0,
   descanso_segundos         integer       default 60,
   imagem_demonstracao_url   text,
+  video_demonstracao_url    text,   -- clipe curto (<= 10s), loop mudo, estado original
   observacoes               text,
   ordem                     integer       not null default 0,
   criado_em                 timestamptz   not null default now()
