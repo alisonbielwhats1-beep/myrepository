@@ -109,7 +109,7 @@ const EX_TREINO_A: ExercicioTreino[] = [
     descanso_segundos: 90,
     imagem_demonstracao_url:
       "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=80",
-    video_demonstracao_url: null,
+    video_demonstracao_url: "/videos/press.webm",
     observacoes: null,
     ordem: 1,
     criado_em: new Date().toISOString(),
@@ -124,7 +124,7 @@ const EX_TREINO_A: ExercicioTreino[] = [
     descanso_segundos: 75,
     imagem_demonstracao_url:
       "https://images.unsplash.com/photo-1584863231364-2edc166de576?w=600&q=80",
-    video_demonstracao_url: null,
+    video_demonstracao_url: "/videos/incline.webm",
     observacoes: null,
     ordem: 2,
     criado_em: new Date().toISOString(),
@@ -139,7 +139,7 @@ const EX_TREINO_A: ExercicioTreino[] = [
     descanso_segundos: 60,
     imagem_demonstracao_url:
       "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600&q=80",
-    video_demonstracao_url: null,
+    video_demonstracao_url: "/videos/fly.webm",
     observacoes: null,
     ordem: 3,
     criado_em: new Date().toISOString(),
@@ -154,7 +154,7 @@ const EX_TREINO_A: ExercicioTreino[] = [
     descanso_segundos: 60,
     imagem_demonstracao_url:
       "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=600&q=80",
-    video_demonstracao_url: null,
+    video_demonstracao_url: "/videos/pushdown.webm",
     observacoes: null,
     ordem: 4,
     criado_em: new Date().toISOString(),
@@ -169,7 +169,7 @@ const EX_TREINO_A: ExercicioTreino[] = [
     descanso_segundos: 60,
     imagem_demonstracao_url:
       "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80",
-    video_demonstracao_url: null,
+    video_demonstracao_url: "/videos/overhead.webm",
     observacoes: null,
     ordem: 5,
     criado_em: new Date().toISOString(),
@@ -187,7 +187,7 @@ const EX_TREINO_B: ExercicioTreino[] = [
     descanso_segundos: 90,
     imagem_demonstracao_url:
       "https://images.unsplash.com/photo-1598971639058-fab3c3109a00?w=600&q=80",
-    video_demonstracao_url: null,
+    video_demonstracao_url: "/videos/pulldown.webm",
     observacoes: null,
     ordem: 1,
     criado_em: new Date().toISOString(),
@@ -202,7 +202,7 @@ const EX_TREINO_B: ExercicioTreino[] = [
     descanso_segundos: 90,
     imagem_demonstracao_url:
       "https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=600&q=80",
-    video_demonstracao_url: null,
+    video_demonstracao_url: "/videos/row.webm",
     observacoes: null,
     ordem: 2,
     criado_em: new Date().toISOString(),
@@ -217,7 +217,7 @@ const EX_TREINO_B: ExercicioTreino[] = [
     descanso_segundos: 60,
     imagem_demonstracao_url:
       "https://images.unsplash.com/photo-1590487988256-9ed24133863e?w=600&q=80",
-    video_demonstracao_url: null,
+    video_demonstracao_url: "/videos/curl.webm",
     observacoes: null,
     ordem: 3,
     criado_em: new Date().toISOString(),
@@ -232,7 +232,7 @@ const EX_TREINO_B: ExercicioTreino[] = [
     descanso_segundos: 60,
     imagem_demonstracao_url:
       "https://images.unsplash.com/photo-1532029837206-abbe2b7620e3?w=600&q=80",
-    video_demonstracao_url: null,
+    video_demonstracao_url: "/videos/curlalt.webm",
     observacoes: null,
     ordem: 4,
     criado_em: new Date().toISOString(),
