@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: #07080d;
+  color: #e8ecf1;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Barra de rolagem discreta e escura */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0b0d14;
+}
+::-webkit-scrollbar-thumb {
+  background: #242838;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #333849;
+}
+
+@layer components {
+  /* Superfície de card padrão do app */
+  .surface {
+    @apply bg-ink-800/80 border border-ink-600/60 backdrop-blur-sm;
+  }
+
+  .surface-strong {
+    @apply bg-ink-800 border border-ink-600;
+  }
+
+  /* Botão primário vibrante */
+  .btn-volt {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-volt-300
+      px-4 py-2.5 text-sm font-semibold text-ink-950 transition
+      hover:bg-volt-200 active:scale-[0.98] shadow-glow;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border
+      border-ink-600 px-4 py-2.5 text-sm font-medium text-slate-200
+      transition hover:border-ink-500 hover:bg-ink-700;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1
+      text-xs font-medium;
+  }
+
+  /* Campo de formulário padrão (inputs, selects) */
+  .inp {
+    @apply w-full rounded-xl border border-ink-600 bg-ink-900/70 px-3 py-2.5
+      text-sm text-white placeholder:text-slate-500 outline-none transition
+      focus:border-volt-500/60 focus:ring-2 focus:ring-volt-500/20;
+  }
+
+  .stat-value {
+    @apply text-3xl font-bold tracking-tight text-white;
+  }
+
+  .label-muted {
+    @apply text-xs font-medium uppercase tracking-wide text-slate-400;
+  }
+}
+
+/* Regra explícita do prompt: imagens de mídia (fotos nativas de exercícios e
+   perfis) NÃO recebem filtros nem edição de formatação — permanecem no estado
+   original. Marcamos essas imagens com a classe `.media-native`. */
+.media-native {
+  filter: none !important;
+  -webkit-filter: none !important;
+  mix-blend-mode: normal !important;
+  image-rendering: auto;
+}

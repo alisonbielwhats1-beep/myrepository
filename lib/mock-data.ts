@@ -1,0 +1,355 @@
+// Dados de demonstração — espelham o seed do schema.sql.
+// Permitem rodar o PWA completo sem um projeto Supabase configurado.
+
+import {
+  Academia,
+  AcessoCatraca,
+  Aluno,
+  ExercicioTreino,
+  Plano,
+  Treino,
+} from "./types";
+
+export const MOCK_ACADEMIA: Academia = {
+  id: "aca-0001",
+  nome_fantasia: "IronPulse Academia",
+  slug_url: "ironpulse",
+  endereco: "Av. Paulista, 1000 - São Paulo/SP",
+  logo_url: null,
+  cor_primaria: "#adff42",
+  telefone: "(11) 99999-0000",
+  criado_em: new Date().toISOString(),
+  atualizado_em: new Date().toISOString(),
+};
+
+export const MOCK_PLANOS: Plano[] = [
+  {
+    id: "pln-black",
+    academia_id: MOCK_ACADEMIA.id,
+    nome: "Black Anual",
+    descricao: "Acesso total + aulas + avaliação",
+    valor_mensal: 129.9,
+    recorrencia_meses: 12,
+    ativo: true,
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString(),
+  },
+  {
+    id: "pln-fit",
+    academia_id: MOCK_ACADEMIA.id,
+    nome: "Fit Mensal",
+    descricao: "Acesso à musculação",
+    valor_mensal: 89.9,
+    recorrencia_meses: 1,
+    ativo: true,
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString(),
+  },
+];
+
+export const MOCK_ALUNOS: Aluno[] = [
+  {
+    id: "alu-marina",
+    academia_id: MOCK_ACADEMIA.id,
+    nome: "Marina Costa",
+    cpf: "111.111.111-11",
+    email: "marina@exemplo.com",
+    telefone: "(11) 98888-1111",
+    foto_perfil_url:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&q=80",
+    data_nascimento: "1996-04-12",
+    status_matricula: "ativa",
+    plano_id: "pln-black",
+    matricula_codigo: "IP-0001",
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString(),
+  },
+  {
+    id: "alu-rafael",
+    academia_id: MOCK_ACADEMIA.id,
+    nome: "Rafael Nunes",
+    cpf: "222.222.222-22",
+    email: "rafael@exemplo.com",
+    telefone: "(11) 98888-2222",
+    foto_perfil_url:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80",
+    data_nascimento: "1990-09-30",
+    status_matricula: "ativa",
+    plano_id: "pln-fit",
+    matricula_codigo: "IP-0002",
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString(),
+  },
+  {
+    id: "alu-juliana",
+    academia_id: MOCK_ACADEMIA.id,
+    nome: "Juliana Alves",
+    cpf: "333.333.333-33",
+    email: "juliana@exemplo.com",
+    telefone: "(11) 98888-3333",
+    foto_perfil_url:
+      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&q=80",
+    data_nascimento: "2000-01-05",
+    status_matricula: "pendente",
+    plano_id: "pln-black",
+    matricula_codigo: "IP-0003",
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString(),
+  },
+];
+
+const EX_TREINO_A: ExercicioTreino[] = [
+  {
+    id: "ex-a1",
+    treino_id: "trn-a",
+    nome_exercicio: "Supino Reto com Barra",
+    series: 4,
+    repeticoes: "8-10",
+    carga_kg: 60,
+    descanso_segundos: 90,
+    imagem_demonstracao_url:
+      "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=80",
+    observacoes: null,
+    ordem: 1,
+    criado_em: new Date().toISOString(),
+  },
+  {
+    id: "ex-a2",
+    treino_id: "trn-a",
+    nome_exercicio: "Supino Inclinado Halteres",
+    series: 3,
+    repeticoes: "10-12",
+    carga_kg: 24,
+    descanso_segundos: 75,
+    imagem_demonstracao_url:
+      "https://images.unsplash.com/photo-1584863231364-2edc166de576?w=600&q=80",
+    observacoes: null,
+    ordem: 2,
+    criado_em: new Date().toISOString(),
+  },
+  {
+    id: "ex-a3",
+    treino_id: "trn-a",
+    nome_exercicio: "Crucifixo na Máquina",
+    series: 3,
+    repeticoes: "12-15",
+    carga_kg: 35,
+    descanso_segundos: 60,
+    imagem_demonstracao_url:
+      "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600&q=80",
+    observacoes: null,
+    ordem: 3,
+    criado_em: new Date().toISOString(),
+  },
+  {
+    id: "ex-a4",
+    treino_id: "trn-a",
+    nome_exercicio: "Tríceps Corda",
+    series: 4,
+    repeticoes: "12",
+    carga_kg: 30,
+    descanso_segundos: 60,
+    imagem_demonstracao_url:
+      "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=600&q=80",
+    observacoes: null,
+    ordem: 4,
+    criado_em: new Date().toISOString(),
+  },
+  {
+    id: "ex-a5",
+    treino_id: "trn-a",
+    nome_exercicio: "Tríceps Francês",
+    series: 3,
+    repeticoes: "10-12",
+    carga_kg: 18,
+    descanso_segundos: 60,
+    imagem_demonstracao_url:
+      "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80",
+    observacoes: null,
+    ordem: 5,
+    criado_em: new Date().toISOString(),
+  },
+];
+
+const EX_TREINO_B: ExercicioTreino[] = [
+  {
+    id: "ex-b1",
+    treino_id: "trn-b",
+    nome_exercicio: "Puxada Frontal",
+    series: 4,
+    repeticoes: "10-12",
+    carga_kg: 55,
+    descanso_segundos: 90,
+    imagem_demonstracao_url:
+      "https://images.unsplash.com/photo-1598971639058-fab3c3109a00?w=600&q=80",
+    observacoes: null,
+    ordem: 1,
+    criado_em: new Date().toISOString(),
+  },
+  {
+    id: "ex-b2",
+    treino_id: "trn-b",
+    nome_exercicio: "Remada Curvada",
+    series: 4,
+    repeticoes: "8-10",
+    carga_kg: 50,
+    descanso_segundos: 90,
+    imagem_demonstracao_url:
+      "https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=600&q=80",
+    observacoes: null,
+    ordem: 2,
+    criado_em: new Date().toISOString(),
+  },
+  {
+    id: "ex-b3",
+    treino_id: "trn-b",
+    nome_exercicio: "Rosca Direta Barra",
+    series: 3,
+    repeticoes: "10-12",
+    carga_kg: 25,
+    descanso_segundos: 60,
+    imagem_demonstracao_url:
+      "https://images.unsplash.com/photo-1590487988256-9ed24133863e?w=600&q=80",
+    observacoes: null,
+    ordem: 3,
+    criado_em: new Date().toISOString(),
+  },
+  {
+    id: "ex-b4",
+    treino_id: "trn-b",
+    nome_exercicio: "Rosca Alternada",
+    series: 3,
+    repeticoes: "12",
+    carga_kg: 16,
+    descanso_segundos: 60,
+    imagem_demonstracao_url:
+      "https://images.unsplash.com/photo-1532029837206-abbe2b7620e3?w=600&q=80",
+    observacoes: null,
+    ordem: 4,
+    criado_em: new Date().toISOString(),
+  },
+];
+
+export const MOCK_TREINOS: Treino[] = [
+  {
+    id: "trn-a",
+    academia_id: MOCK_ACADEMIA.id,
+    aluno_id: "alu-marina",
+    nome_treino: "Treino A - Peito e Tríceps",
+    objetivo: "Hipertrofia",
+    ordem: 1,
+    ativo: true,
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString(),
+    exercicios: EX_TREINO_A,
+  },
+  {
+    id: "trn-b",
+    academia_id: MOCK_ACADEMIA.id,
+    aluno_id: "alu-marina",
+    nome_treino: "Treino B - Costas e Bíceps",
+    objetivo: "Hipertrofia",
+    ordem: 2,
+    ativo: true,
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString(),
+    exercicios: EX_TREINO_B,
+  },
+];
+
+function hoursAgo(h: number): string {
+  return new Date(Date.now() - h * 3600_000).toISOString();
+}
+
+export const MOCK_ACESSOS: AcessoCatraca[] = [
+  {
+    id: "acc-1",
+    academia_id: MOCK_ACADEMIA.id,
+    aluno_id: "alu-marina",
+    origem: "Direto",
+    valor_repasse: 0,
+    data_hora_entrada: hoursAgo(0.5),
+    status_liberacao: "liberado",
+    observacao: null,
+    aluno: {
+      id: "alu-marina",
+      nome: "Marina Costa",
+      foto_perfil_url: MOCK_ALUNOS[0].foto_perfil_url,
+    },
+  },
+  {
+    id: "acc-2",
+    academia_id: MOCK_ACADEMIA.id,
+    aluno_id: "alu-rafael",
+    origem: "Gympass",
+    valor_repasse: 12.5,
+    data_hora_entrada: hoursAgo(1.2),
+    status_liberacao: "liberado",
+    observacao: null,
+    aluno: {
+      id: "alu-rafael",
+      nome: "Rafael Nunes",
+      foto_perfil_url: MOCK_ALUNOS[1].foto_perfil_url,
+    },
+  },
+  {
+    id: "acc-3",
+    academia_id: MOCK_ACADEMIA.id,
+    aluno_id: "alu-juliana",
+    origem: "TotalPass",
+    valor_repasse: 10,
+    data_hora_entrada: hoursAgo(2.4),
+    status_liberacao: "liberado",
+    observacao: null,
+    aluno: {
+      id: "alu-juliana",
+      nome: "Juliana Alves",
+      foto_perfil_url: MOCK_ALUNOS[2].foto_perfil_url,
+    },
+  },
+  {
+    id: "acc-4",
+    academia_id: MOCK_ACADEMIA.id,
+    aluno_id: "alu-marina",
+    origem: "Direto",
+    valor_repasse: 0,
+    data_hora_entrada: hoursAgo(20),
+    status_liberacao: "liberado",
+    observacao: null,
+    aluno: {
+      id: "alu-marina",
+      nome: "Marina Costa",
+      foto_perfil_url: MOCK_ALUNOS[0].foto_perfil_url,
+    },
+  },
+  {
+    id: "acc-5",
+    academia_id: MOCK_ACADEMIA.id,
+    aluno_id: "alu-rafael",
+    origem: "Gympass",
+    valor_repasse: 12.5,
+    data_hora_entrada: hoursAgo(26),
+    status_liberacao: "liberado",
+    observacao: null,
+    aluno: {
+      id: "alu-rafael",
+      nome: "Rafael Nunes",
+      foto_perfil_url: MOCK_ALUNOS[1].foto_perfil_url,
+    },
+  },
+  {
+    id: "acc-6",
+    academia_id: MOCK_ACADEMIA.id,
+    aluno_id: "alu-juliana",
+    origem: "Direto",
+    valor_repasse: 0,
+    data_hora_entrada: hoursAgo(0.2),
+    status_liberacao: "negado",
+    observacao: "Matrícula pendente de pagamento",
+    aluno: {
+      id: "alu-juliana",
+      nome: "Juliana Alves",
+      foto_perfil_url: MOCK_ALUNOS[2].foto_perfil_url,
+    },
+  },
+];
