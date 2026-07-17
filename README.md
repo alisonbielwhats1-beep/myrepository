@@ -9,13 +9,26 @@ de alta qualidade exibidas em seu **estado original** (sem filtros).
 
 ---
 
+## 🔗 Prévia online (para compartilhar)
+
+Versão navegável no navegador — ideal para apresentar ao dono da academia, sem
+instalar nada, no celular ou no computador:
+
+**https://claude.ai/code/artifact/4190349d-7412-4b6c-b031-fcfbbd3f3bc1**
+
+> Adicione `#dashboard` à URL para abrir direto no Dashboard de BI
+> (também `#recepcao`, `#alunos`, `#financeiro`, `#aluno`).
+
+---
+
 ## ✨ Funcionalidades
 
 ### App do Aluno (`/aluno/[slug]`)
 - **Acesso rápido** — QR Code grande, centralizado e com token dinâmico que
   rotaciona a cada 30s para liberar a catraca.
-- **Treinos** — fichas (Treino A/B/C) com foto nativa do movimento, séries,
-  repetições, carga e botão **Concluído** por exercício.
+- **Treinos** — fichas (Treino A/B/C) com **vídeo de demonstração em loop
+  (≤ 10s)** do movimento (fallback para foto nativa), séries, repetições,
+  carga e botão **Concluído** por exercício.
 - **Perfil** — plano atual, status de matrícula e dados de contato.
 
 ### Painel da Academia (`/painel/[slug]`) — navegação por abas
@@ -98,8 +111,24 @@ o app usa dados fictícios de `lib/mock-data.ts` e funciona por completo.
 | `alunos`            | Alunos vinculados a uma academia.                     |
 | `planos`            | Planos de assinatura.                                 |
 | `treinos`           | Fichas de treino (A/B/C) de cada aluno.               |
-| `exercicios_treino` | Exercícios de cada ficha (séries, reps, carga, foto). |
+| `exercicios_treino` | Exercícios (séries, reps, carga, foto **e vídeo**).   |
 | `acessos_catraca`   | Log de entradas (origem, repasse, liberação).         |
+
+### Mídia dos exercícios
+Cada exercício tem `imagem_demonstracao_url` e `video_demonstracao_url`
+(clipe curto ≤ 10s, tocado em **loop** e mudo). O card do aluno usa o vídeo
+quando disponível, com fallback para a imagem e, por fim, um ícone. Os `.webm`
+em `public/videos/` são placeholders prontos — substitua pelos vídeos reais
+(mesmos nomes) ou aponte `video_demonstracao_url` para o **Supabase Storage**.
+
+---
+
+## ☁️ Deploy (versão oficial na web)
+
+Publique com a **Vercel**: importe o repositório em
+<https://vercel.com/new>, adicione (opcionalmente) as variáveis do Supabase e
+faça o deploy — a Vercel gera uma URL pública para compartilhar. Sem variáveis,
+sobe em modo demonstração.
 
 ---
 
