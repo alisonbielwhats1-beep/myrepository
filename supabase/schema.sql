@@ -634,10 +634,10 @@ as $$
         'observacoes', e.observacoes,
         'ordem', e.ordem,
         'criado_em', e.criado_em
-      ) order by e.ordem), '[]'::jsonb)
+      ) order by e.ordem)
       from public.exercicios_treino e
       where e.treino_id = t.id
-    )
+    ), '[]'::jsonb)
   )
   from public.treinos t
   join public.academias ac on ac.id = t.academia_id
