@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 function envOrThrow(name: string): string {
@@ -44,5 +45,19 @@ export function createClient() {
         }
       },
     },
+  });
+}
+
+/**
+ * Cliente com a service role key — ignora RLS e pode usar a Admin API do
+ * Supabase Auth (criar usuários, etc). NUNCA importe isto em um Client
+ * Component; use apenas dentro de Server Actions que já validaram permissão
+ * (ex: só o "dono" pode chamar quem cria isto).
+ */
+export function createServiceRoleClient() {
+  const url = envOrThrow("NEXT_PUBLIC_SUPABASE_URL");
+  const serviceRole = envOrThrow("SUPABASE_SERVICE_ROLE_KEY");
+  return createSupabaseClient(url, serviceRole, {
+    auth: { autoRefreshToken: false, persistSession: false },
   });
 }

@@ -2,8 +2,10 @@ import { AlertTriangle } from "lucide-react";
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import GestaoLoja from "@/components/painel/GestaoLoja";
 import RelatorioVendas from "@/components/painel/loja/RelatorioVendas";
+import MigracaoPendente from "@/components/painel/MigracaoPendente";
 import { requireSecao } from "@/lib/auth";
 import { getProdutos, getRelatorioVendas } from "@/lib/data";
+import { Produto } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +17,19 @@ export default async function LojaPage({
   const sessao = await requireSecao(params.slug, "loja");
   const desde = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
 
-  const [produtos, vendas] = await Promise.all([
-    getProdutos(sessao.academia.id),
-    getRelatorioVendas(sessao.academia.id, desde),
-  ]);
+  let produtos: Produto[] = [];
+  try {
+    produtos = await getProdutos(sessao.academia.id);
+  } catch {
+    return (
+      <div className="space-y-6">
+        <Breadcrumbs slug={params.slug} items={[{ label: "Loja" }]} />
+        <MigracaoPendente arquivo="005_loja_feedback_treinos.sql" recurso="a Loja" />
+      </div>
+    );
+  }
+
+  const vendas = await getRelatorioVendas(sessao.academia.id, desde);
 
   // Alerta de reposição: produtos com estoque controlado no/abaixo do mínimo.
   const reposicao = produtos.filter(

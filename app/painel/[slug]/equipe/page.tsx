@@ -1,5 +1,6 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import GestaoEquipe from "@/components/painel/GestaoEquipe";
+import MigracaoPendente from "@/components/painel/MigracaoPendente";
 import { requireSecao } from "@/lib/auth";
 import { getPerfisEquipe } from "@/lib/data";
 import { PAPEIS } from "@/lib/types";
@@ -12,7 +13,21 @@ export default async function EquipePage({
   params: { slug: string };
 }) {
   const sessao = await requireSecao(params.slug, "equipe");
-  const perfis = await getPerfisEquipe(sessao.academia.id);
+
+  let perfis: Awaited<ReturnType<typeof getPerfisEquipe>> = [];
+  try {
+    perfis = await getPerfisEquipe(sessao.academia.id);
+  } catch {
+    return (
+      <div className="space-y-6">
+        <Breadcrumbs slug={params.slug} items={[{ label: "Equipe" }]} />
+        <MigracaoPendente
+          arquivo="008_papeis_e_historico_plano.sql"
+          recurso="A gestão de equipe"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

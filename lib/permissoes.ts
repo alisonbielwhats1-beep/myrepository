@@ -1,5 +1,8 @@
 import { Papel } from "./types";
 
+/** Máximo de pessoas (perfis_admin) por academia na equipe. */
+export const LIMITE_MEMBROS_EQUIPE = 5;
+
 /** Seções do painel que podem ser restritas por papel. */
 export type Secao =
   | "dashboard"

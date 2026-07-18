@@ -1,6 +1,7 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import FeedbackPainel from "@/components/painel/FeedbackPainel";
 import FeedbackQRCard from "@/components/painel/FeedbackQRCard";
+import MigracaoPendente from "@/components/painel/MigracaoPendente";
 import { requireSecao } from "@/lib/auth";
 import { getFeedbacks } from "@/lib/data";
 
@@ -12,7 +13,21 @@ export default async function FeedbackPage({
   params: { slug: string };
 }) {
   const sessao = await requireSecao(params.slug, "feedback");
-  const feedbacks = await getFeedbacks(sessao.academia.id);
+
+  let feedbacks: Awaited<ReturnType<typeof getFeedbacks>> = [];
+  try {
+    feedbacks = await getFeedbacks(sessao.academia.id);
+  } catch {
+    return (
+      <div className="space-y-6">
+        <Breadcrumbs slug={params.slug} items={[{ label: "Feedback" }]} />
+        <MigracaoPendente
+          arquivo="005_loja_feedback_treinos.sql"
+          recurso="O feedback dos alunos"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -246,7 +246,11 @@ export async function getProdutos(academiaId: string): Promise<Produto[]> {
   return (data as Produto[]) ?? [];
 }
 
-/** Produtos ativos da loja via RPC pública (mini-site / aluno, sem login). */
+/**
+ * Produtos ativos da loja via RPC pública (mini-site / aluno, sem login).
+ * Depende da migration 005 — se ainda não foi aplicada, retorna vazio em vez
+ * de derrubar o mini-site público inteiro (visível a qualquer visitante).
+ */
 export async function getProdutosPublicos(
   slug: string
 ): Promise<ProdutoPublico[]> {
@@ -254,7 +258,7 @@ export async function getProdutosPublicos(
   const { data, error } = await supabase.rpc("obter_produtos_publicos", {
     p_slug: slug,
   });
-  if (error) throw new Error(`Falha ao carregar produtos: ${error.message}`);
+  if (error) return [];
   return (data as ProdutoPublico[]) ?? [];
 }
 
@@ -316,11 +320,15 @@ export interface LinhaVenda {
 /**
  * Relatório de vendas da loja (receitas do tipo venda_produto, pagas) a partir
  * de `desde` (ISO). Retorna total geral e ranking por produto (mais vendidos).
+ *
+ * Depende da coluna `receitas.produto_id` (migration 007) — se ainda não foi
+ * aplicada, degrada para "sem relatório" em vez de derrubar a página da Loja.
  */
 export async function getRelatorioVendas(
   academiaId: string,
   desde: string
 ): Promise<{ total: number; qtdVendas: number; ranking: LinhaVenda[] }> {
+  const vazio = { total: 0, qtdVendas: 0, ranking: [] as LinhaVenda[] };
   const supabase = createClient();
   const { data, error } = await supabase
     .from("receitas")
@@ -329,7 +337,7 @@ export async function getRelatorioVendas(
     .eq("tipo", "venda_produto")
     .eq("status", "pago")
     .gte("data", desde);
-  if (error) throw new Error(`Falha ao carregar vendas: ${error.message}`);
+  if (error) return vazio;
 
   const linhas = (data as unknown as {
     valor: number;
@@ -404,7 +412,11 @@ export async function getHistoricoPlanos(
   return (data as HistoricoPlano[]) ?? [];
 }
 
-/** Histórico de planos de todos os alunos da academia (mais recente primeiro). */
+/**
+ * Histórico de planos de todos os alunos da academia (mais recente primeiro).
+ * Depende da tabela `historico_planos` (migration 008) — se ainda não foi
+ * aplicada, retorna vazio em vez de derrubar a página de Alunos inteira.
+ */
 export async function getTodoHistoricoPlanos(
   academiaId: string
 ): Promise<HistoricoPlano[]> {
@@ -414,7 +426,7 @@ export async function getTodoHistoricoPlanos(
     .select("*")
     .eq("academia_id", academiaId)
     .order("data_inicio", { ascending: false });
-  if (error) throw new Error(`Falha ao carregar histórico: ${error.message}`);
+  if (error) return [];
   return (data as HistoricoPlano[]) ?? [];
 }
 

@@ -20,11 +20,34 @@ export const getSessao = cache(async (): Promise<SessaoAcademia | null> => {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: perfil } = await supabase
-    .from("perfis_admin")
-    .select("id, nome, email, papel, academia:academias(*)")
-    .eq("id", user.id)
-    .maybeSingle();
+  let perfil: {
+    id: string;
+    nome: string;
+    email: string;
+    papel?: string;
+    academia: unknown;
+  } | null = (
+    await supabase
+      .from("perfis_admin")
+      .select("id, nome, email, papel, academia:academias(*)")
+      .eq("id", user.id)
+      .maybeSingle()
+  ).data;
+
+  // A coluna "papel" só existe depois da migration 008. Se a consulta acima
+  // falhar por causa disso, tenta de novo sem ela (assume "dono") em vez de
+  // tratar o usuário como deslogado — sem isso, o painel inteiro ficaria
+  // inacessível para todo mundo até a migração ser aplicada.
+  if (!perfil) {
+    const semPapel = await supabase
+      .from("perfis_admin")
+      .select("id, nome, email, academia:academias(*)")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (semPapel.data) {
+      perfil = { ...semPapel.data, papel: "dono" };
+    }
+  }
 
   if (!perfil || !perfil.academia) return null;
 

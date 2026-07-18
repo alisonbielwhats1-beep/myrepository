@@ -1,10 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Loader2, ShieldCheck, UserRound } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import { useFormState } from "react-dom";
+import { Loader2, Plus, ShieldCheck, UserPlus, UserRound } from "lucide-react";
+import { LIMITE_MEMBROS_EQUIPE } from "@/lib/permissoes";
 import { PAPEIS, Papel, PerfilEquipe } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { alterarPapel } from "@/app/painel/[slug]/equipe/actions";
+import ConfirmButton from "@/components/ui/ConfirmButton";
+import FormActions from "@/components/ui/FormActions";
+import {
+  alterarPapel,
+  criarMembroEquipe,
+  removerMembroEquipe,
+} from "@/app/painel/[slug]/equipe/actions";
 
 export default function GestaoEquipe({
   slug,
@@ -17,8 +25,32 @@ export default function GestaoEquipe({
   meuId: string;
   souDono: boolean;
 }) {
+  const [mostrarForm, setMostrarForm] = useState(false);
+  const noLimite = perfis.length >= LIMITE_MEMBROS_EQUIPE;
+
   return (
     <div className="space-y-4">
+      {souDono && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-slate-400">
+            {perfis.length}/{LIMITE_MEMBROS_EQUIPE} pessoas na equipe
+          </p>
+          <button
+            onClick={() => setMostrarForm((v) => !v)}
+            disabled={!mostrarForm && noLimite}
+            className={cn(mostrarForm ? "btn-ghost" : "btn-volt", "disabled:opacity-50")}
+            title={noLimite && !mostrarForm ? "Limite de 5 pessoas atingido" : undefined}
+          >
+            <Plus className="h-4 w-4" />
+            {mostrarForm ? "Fechar" : "Adicionar pessoa"}
+          </button>
+        </div>
+      )}
+
+      {mostrarForm && (
+        <FormularioMembro slug={slug} onSalvo={() => setMostrarForm(false)} />
+      )}
+
       <ul className="space-y-3">
         {perfis.map((p) => (
           <LinhaMembro
@@ -30,22 +62,77 @@ export default function GestaoEquipe({
           />
         ))}
       </ul>
-
-      <div className="surface rounded-2xl border-dashed p-5 text-sm text-slate-400">
-        <p className="font-medium text-white">Adicionar um membro</p>
-        <p className="mt-1">
-          Novos usuários (recepção, instrutor…) são criados com o script{" "}
-          <code className="rounded bg-ink-900 px-1.5 py-0.5 text-xs text-volt-300">
-            npm run criar-usuario
-          </code>{" "}
-          ou pelo painel do Supabase (Authentication → Add user + uma linha em{" "}
-          <code className="rounded bg-ink-900 px-1.5 py-0.5 text-xs text-slate-300">
-            perfis_admin
-          </code>
-          ). Depois o papel pode ser ajustado aqui.
-        </p>
-      </div>
     </div>
+  );
+}
+
+function FormularioMembro({
+  slug,
+  onSalvo,
+}: {
+  slug: string;
+  onSalvo: () => void;
+}) {
+  const acao = criarMembroEquipe.bind(null, slug);
+  const [estado, formAction] = useFormState(acao, {});
+
+  useEffect(() => {
+    if (estado.ok) onSalvo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado.savedAt]);
+
+  return (
+    <form action={formAction} className="surface rounded-2xl p-5">
+      <h3 className="flex items-center gap-2 font-semibold text-white">
+        <UserPlus className="h-4 w-4 text-volt-300" /> Nova pessoa na equipe
+      </h3>
+
+      {estado.erro && (
+        <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          {estado.erro}
+        </p>
+      )}
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">Nome</span>
+          <input name="nome" placeholder="Ex: Maria Silva" className="inp" required />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">E-mail</span>
+          <input
+            name="email"
+            type="email"
+            placeholder="maria@academia.com"
+            className="inp"
+            required
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">Senha</span>
+          <input
+            name="senha"
+            type="password"
+            placeholder="mínimo 6 caracteres"
+            className="inp"
+            minLength={6}
+            required
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">Papel</span>
+          <select name="papel" defaultValue="recepcao" className="inp">
+            {PAPEIS.filter((p) => p.value !== "dono").map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <FormActions salvarLabel="Criar acesso" className="mt-4" />
+    </form>
   );
 }
 
@@ -106,6 +193,14 @@ function LinhaMembro({
             ))}
           </select>
           {pendente && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+          <ConfirmButton
+            action={async () => {
+              const r = await removerMembroEquipe(slug, perfil.id);
+              if (r.erro) setErro(r.erro);
+            }}
+            confirmText={`Remover "${perfil.nome}" da equipe? O login dessa pessoa deixa de funcionar.`}
+            label="Remover da equipe"
+          />
         </div>
       ) : (
         <span
