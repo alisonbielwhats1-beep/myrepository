@@ -1,6 +1,6 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import GestaoTreinos from "@/components/painel/GestaoTreinos";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth";
 import { getCatalogoExercicios, getTreinosBiblioteca } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export default async function TreinosPage({
 }: {
   params: { slug: string };
 }) {
-  const sessao = await requireSessao(params.slug);
+  const sessao = await requireSecao(params.slug, "treinos");
   const [treinos, catalogo] = await Promise.all([
     getTreinosBiblioteca(sessao.academia.id),
     getCatalogoExercicios(),

@@ -99,6 +99,8 @@ create table if not exists public.perfis_admin (
   academia_id   uuid        not null references public.academias(id) on delete cascade,
   nome          text        not null,
   email         text        not null,
+  papel         text        not null default 'dono'
+                  check (papel in ('dono', 'gerente', 'recepcao', 'instrutor')),
   criado_em     timestamptz not null default now()
 );
 
@@ -406,6 +408,24 @@ create index if not exists idx_feedbacks_academia on public.feedbacks(academia_i
 create index if not exists idx_feedbacks_lido      on public.feedbacks(lido);
 create index if not exists idx_feedbacks_criado    on public.feedbacks(criado_em);
 
+-- -----------------------------------------------------------------------------
+-- 2.15 historico_planos — cada plano que o aluno assumiu (troca/renovação).
+-- -----------------------------------------------------------------------------
+create table if not exists public.historico_planos (
+  id                uuid          primary key default gen_random_uuid(),
+  academia_id       uuid          not null references public.academias(id) on delete cascade,
+  aluno_id          uuid          not null references public.alunos(id)    on delete cascade,
+  plano_id          uuid          references public.planos(id) on delete set null,
+  plano_nome        text          not null,
+  valor             numeric(10,2) not null default 0,
+  recorrencia_meses integer       not null default 1,
+  data_inicio       date          not null default current_date,
+  criado_em         timestamptz   not null default now()
+);
+
+create index if not exists idx_hist_planos_academia on public.historico_planos(academia_id);
+create index if not exists idx_hist_planos_aluno     on public.historico_planos(aluno_id);
+
 -- =============================================================================
 -- 3. ÍNDICES (tabelas originais)
 -- =============================================================================
@@ -481,6 +501,7 @@ alter table public.despesas          enable row level security;
 alter table public.progresso_aluno   enable row level security;
 alter table public.produtos          enable row level security;
 alter table public.feedbacks         enable row level security;
+alter table public.historico_planos  enable row level security;
 alter table public.catalogo_exercicios enable row level security;
 
 -- catalogo_exercicios: biblioteca global, leitura para qualquer autenticado
@@ -493,10 +514,21 @@ drop policy if exists "catalogo_service_role" on public.catalogo_exercicios;
 create policy "catalogo_service_role" on public.catalogo_exercicios
   for all to service_role using (true) with check (true);
 
--- 6.1 perfis_admin: cada admin só enxerga o próprio perfil.
+-- 6.1 perfis_admin: cada usuário enxerga os perfis da própria academia (equipe);
+-- dono/gerente podem atualizar o papel dos colegas (regra reforçada na app).
 drop policy if exists "perfil_proprio_select" on public.perfis_admin;
 create policy "perfil_proprio_select" on public.perfis_admin
   for select to authenticated using (id = auth.uid());
+
+drop policy if exists "perfil_equipe_select" on public.perfis_admin;
+create policy "perfil_equipe_select" on public.perfis_admin
+  for select to authenticated using (academia_id = public.academia_id_atual());
+
+drop policy if exists "perfil_equipe_update" on public.perfis_admin;
+create policy "perfil_equipe_update" on public.perfis_admin
+  for update to authenticated
+  using (academia_id = public.academia_id_atual())
+  with check (academia_id = public.academia_id_atual());
 
 -- 6.2 academias: o admin só vê/edita a própria academia.
 drop policy if exists "academia_tenant_select" on public.academias;
@@ -518,7 +550,7 @@ begin
   foreach tbl in array array[
     'alunos', 'planos', 'treinos', 'acessos_catraca',
     'funcionarios', 'receitas', 'despesas', 'progresso_aluno',
-    'produtos', 'feedbacks'
+    'produtos', 'feedbacks', 'historico_planos'
   ] loop
     execute format('drop policy if exists "tenant_select_%1$s" on public.%1$s;', tbl);
     execute format(
@@ -584,7 +616,7 @@ begin
   foreach tbl in array array[
     'academias', 'perfis_admin', 'alunos', 'planos', 'treinos', 'exercicios_treino',
     'acessos_catraca', 'funcionarios', 'receitas', 'despesas', 'progresso_aluno',
-    'produtos', 'feedbacks', 'catalogo_exercicios'
+    'produtos', 'feedbacks', 'historico_planos', 'catalogo_exercicios'
   ] loop
     execute format('drop policy if exists "service_role_total_%1$s" on public.%1$s;', tbl);
     execute format(

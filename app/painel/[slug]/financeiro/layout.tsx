@@ -1,6 +1,6 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import FinanceiroTabs from "@/components/painel/financeiro/FinanceiroTabs";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export default async function FinanceiroLayout({
   children: React.ReactNode;
   params: { slug: string };
 }) {
-  await requireSessao(params.slug);
+  await requireSecao(params.slug, "financeiro");
 
   return (
     <div className="space-y-6">

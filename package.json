@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "criar-academia": "node scripts/criar-academia.mjs"
+    "criar-academia": "node scripts/criar-academia.mjs",
+    "criar-usuario": "node scripts/criar-usuario.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

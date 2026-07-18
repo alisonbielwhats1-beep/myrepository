@@ -343,11 +343,42 @@ export interface Feedback {
   aluno?: Pick<Aluno, "id" | "nome"> | null;
 }
 
+export type Papel = "dono" | "gerente" | "recepcao" | "instrutor";
+
+export const PAPEIS: { value: Papel; label: string; descricao: string }[] = [
+  { value: "dono", label: "Dono", descricao: "Acesso total a tudo" },
+  { value: "gerente", label: "Gerente", descricao: "Tudo, menos configurações e equipe" },
+  { value: "recepcao", label: "Recepção", descricao: "Catraca, alunos e loja" },
+  { value: "instrutor", label: "Instrutor", descricao: "Treinos e alunos" },
+];
+
+/** Perfil da equipe (um usuário da academia). */
+export interface PerfilEquipe {
+  id: string;
+  nome: string;
+  email: string;
+  papel: Papel;
+  criado_em: string;
+}
+
+export interface HistoricoPlano {
+  id: string;
+  academia_id: string;
+  aluno_id: string;
+  plano_id: string | null;
+  plano_nome: string;
+  valor: number;
+  recorrencia_meses: number;
+  data_inicio: string;
+  criado_em: string;
+}
+
 /** Perfil do administrador autenticado + a academia que ele gerencia. */
 export interface SessaoAcademia {
   userId: string;
   nome: string;
   email: string;
+  papel: Papel;
   academia: Academia;
 }
 

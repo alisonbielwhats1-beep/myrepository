@@ -1,6 +1,6 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import GestaoFuncionarios from "@/components/painel/GestaoFuncionarios";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth";
 import { getFuncionarios } from "@/lib/data";
 
 export default async function FuncionariosPage({
@@ -8,7 +8,7 @@ export default async function FuncionariosPage({
 }: {
   params: { slug: string };
 }) {
-  const sessao = await requireSessao(params.slug);
+  const sessao = await requireSecao(params.slug, "funcionarios");
   const funcionarios = await getFuncionarios(sessao.academia.id);
 
   return (

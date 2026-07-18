@@ -5,6 +5,7 @@ import {
   getAlunos,
   getCatalogoExercicios,
   getPlanos,
+  getTodoHistoricoPlanos,
   getTodoProgresso,
   getTodosOsTreinos,
 } from "@/lib/data";
@@ -17,13 +18,15 @@ export default async function AlunosPage({
   params: { slug: string };
 }) {
   const sessao = await requireSessao(params.slug);
-  const [alunos, treinos, planos, catalogo, progresso] = await Promise.all([
-    getAlunos(sessao.academia.id),
-    getTodosOsTreinos(sessao.academia.id),
-    getPlanos(sessao.academia.id),
-    getCatalogoExercicios(),
-    getTodoProgresso(sessao.academia.id),
-  ]);
+  const [alunos, treinos, planos, catalogo, progresso, historico] =
+    await Promise.all([
+      getAlunos(sessao.academia.id),
+      getTodosOsTreinos(sessao.academia.id),
+      getPlanos(sessao.academia.id),
+      getCatalogoExercicios(),
+      getTodoProgresso(sessao.academia.id),
+      getTodoHistoricoPlanos(sessao.academia.id),
+    ]);
 
   return (
     <div className="space-y-6">
@@ -44,6 +47,7 @@ export default async function AlunosPage({
         planos={planos}
         catalogo={catalogo}
         progresso={progresso}
+        historico={historico}
       />
     </div>
   );

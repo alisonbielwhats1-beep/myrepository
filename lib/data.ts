@@ -12,6 +12,8 @@ import {
   Feedback,
   FichaAlunoPublica,
   Funcionario,
+  HistoricoPlano,
+  PerfilEquipe,
   Plano,
   PlanoPublico,
   Produto,
@@ -256,6 +258,54 @@ export async function getProdutosPublicos(
   return (data as ProdutoPublico[]) ?? [];
 }
 
+export interface Notificacoes {
+  inadimplentes: number;
+  estoqueBaixo: number;
+  feedbackNovo: number;
+}
+
+/**
+ * Contadores para a central de notificações do painel: mensalidades vencidas,
+ * produtos para repor e feedbacks não lidos. Consultas leves (counts + um
+ * fetch mínimo de produtos).
+ */
+export async function getNotificacoes(
+  academiaId: string
+): Promise<Notificacoes> {
+  const supabase = createClient();
+  const hoje = new Date().toISOString().slice(0, 10);
+
+  const [inadRes, feedRes, prodRes] = await Promise.all([
+    supabase
+      .from("receitas")
+      .select("id", { count: "exact", head: true })
+      .eq("academia_id", academiaId)
+      .eq("tipo", "mensalidade")
+      .eq("status", "pendente")
+      .lt("data", hoje),
+    supabase
+      .from("feedbacks")
+      .select("id", { count: "exact", head: true })
+      .eq("academia_id", academiaId)
+      .eq("lido", false),
+    supabase
+      .from("produtos")
+      .select("estoque, estoque_minimo")
+      .eq("academia_id", academiaId)
+      .not("estoque", "is", null),
+  ]);
+
+  const estoqueBaixo = ((prodRes.data as
+    | { estoque: number; estoque_minimo: number }[]
+    | null) ?? []).filter((p) => p.estoque <= p.estoque_minimo).length;
+
+  return {
+    inadimplentes: inadRes.count ?? 0,
+    estoqueBaixo,
+    feedbackNovo: feedRes.count ?? 0,
+  };
+}
+
 export interface LinhaVenda {
   produtoId: string | null;
   nome: string;
@@ -322,6 +372,50 @@ export async function getFeedbacks(academiaId: string): Promise<Feedback[]> {
     .order("criado_em", { ascending: false });
   if (error) throw new Error(`Falha ao carregar feedbacks: ${error.message}`);
   return (data as Feedback[]) ?? [];
+}
+
+/** Perfis (equipe) da academia. */
+export async function getPerfisEquipe(
+  academiaId: string
+): Promise<PerfilEquipe[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("perfis_admin")
+    .select("id, nome, email, papel, criado_em")
+    .eq("academia_id", academiaId)
+    .order("criado_em", { ascending: true });
+  if (error) throw new Error(`Falha ao carregar equipe: ${error.message}`);
+  return (data as PerfilEquipe[]) ?? [];
+}
+
+/** Histórico de planos de um aluno (mais recente primeiro). */
+export async function getHistoricoPlanos(
+  academiaId: string,
+  alunoId: string
+): Promise<HistoricoPlano[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("historico_planos")
+    .select("*")
+    .eq("academia_id", academiaId)
+    .eq("aluno_id", alunoId)
+    .order("data_inicio", { ascending: false });
+  if (error) throw new Error(`Falha ao carregar histórico: ${error.message}`);
+  return (data as HistoricoPlano[]) ?? [];
+}
+
+/** Histórico de planos de todos os alunos da academia (mais recente primeiro). */
+export async function getTodoHistoricoPlanos(
+  academiaId: string
+): Promise<HistoricoPlano[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("historico_planos")
+    .select("*")
+    .eq("academia_id", academiaId)
+    .order("data_inicio", { ascending: false });
+  if (error) throw new Error(`Falha ao carregar histórico: ${error.message}`);
+  return (data as HistoricoPlano[]) ?? [];
 }
 
 /** Catálogo global de exercícios (grupo muscular), para montagem rápida de treino. */

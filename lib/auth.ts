@@ -2,6 +2,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "./supabase/server";
 import { Academia, SessaoAcademia } from "./types";
+import { podeAcessar, Secao } from "./permissoes";
 
 /**
  * Resolve a sessão do administrador autenticado (usuário + academia
@@ -21,7 +22,7 @@ export const getSessao = cache(async (): Promise<SessaoAcademia | null> => {
 
   const { data: perfil } = await supabase
     .from("perfis_admin")
-    .select("id, nome, email, academia:academias(*)")
+    .select("id, nome, email, papel, academia:academias(*)")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -31,6 +32,7 @@ export const getSessao = cache(async (): Promise<SessaoAcademia | null> => {
     userId: perfil.id,
     nome: perfil.nome,
     email: perfil.email,
+    papel: (perfil.papel as SessaoAcademia["papel"]) ?? "dono",
     academia: perfil.academia as unknown as Academia,
   };
 });
@@ -49,5 +51,21 @@ export async function requireSessao(slug?: string): Promise<SessaoAcademia> {
     redirect(`/painel/${sessao.academia.slug_url}`);
   }
 
+  return sessao;
+}
+
+/**
+ * Exige sessão E permissão para acessar `secao`. Sem permissão -> volta para o
+ * Dashboard (que todo papel enxerga). Usa-se no topo das páginas restritas
+ * como defesa além de esconder o item no menu.
+ */
+export async function requireSecao(
+  slug: string,
+  secao: Secao
+): Promise<SessaoAcademia> {
+  const sessao = await requireSessao(slug);
+  if (!podeAcessar(sessao.papel, secao)) {
+    redirect(`/painel/${sessao.academia.slug_url}`);
+  }
   return sessao;
 }

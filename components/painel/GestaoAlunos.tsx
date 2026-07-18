@@ -17,6 +17,7 @@ import {
 import {
   Aluno,
   CatalogoExercicio,
+  HistoricoPlano,
   Plano,
   ProgressoAluno as TipoProgresso,
   StatusMatricula,
@@ -27,6 +28,7 @@ import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
 import ExercicioBuilder from "@/components/painel/ExercicioBuilder";
 import ProgressoAluno from "@/components/painel/ProgressoAluno";
+import HistoricoPlanoAluno from "@/components/painel/HistoricoPlanoAluno";
 import {
   atualizarAluno,
   criarAluno,
@@ -42,6 +44,7 @@ export default function GestaoAlunos({
   planos,
   catalogo,
   progresso,
+  historico,
 }: {
   slug: string;
   alunosIniciais: Aluno[];
@@ -49,6 +52,7 @@ export default function GestaoAlunos({
   planos: Plano[];
   catalogo: CatalogoExercicio[];
   progresso: TipoProgresso[];
+  historico: HistoricoPlano[];
 }) {
   const alunos = alunosIniciais;
   const treinos = treinosIniciais;
@@ -209,6 +213,15 @@ export default function GestaoAlunos({
               </div>
             )}
           </div>
+        )}
+
+        {/* Plano & renovação */}
+        {alunoSelecionado && (
+          <HistoricoPlanoAluno
+            slug={slug}
+            alunoId={alunoSelecionado.id}
+            registros={historico.filter((h) => h.aluno_id === alunoSelecionado.id)}
+          />
         )}
 
         {/* Progresso (peso, medidas, fotos) */}

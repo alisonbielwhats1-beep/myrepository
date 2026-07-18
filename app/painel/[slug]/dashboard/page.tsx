@@ -16,7 +16,7 @@ import {
   PontoHora,
   PontoOrigem,
 } from "@/components/painel/DashboardCharts";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth";
 import { getAcessos, getAlunos, getReceitas } from "@/lib/data";
 import { OrigemAcesso } from "@/lib/types";
 import { formatBRL } from "@/lib/utils";
@@ -28,7 +28,7 @@ export default async function RelatoriosPage({
 }: {
   params: { slug: string };
 }) {
-  const sessao = await requireSessao(params.slug);
+  const sessao = await requireSecao(params.slug, "relatorios");
 
   const seteDiasAtras = new Date(Date.now() - 6 * 86400_000)
     .toISOString()

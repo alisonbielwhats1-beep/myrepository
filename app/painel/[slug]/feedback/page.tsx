@@ -1,7 +1,7 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import FeedbackPainel from "@/components/painel/FeedbackPainel";
 import FeedbackQRCard from "@/components/painel/FeedbackQRCard";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth";
 import { getFeedbacks } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export default async function FeedbackPage({
 }: {
   params: { slug: string };
 }) {
-  const sessao = await requireSessao(params.slug);
+  const sessao = await requireSecao(params.slug, "feedback");
   const feedbacks = await getFeedbacks(sessao.academia.id);
 
   return (

@@ -1,7 +1,7 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import ConfiguracoesAcademia from "@/components/painel/ConfiguracoesAcademia";
 import GestaoPlanos from "@/components/painel/GestaoPlanos";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth";
 import { getPlanos } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export default async function ConfiguracoesPage({
 }: {
   params: { slug: string };
 }) {
-  const sessao = await requireSessao(params.slug);
+  const sessao = await requireSecao(params.slug, "configuracoes");
   const planos = await getPlanos(sessao.academia.id);
 
   return (

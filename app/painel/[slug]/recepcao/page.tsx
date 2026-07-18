@@ -2,7 +2,7 @@ import { Clock3, DoorOpen, UserCheck, Wallet } from "lucide-react";
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import CatracaLog from "@/components/painel/CatracaLog";
 import StatTile from "@/components/painel/StatTile";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth";
 import { getAcessos, getAlunos } from "@/lib/data";
 import { formatBRL } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ export default async function RecepcaoPage({
 }: {
   params: { slug: string };
 }) {
-  const sessao = await requireSessao(params.slug);
+  const sessao = await requireSecao(params.slug, "recepcao");
   const [acessos, alunos] = await Promise.all([
     getAcessos(sessao.academia.id),
     getAlunos(sessao.academia.id),

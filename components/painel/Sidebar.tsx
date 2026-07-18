@@ -7,12 +7,14 @@ import {
   BarChart3,
   DollarSign,
   Dumbbell,
+  HeartPulse,
   LayoutDashboard,
   LogOut,
   Menu,
   MessageSquare,
   ScanLine,
   Settings,
+  ShieldCheck,
   ShoppingBag,
   Users,
   UserRound,
@@ -21,6 +23,8 @@ import {
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import { sairAction } from "@/lib/actions/auth";
+import { Papel } from "@/lib/types";
+import { podeAcessar, Secao } from "@/lib/permissoes";
 import { cn } from "@/lib/utils";
 
 export default function Sidebar({
@@ -28,28 +32,40 @@ export default function Sidebar({
   academiaNome,
   adminNome,
   adminEmail,
+  papel,
 }: {
   slug: string;
   academiaNome: string;
   adminNome: string;
   adminEmail: string;
+  papel: Papel;
 }) {
   const pathname = usePathname();
   const [aberto, setAberto] = useState(false);
   const base = `/painel/${slug}`;
 
-  const itens = [
-    { href: base, label: "Dashboard", icon: LayoutDashboard, exact: true },
-    { href: `${base}/recepcao`, label: "Recepção / Catraca", icon: ScanLine },
-    { href: `${base}/alunos`, label: "Alunos", icon: Users },
-    { href: `${base}/treinos`, label: "Treinos", icon: Dumbbell },
-    { href: `${base}/funcionarios`, label: "Funcionários", icon: UserRound },
-    { href: `${base}/loja`, label: "Loja", icon: ShoppingBag },
-    { href: `${base}/financeiro`, label: "Financeiro", icon: DollarSign },
-    { href: `${base}/feedback`, label: "Feedback", icon: MessageSquare },
-    { href: `${base}/dashboard`, label: "Relatórios / BI", icon: BarChart3 },
-    { href: `${base}/configuracoes`, label: "Configurações", icon: Settings },
+  const todos: {
+    href: string;
+    label: string;
+    icon: typeof LayoutDashboard;
+    secao: Secao;
+    exact?: boolean;
+  }[] = [
+    { href: base, label: "Dashboard", icon: LayoutDashboard, secao: "dashboard", exact: true },
+    { href: `${base}/recepcao`, label: "Recepção / Catraca", icon: ScanLine, secao: "recepcao" },
+    { href: `${base}/alunos`, label: "Alunos", icon: Users, secao: "alunos" },
+    { href: `${base}/treinos`, label: "Treinos", icon: Dumbbell, secao: "treinos" },
+    { href: `${base}/funcionarios`, label: "Funcionários", icon: UserRound, secao: "funcionarios" },
+    { href: `${base}/loja`, label: "Loja", icon: ShoppingBag, secao: "loja" },
+    { href: `${base}/financeiro`, label: "Financeiro", icon: DollarSign, secao: "financeiro" },
+    { href: `${base}/retencao`, label: "Retenção", icon: HeartPulse, secao: "retencao" },
+    { href: `${base}/feedback`, label: "Feedback", icon: MessageSquare, secao: "feedback" },
+    { href: `${base}/dashboard`, label: "Relatórios / BI", icon: BarChart3, secao: "relatorios" },
+    { href: `${base}/equipe`, label: "Equipe", icon: ShieldCheck, secao: "equipe" },
+    { href: `${base}/configuracoes`, label: "Configurações", icon: Settings, secao: "configuracoes" },
   ];
+
+  const itens = todos.filter((i) => podeAcessar(papel, i.secao));
 
   const conteudo = (
     <div className="flex h-full flex-col">

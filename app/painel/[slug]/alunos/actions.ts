@@ -11,6 +11,30 @@ function proximaMatricula(totalAtual: number): string {
   return `AL-${String(totalAtual + 1).padStart(4, "0")}`;
 }
 
+/** Registra no histórico o plano que o aluno passou a ter (troca/renovação). */
+async function registrarHistoricoPlano(
+  supabase: ReturnType<typeof createClient>,
+  academiaId: string,
+  alunoId: string,
+  planoId: string
+): Promise<void> {
+  const { data: plano } = await supabase
+    .from("planos")
+    .select("nome, valor_mensal, recorrencia_meses")
+    .eq("id", planoId)
+    .eq("academia_id", academiaId)
+    .maybeSingle();
+  if (!plano) return;
+  await supabase.from("historico_planos").insert({
+    academia_id: academiaId,
+    aluno_id: alunoId,
+    plano_id: planoId,
+    plano_nome: plano.nome,
+    valor: plano.valor_mensal,
+    recorrencia_meses: plano.recorrencia_meses,
+  });
+}
+
 export async function criarAluno(
   slug: string,
   _estado: EstadoAcaoAluno,
@@ -27,19 +51,28 @@ export async function criarAluno(
     .select("id", { count: "exact", head: true })
     .eq("academia_id", sessao.academia.id);
 
-  const { error } = await supabase.from("alunos").insert({
-    academia_id: sessao.academia.id,
-    nome,
-    cpf: String(formData.get("cpf") ?? "").trim() || null,
-    email: String(formData.get("email") ?? "").trim() || null,
-    telefone: String(formData.get("telefone") ?? "").trim() || null,
-    foto_perfil_url: String(formData.get("foto_perfil_url") ?? "").trim() || null,
-    status_matricula: (formData.get("status") as StatusMatricula) || "ativa",
-    plano_id: String(formData.get("plano_id") ?? "").trim() || null,
-    matricula_codigo: proximaMatricula(count ?? 0),
-  });
+  const planoId = String(formData.get("plano_id") ?? "").trim() || null;
+  const { data: novo, error } = await supabase
+    .from("alunos")
+    .insert({
+      academia_id: sessao.academia.id,
+      nome,
+      cpf: String(formData.get("cpf") ?? "").trim() || null,
+      email: String(formData.get("email") ?? "").trim() || null,
+      telefone: String(formData.get("telefone") ?? "").trim() || null,
+      foto_perfil_url: String(formData.get("foto_perfil_url") ?? "").trim() || null,
+      status_matricula: (formData.get("status") as StatusMatricula) || "ativa",
+      plano_id: planoId,
+      matricula_codigo: proximaMatricula(count ?? 0),
+    })
+    .select("id")
+    .single();
 
   if (error) return { erro: `Falha ao cadastrar aluno: ${error.message}` };
+
+  if (planoId && novo) {
+    await registrarHistoricoPlano(supabase, sessao.academia.id, novo.id, planoId);
+  }
 
   revalidatePath(`/painel/${slug}/alunos`);
   revalidatePath(`/painel/${slug}`);
@@ -58,6 +91,16 @@ export async function atualizarAluno(
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) return { erro: "Informe o nome do aluno." };
 
+  const planoId = String(formData.get("plano_id") ?? "").trim() || null;
+
+  // Detecta troca de plano para registrar no histórico.
+  const { data: atual } = await supabase
+    .from("alunos")
+    .select("plano_id")
+    .eq("id", alunoId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("alunos")
     .update({
@@ -68,16 +111,41 @@ export async function atualizarAluno(
       foto_perfil_url:
         String(formData.get("foto_perfil_url") ?? "").trim() || null,
       status_matricula: (formData.get("status") as StatusMatricula) || "ativa",
-      plano_id: String(formData.get("plano_id") ?? "").trim() || null,
+      plano_id: planoId,
     })
     .eq("id", alunoId)
     .eq("academia_id", sessao.academia.id);
 
   if (error) return { erro: `Falha ao atualizar aluno: ${error.message}` };
 
+  if (planoId && planoId !== (atual?.plano_id ?? null)) {
+    await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId);
+  }
+
   revalidatePath(`/painel/${slug}/alunos`);
   revalidatePath(`/painel/${slug}`);
   return { ok: true, savedAt: Date.now() };
+}
+
+/** Renova o plano atual do aluno (nova entrada no histórico com início hoje). */
+export async function renovarPlano(
+  slug: string,
+  alunoId: string
+): Promise<{ erro?: string; ok?: boolean }> {
+  const sessao = await requireSessao(slug);
+  const supabase = createClient();
+
+  const { data: aluno } = await supabase
+    .from("alunos")
+    .select("plano_id")
+    .eq("id", alunoId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+  if (!aluno?.plano_id) return { erro: "O aluno não tem um plano definido." };
+
+  await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, aluno.plano_id);
+  revalidatePath(`/painel/${slug}/alunos`);
+  return { ok: true };
 }
 
 export async function excluirAluno(slug: string, alunoId: string): Promise<void> {

@@ -2,7 +2,7 @@ import { AlertTriangle } from "lucide-react";
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import GestaoLoja from "@/components/painel/GestaoLoja";
 import RelatorioVendas from "@/components/painel/loja/RelatorioVendas";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth";
 import { getProdutos, getRelatorioVendas } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export default async function LojaPage({
 }: {
   params: { slug: string };
 }) {
-  const sessao = await requireSessao(params.slug);
+  const sessao = await requireSecao(params.slug, "loja");
   const desde = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
 
   const [produtos, vendas] = await Promise.all([
