@@ -107,7 +107,7 @@ export default function Sidebar({
   return (
     <>
       {/* Topo mobile */}
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-ink-700/70 bg-ink-950/90 px-4 py-3 backdrop-blur-lg lg:hidden">
+      <div className="no-print sticky top-0 z-30 flex items-center justify-between border-b border-ink-700/70 bg-ink-950/90 px-4 py-3 backdrop-blur-lg lg:hidden">
         <Link href={base}>
           <Logo />
         </Link>
@@ -122,7 +122,7 @@ export default function Sidebar({
 
       {/* Drawer mobile */}
       {aberto && (
-        <div className="fixed inset-0 z-40 lg:hidden">
+        <div className="no-print fixed inset-0 z-40 lg:hidden">
           <div
             className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm"
             onClick={() => setAberto(false)}
@@ -141,7 +141,7 @@ export default function Sidebar({
       )}
 
       {/* Sidebar fixa desktop */}
-      <aside className="sticky top-0 hidden h-dvh w-64 flex-none border-r border-ink-700/70 bg-ink-900/60 lg:block">
+      <aside className="no-print sticky top-0 hidden h-dvh w-64 flex-none border-r border-ink-700/70 bg-ink-900/60 lg:block">
         {conteudo}
       </aside>
     </>

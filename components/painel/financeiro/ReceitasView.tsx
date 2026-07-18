@@ -5,8 +5,10 @@ import { useFormState } from "react-dom";
 import { Pencil, Plus } from "lucide-react";
 import { Aluno, Receita, TIPOS_RECEITA } from "@/lib/types";
 import { cn, formatBRL } from "@/lib/utils";
+import { baixarCSV } from "@/lib/csv";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
+import ExportBar from "@/components/painel/financeiro/ExportBar";
 import {
   atualizarReceita,
   criarReceita,
@@ -49,13 +51,31 @@ export default function ReceitasView({
         </div>
       </div>
 
-      <button
-        onClick={() => setMostrarForm((v) => !v)}
-        className={mostrarForm ? "btn-ghost" : "btn-volt"}
-      >
-        <Plus className="h-4 w-4" />
-        {mostrarForm ? "Fechar formulário" : "Lançar receita"}
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          onClick={() => setMostrarForm((v) => !v)}
+          className={cn("no-print", mostrarForm ? "btn-ghost" : "btn-volt")}
+        >
+          <Plus className="h-4 w-4" />
+          {mostrarForm ? "Fechar formulário" : "Lançar receita"}
+        </button>
+        <ExportBar
+          onExportarCSV={() =>
+            baixarCSV(
+              "receitas",
+              ["Descrição", "Tipo", "Aluno", "Valor", "Data", "Status"],
+              receitas.map((r) => [
+                r.descricao,
+                TIPOS_RECEITA.find((t) => t.value === r.tipo)?.label ?? r.tipo,
+                r.aluno?.nome ?? "",
+                r.valor,
+                r.data,
+                r.status === "pago" ? "Pago" : "Pendente",
+              ])
+            )
+          }
+        />
+      </div>
 
       {mostrarForm && (
         <FormularioReceita
@@ -76,7 +96,7 @@ export default function ReceitasView({
                 <th className="px-5 py-3 font-medium">Valor</th>
                 <th className="px-5 py-3 font-medium">Data</th>
                 <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium" />
+                <th className="no-print px-5 py-3 font-medium" />
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-700/70">
@@ -121,7 +141,7 @@ export default function ReceitasView({
                       <StatusChip status={r.status} />
                     </td>
                     <td className="px-5 py-3">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="no-print flex items-center justify-end gap-1">
                         <button
                           onClick={() => setEditandoId(r.id)}
                           title="Editar receita"

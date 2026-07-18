@@ -5,8 +5,10 @@ import { useFormState } from "react-dom";
 import { CalendarClock, Loader2, Lock, Pencil, Plus } from "lucide-react";
 import { CATEGORIAS_DESPESA, Despesa } from "@/lib/types";
 import { cn, formatBRL } from "@/lib/utils";
+import { baixarCSV } from "@/lib/csv";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
+import ExportBar from "@/components/painel/financeiro/ExportBar";
 import {
   atualizarDespesa,
   criarDespesa,
@@ -63,22 +65,40 @@ export default function DespesasView({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => setMostrarForm((v) => !v)}
-          className={mostrarForm ? "btn-ghost" : "btn-volt"}
-        >
-          <Plus className="h-4 w-4" />
-          {mostrarForm ? "Fechar formulário" : "Lançar despesa"}
-        </button>
-        <button onClick={rodarFolha} disabled={folhaPending} className="btn-ghost">
-          {folhaPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <CalendarClock className="h-4 w-4" />
-          )}
-          Gerar folha salarial do mês
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="no-print flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setMostrarForm((v) => !v)}
+            className={mostrarForm ? "btn-ghost" : "btn-volt"}
+          >
+            <Plus className="h-4 w-4" />
+            {mostrarForm ? "Fechar formulário" : "Lançar despesa"}
+          </button>
+          <button onClick={rodarFolha} disabled={folhaPending} className="btn-ghost">
+            {folhaPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CalendarClock className="h-4 w-4" />
+            )}
+            Gerar folha salarial do mês
+          </button>
+        </div>
+        <ExportBar
+          onExportarCSV={() =>
+            baixarCSV(
+              "despesas",
+              ["Descrição", "Categoria", "Valor", "Data", "Status"],
+              despesas.map((d) => [
+                d.descricao,
+                CATEGORIAS_DESPESA.find((c) => c.value === d.categoria)?.label ??
+                  d.categoria,
+                d.valor,
+                d.data,
+                d.status === "pago" ? "Pago" : "Pendente",
+              ])
+            )
+          }
+        />
       </div>
 
       {folhaMsg && (
@@ -105,7 +125,7 @@ export default function DespesasView({
                 <th className="px-5 py-3 font-medium">Valor</th>
                 <th className="px-5 py-3 font-medium">Data</th>
                 <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium" />
+                <th className="no-print px-5 py-3 font-medium" />
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-700/70">
@@ -154,7 +174,7 @@ export default function DespesasView({
                       <StatusChip status={d.status} />
                     </td>
                     <td className="px-5 py-3">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="no-print flex items-center justify-end gap-1">
                         <button
                           onClick={() => setEditandoId(d.id)}
                           title="Editar despesa"

@@ -24,7 +24,7 @@ export default function PeriodoFilter({ periodo }: { periodo: Periodo }) {
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="no-print flex flex-wrap items-center justify-between gap-3">
       {/* Granularidade */}
       <div className="inline-flex gap-1 rounded-xl border border-ink-600 bg-ink-800 p-1">
         {GRANULARIDADES.map((g) => (

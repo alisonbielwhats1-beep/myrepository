@@ -139,3 +139,25 @@ body {
   mix-blend-mode: normal !important;
   image-rendering: auto;
 }
+
+/* Impressão (ex: relatório financeiro em PDF via "Imprimir" do navegador):
+   esconde navegação/formulários e força um fundo claro legível no papel. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f141e !important;
+  }
+  .surface,
+  .surface-strong {
+    background: #ffffff !important;
+    border-color: #d8dde6 !important;
+    box-shadow: none !important;
+  }
+  * {
+    color: #0f141e !important;
+  }
+}
