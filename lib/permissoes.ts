@@ -18,6 +18,8 @@ export type Secao =
   | "configuracoes"
   | "equipe";
 
+// Financeiro (receitas, despesas, DRE, planos, projeção de caixa) é
+// exclusivo do dono — nenhum outro papel enxerga essa seção.
 const PERMISSOES: Record<Papel, Secao[] | "all"> = {
   dono: "all",
   gerente: [
@@ -25,15 +27,14 @@ const PERMISSOES: Record<Papel, Secao[] | "all"> = {
     "recepcao",
     "alunos",
     "treinos",
-    "funcionarios",
     "loja",
-    "financeiro",
-    "feedback",
-    "relatorios",
+    "funcionarios",
     "retencao",
+    "relatorios",
+    "feedback",
   ],
-  recepcao: ["dashboard", "recepcao", "alunos", "loja"],
-  instrutor: ["dashboard", "alunos", "treinos"],
+  recepcao: ["dashboard", "recepcao", "alunos", "treinos", "loja"],
+  instrutor: ["dashboard", "recepcao", "alunos", "treinos"],
 };
 
 export function podeAcessar(papel: Papel, secao: Secao): boolean {
