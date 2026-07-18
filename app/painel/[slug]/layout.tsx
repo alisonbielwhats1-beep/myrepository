@@ -13,7 +13,7 @@ export default async function PainelLayout({
   const sessao = await requireSessao(params.slug);
 
   return (
-    <div className="flex min-h-dvh bg-ink-950 bg-grid-fade lg:flex-row">
+    <div className="flex min-h-dvh flex-col bg-ink-950 bg-grid-fade lg:flex-row">
       <Sidebar
         slug={params.slug}
         academiaNome={sessao.academia.nome_fantasia}

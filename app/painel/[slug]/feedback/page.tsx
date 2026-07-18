@@ -1,5 +1,6 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import FeedbackPainel from "@/components/painel/FeedbackPainel";
+import FeedbackQRCard from "@/components/painel/FeedbackQRCard";
 import { requireSessao } from "@/lib/auth";
 import { getFeedbacks } from "@/lib/data";
 
@@ -23,6 +24,8 @@ export default async function FeedbackPage({
           entender o que está bom e o que pode melhorar.
         </p>
       </div>
+
+      <FeedbackQRCard slug={params.slug} />
 
       <FeedbackPainel slug={params.slug} feedbacks={feedbacks} />
     </div>

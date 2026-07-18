@@ -41,10 +41,13 @@ const config: Config = {
         volt: {
           50: "#f2ffe0",
           100: "#e3ffc2",
-          200: "#c9ff85",
-          300: "#adff42",
-          400: "#93f312",
-          500: "#7ad600",
+          // As faixas usadas como acento/primária trocam por tema (via CSS var):
+          // no escuro ficam lima-neon; no claro, um verde profundo e legível
+          // que não "queima" a vista sobre fundo branco.
+          200: v("volt-200"),
+          300: v("volt-300"),
+          400: v("volt-400"),
+          500: v("volt-500"),
           600: "#5faa00",
           700: "#487f06",
           800: "#3a640c",

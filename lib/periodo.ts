@@ -93,56 +93,66 @@ export const RANGES_DASHBOARD: { valor: RangeDashboard; label: string }[] = [
 ];
 
 export interface JanelaDashboard {
-  range: RangeDashboard;
+  range: RangeDashboard | "custom";
   label: string;
-  desde: string; // ISO YYYY-MM-DD — início da janela
-  dias: number;
-  meses: number;
-  porDia: boolean; // true = gráfico por dia; false = por mês
+  desde: string; // ISO YYYY-MM-DD — início da janela (inclusive)
+  ate: string; // ISO YYYY-MM-DD — fim da janela (inclusive)
+  custom: boolean;
 }
 
-/** Resolve a janela do Dashboard a partir do parâmetro `range`. */
-export function resolverJanelaDashboard(range?: string): JanelaDashboard {
-  const r: RangeDashboard = (
-    ["semana", "mes", "6meses", "12meses"] as const
-  ).includes(range as RangeDashboard)
-    ? (range as RangeDashboard)
-    : "6meses";
-
+/**
+ * Resolve a janela do Dashboard. Se `de` e `ate` forem informados (intervalo
+ * personalizado), eles têm prioridade sobre o `range` de botões fixos.
+ */
+export function resolverJanelaDashboard(sp?: {
+  range?: string;
+  de?: string;
+  ate?: string;
+}): JanelaDashboard {
   const hoje = new Date();
-  let dias: number;
-  let meses: number;
-  let porDia: boolean;
+  const hojeIso = iso(hoje);
 
-  if (r === "semana") {
-    dias = 7;
-    meses = 1;
-    porDia = true;
-  } else if (r === "mes") {
-    dias = 30;
-    meses = 1;
-    porDia = true;
-  } else if (r === "12meses") {
-    dias = 365;
-    meses = 12;
-    porDia = false;
-  } else {
-    dias = 183;
-    meses = 6;
-    porDia = false;
+  // Intervalo personalizado (de/até) tem prioridade.
+  const deOk = sp?.de && /^\d{4}-\d{2}-\d{2}$/.test(sp.de) ? sp.de : null;
+  const ateOk = sp?.ate && /^\d{4}-\d{2}-\d{2}$/.test(sp.ate) ? sp.ate : null;
+  if (deOk || ateOk) {
+    let desde = deOk ?? ateOk!;
+    let ate = ateOk ?? hojeIso;
+    if (desde > ate) [desde, ate] = [ate, desde]; // ordena se vier invertido
+    const fmt = (s: string) =>
+      new Date(s + "T00:00:00").toLocaleDateString("pt-BR");
+    return {
+      range: "custom",
+      label: `${fmt(desde)} – ${fmt(ate)}`,
+      desde,
+      ate,
+      custom: true,
+    };
   }
 
-  const inicio = porDia
-    ? new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - (dias - 1))
-    : new Date(hoje.getFullYear(), hoje.getMonth() - (meses - 1), 1);
+  const r: RangeDashboard = (
+    ["semana", "mes", "6meses", "12meses"] as const
+  ).includes(sp?.range as RangeDashboard)
+    ? (sp!.range as RangeDashboard)
+    : "6meses";
+
+  let inicio: Date;
+  if (r === "semana") {
+    inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - 6);
+  } else if (r === "mes") {
+    inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - 29);
+  } else if (r === "12meses") {
+    inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1);
+  } else {
+    inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 5, 1);
+  }
 
   return {
     range: r,
     label: RANGES_DASHBOARD.find((x) => x.valor === r)!.label,
     desde: iso(inicio),
-    dias,
-    meses,
-    porDia,
+    ate: hojeIso,
+    custom: false,
   };
 }
 

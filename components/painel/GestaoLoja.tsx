@@ -1,8 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useFormState } from "react-dom";
-import { Eye, EyeOff, Package, Pencil, Plus, Star } from "lucide-react";
+import {
+  Check,
+  Eye,
+  EyeOff,
+  Loader2,
+  Minus,
+  Package,
+  Pencil,
+  Plus,
+  ShoppingCart,
+  Star,
+} from "lucide-react";
 import { CATEGORIAS_PRODUTO, CategoriaProduto, Produto } from "@/lib/types";
 import { cn, formatBRL } from "@/lib/utils";
 import FormActions from "@/components/ui/FormActions";
@@ -14,7 +25,10 @@ import {
   atualizarProduto,
   criarProduto,
   excluirProduto,
+  registrarVendaProduto,
 } from "@/app/painel/[slug]/loja/actions";
+
+const ESTOQUE_BAIXO = 5;
 
 function rotuloCategoria(c: CategoriaProduto): string {
   return CATEGORIAS_PRODUTO.find((x) => x.value === c)?.label ?? c;
@@ -121,9 +135,26 @@ export default function GestaoLoja({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <h3 className="truncate font-semibold text-white">{p.nome}</h3>
-                      <span className="text-xs text-slate-500">
+                      <span className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
                         {rotuloCategoria(p.categoria)}
-                        {p.estoque != null && ` · ${p.estoque} em estoque`}
+                        {p.estoque != null && (
+                          <>
+                            <span>·</span>
+                            <span
+                              className={cn(
+                                p.estoque === 0
+                                  ? "font-medium text-magenta-400"
+                                  : p.estoque <= ESTOQUE_BAIXO
+                                    ? "font-medium text-amber-300"
+                                    : ""
+                              )}
+                            >
+                              {p.estoque === 0
+                                ? "sem estoque"
+                                : `${p.estoque} em estoque`}
+                            </span>
+                          </>
+                        )}
                       </span>
                     </div>
                     <span className="flex-none font-bold text-volt-300">
@@ -136,7 +167,11 @@ export default function GestaoLoja({
                     </p>
                   )}
 
-                  <div className="mt-4 flex items-center gap-1 border-t border-ink-700 pt-3">
+                  <div className="mt-3">
+                    <VenderProduto slug={slug} produto={p} />
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-1 border-t border-ink-700 pt-3">
                     <button
                       type="button"
                       onClick={() => alternarAtivoProduto(slug, p.id, !p.ativo)}
@@ -342,5 +377,77 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="mb-1 block text-xs font-medium text-slate-400">{label}</span>
       {children}
     </label>
+  );
+}
+
+/** Baixa rápida de estoque + lançamento da venda como receita. */
+function VenderProduto({ slug, produto }: { slug: string; produto: Produto }) {
+  const [qtd, setQtd] = useState(1);
+  const [pendente, iniciar] = useTransition();
+  const [msg, setMsg] = useState<{ ok?: boolean; texto: string } | null>(null);
+
+  const semEstoque = produto.estoque != null && produto.estoque <= 0;
+  const maxQtd = produto.estoque ?? 999;
+
+  const vender = () => {
+    setMsg(null);
+    iniciar(async () => {
+      const r = await registrarVendaProduto(slug, produto.id, qtd);
+      if (r.erro) setMsg({ texto: r.erro });
+      else {
+        setMsg({ ok: true, texto: `Venda registrada (${formatBRL(produto.preco * qtd)}).` });
+        setQtd(1);
+      }
+    });
+  };
+
+  return (
+    <div className="rounded-xl border border-ink-700 bg-ink-900/40 p-2">
+      <div className="flex items-center gap-2">
+        <div className="flex items-center rounded-lg border border-ink-600">
+          <button
+            type="button"
+            onClick={() => setQtd((q) => Math.max(1, q - 1))}
+            className="grid h-8 w-8 place-items-center text-slate-400 hover:text-white"
+            aria-label="Diminuir"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <span className="w-8 text-center text-sm font-medium text-white">{qtd}</span>
+          <button
+            type="button"
+            onClick={() => setQtd((q) => Math.min(maxQtd, q + 1))}
+            className="grid h-8 w-8 place-items-center text-slate-400 hover:text-white"
+            aria-label="Aumentar"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={vender}
+          disabled={pendente || semEstoque}
+          className="btn-volt flex-1 !py-2 text-xs disabled:opacity-50"
+        >
+          {pendente ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ShoppingCart className="h-4 w-4" />
+          )}
+          {semEstoque ? "Sem estoque" : "Dar baixa (vender)"}
+        </button>
+      </div>
+      {msg && (
+        <p
+          className={cn(
+            "mt-1.5 flex items-center gap-1 text-[11px]",
+            msg.ok ? "text-volt-300" : "text-red-400"
+          )}
+        >
+          {msg.ok && <Check className="h-3 w-3" />}
+          {msg.texto}
+        </p>
+      )}
+    </div>
   );
 }

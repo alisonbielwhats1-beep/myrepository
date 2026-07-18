@@ -25,6 +25,11 @@
   --slate-600: 71 85 105;
   --scroll-track: 11 13 20;
   --scroll-thumb: 36 40 56;
+  /* Acento lima-neon (padrão escuro) */
+  --volt-200: 201 255 133;
+  --volt-300: 173 255 66;
+  --volt-400: 147 243 18;
+  --volt-500: 122 214 0;
 }
 
 :root[data-theme="light"] {
@@ -43,6 +48,11 @@
   --slate-600: 148 163 184; /* texto mais fraco */
   --scroll-track: 237 240 245;
   --scroll-thumb: 203 213 225;
+  /* Verde profundo e legível (não neon) para o tema claro */
+  --volt-200: 17 102 52; /* hover do primário */
+  --volt-300: 21 128 61; /* primária + acento principal */
+  --volt-400: 19 114 58;
+  --volt-500: 22 163 74; /* tints (/10, /30) e bordas */
 }
 
 /* Segue o aparelho quando o usuário não escolheu tema manualmente. */
@@ -63,6 +73,10 @@
     --slate-600: 148 163 184;
     --scroll-track: 237 240 245;
     --scroll-thumb: 203 213 225;
+    --volt-200: 17 102 52;
+    --volt-300: 21 128 61;
+    --volt-400: 19 114 58;
+    --volt-500: 22 163 74;
   }
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -17,6 +18,36 @@ import {
   YAxis,
 } from "recharts";
 import { CORES_ORIGEM } from "@/lib/utils";
+
+/**
+ * Lê uma cor do tema (variável CSS "R G B") e a devolve como `rgb(...)`,
+ * reagindo à troca de tema (data-theme) e ao tema do sistema. Assim os
+ * gráficos usam o verde certo em cada tema (neon no escuro, profundo no claro).
+ */
+function useCorTema(nomeVar: string, fallback: string): string {
+  const [cor, setCor] = useState(fallback);
+  useEffect(() => {
+    const ler = () => {
+      const v = getComputedStyle(document.documentElement)
+        .getPropertyValue(nomeVar)
+        .trim();
+      if (v) setCor(`rgb(${v})`);
+    };
+    ler();
+    const obs = new MutationObserver(ler);
+    obs.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    mq.addEventListener("change", ler);
+    return () => {
+      obs.disconnect();
+      mq.removeEventListener("change", ler);
+    };
+  }, [nomeVar]);
+  return cor;
+}
 
 export type PontoOrigem = { origem: string; acessos: number };
 export type PontoHora = { hora: string; acessos: number };
@@ -43,6 +74,7 @@ const tooltipStyle = {
 
 /** Rosca: distribuição de acessos por origem (Gympass vs. Direto vs. TotalPass). */
 export function GraficoOrigem({ dados }: { dados: PontoOrigem[] }) {
+  const volt = useCorTema("--volt-300", "#adff42");
   return (
     <ResponsiveContainer width="100%" height={260}>
       <PieChart>
@@ -61,7 +93,7 @@ export function GraficoOrigem({ dados }: { dados: PontoOrigem[] }) {
             <Cell
               key={d.origem}
               fill={
-                CORES_ORIGEM[d.origem as keyof typeof CORES_ORIGEM] ?? "#adff42"
+                CORES_ORIGEM[d.origem as keyof typeof CORES_ORIGEM] ?? volt
               }
             />
           ))}
@@ -78,6 +110,7 @@ export function GraficoOrigem({ dados }: { dados: PontoOrigem[] }) {
 
 /** Barras: volume de acessos por faixa horária (horários de pico). */
 export function GraficoHorarios({ dados }: { dados: PontoHora[] }) {
+  const volt = useCorTema("--volt-300", "#adff42");
   return (
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={dados} margin={{ left: -20, right: 8, top: 8 }}>
@@ -95,9 +128,9 @@ export function GraficoHorarios({ dados }: { dados: PontoHora[] }) {
         />
         <Tooltip
           contentStyle={tooltipStyle}
-          cursor={{ fill: "rgba(173,255,66,0.06)" }}
+          cursor={{ fill: "rgba(120,120,120,0.08)" }}
         />
-        <Bar dataKey="acessos" radius={[6, 6, 0, 0]} fill="#adff42" />
+        <Bar dataKey="acessos" radius={[6, 6, 0, 0]} fill={volt} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -105,13 +138,14 @@ export function GraficoHorarios({ dados }: { dados: PontoHora[] }) {
 
 /** Área empilhada: cruzamento do faturamento (mensalidades x parcerias). */
 export function GraficoFaturamento({ dados }: { dados: PontoFaturamento[] }) {
+  const volt = useCorTema("--volt-300", "#adff42");
   return (
     <ResponsiveContainer width="100%" height={280}>
       <AreaChart data={dados} margin={{ left: -8, right: 8, top: 8 }}>
         <defs>
           <linearGradient id="gradMens" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#adff42" stopOpacity={0.5} />
-            <stop offset="100%" stopColor="#adff42" stopOpacity={0} />
+            <stop offset="0%" stopColor={volt} stopOpacity={0.5} />
+            <stop offset="100%" stopColor={volt} stopOpacity={0} />
           </linearGradient>
           <linearGradient id="gradParc" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#3ee6ff" stopOpacity={0.5} />
@@ -143,7 +177,7 @@ export function GraficoFaturamento({ dados }: { dados: PontoFaturamento[] }) {
           type="monotone"
           dataKey="mensalidades"
           name="Mensalidades"
-          stroke="#adff42"
+          stroke={volt}
           strokeWidth={2}
           fill="url(#gradMens)"
         />
@@ -166,6 +200,7 @@ export function GraficoFinanceiroMensal({
 }: {
   dados: PontoFinanceiroMensal[];
 }) {
+  const volt = useCorTema("--volt-300", "#adff42");
   return (
     <ResponsiveContainer width="100%" height={280}>
       <BarChart data={dados} margin={{ left: -8, right: 8, top: 8 }}>
@@ -190,7 +225,7 @@ export function GraficoFinanceiroMensal({
           iconType="circle"
           wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }}
         />
-        <Bar dataKey="receita" name="Receita" radius={[6, 6, 0, 0]} fill="#adff42" />
+        <Bar dataKey="receita" name="Receita" radius={[6, 6, 0, 0]} fill={volt} />
         <Bar dataKey="despesa" name="Despesa" radius={[6, 6, 0, 0]} fill="#f81cc0" />
       </BarChart>
     </ResponsiveContainer>
@@ -234,6 +269,7 @@ export function GraficoEvolucaoAlunos({
 
 /** Linha: evolução do peso do aluno ao longo do tempo. */
 export function GraficoProgressoPeso({ dados }: { dados: PontoPeso[] }) {
+  const volt = useCorTema("--volt-300", "#adff42");
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart data={dados} margin={{ left: -20, right: 8, top: 8 }}>
@@ -257,9 +293,9 @@ export function GraficoProgressoPeso({ dados }: { dados: PontoPeso[] }) {
           type="monotone"
           dataKey="peso"
           name="Peso (kg)"
-          stroke="#adff42"
+          stroke={volt}
           strokeWidth={2.5}
-          dot={{ r: 3, fill: "#adff42" }}
+          dot={{ r: 3, fill: volt }}
         />
       </LineChart>
     </ResponsiveContainer>

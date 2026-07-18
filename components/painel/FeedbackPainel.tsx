@@ -106,7 +106,7 @@ export default function FeedbackPainel({
                   <span className="flex items-center gap-1 text-slate-400">
                     <UserRound className="h-4 w-4" />
                     <span className="text-sm font-medium text-white">
-                      {f.aluno?.nome ?? "Aluno"}
+                      {f.aluno?.nome ?? "Anônimo"}
                     </span>
                   </span>
                   <span className="chip border-ink-600 bg-ink-700/60 text-slate-300">

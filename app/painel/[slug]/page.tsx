@@ -29,7 +29,7 @@ import {
   getFuncionarios,
   getReceitas,
 } from "@/lib/data";
-import { agruparPorDia, agruparPorMes, ultimosMeses } from "@/lib/financeiro";
+import { agruparFinanceiro, ultimosMeses } from "@/lib/financeiro";
 import { resolverJanelaDashboard } from "@/lib/periodo";
 import { formatBRL } from "@/lib/utils";
 
@@ -38,10 +38,10 @@ export default async function DashboardOverviewPage({
   searchParams,
 }: {
   params: { slug: string };
-  searchParams?: { range?: string };
+  searchParams?: { range?: string; de?: string; ate?: string };
 }) {
   const sessao = await requireSessao(params.slug);
-  const janela = resolverJanelaDashboard(searchParams?.range);
+  const janela = resolverJanelaDashboard(searchParams);
 
   // Busca o histórico completo: inadimplência e próximos vencimentos precisam
   // de dados fora da janela do filtro; o recorte do período é feito abaixo.
@@ -92,23 +92,26 @@ export default async function DashboardOverviewPage({
     .slice(0, 8);
 
   // ---- Recorte do período selecionado (KPIs + gráfico financeiro) ----
-  const receitasPeriodo = receitas.filter((r) => r.data >= janela.desde);
-  const despesasPeriodo = despesas.filter((d) => d.data >= janela.desde);
+  const noPeriodo = (data: string) => data >= janela.desde && data <= janela.ate;
 
-  const receitaPeriodo = receitasPeriodo
-    .filter((r) => r.status === "pago" && r.data <= hojeIso)
+  const receitaPeriodo = receitas
+    .filter((r) => r.status === "pago" && noPeriodo(r.data))
     .reduce((acc, r) => acc + Number(r.valor), 0);
-  const despesaPeriodo = despesasPeriodo
-    .filter((d) => d.status === "pago" && d.data <= hojeIso)
+  const despesaPeriodo = despesas
+    .filter((d) => d.status === "pago" && noPeriodo(d.data))
     .reduce((acc, d) => acc + Number(d.valor), 0);
   const lucroPeriodo = receitaPeriodo - despesaPeriodo;
-  const novosAlunos = alunos.filter(
-    (a) => a.criado_em.slice(0, 10) >= janela.desde
+  const novosAlunos = alunos.filter((a) =>
+    noPeriodo(a.criado_em.slice(0, 10))
   ).length;
 
-  const dadosFinanceiro = janela.porDia
-    ? agruparPorDia(receitasPeriodo, despesasPeriodo, janela.dias)
-    : agruparPorMes(receitasPeriodo, despesasPeriodo, janela.meses);
+  const dadosFinanceiro = agruparFinanceiro(
+    receitas,
+    despesas,
+    janela.desde,
+    janela.ate
+  );
+  const hintPeriodo = janela.custom ? "no período" : janela.label.toLowerCase();
 
   // Evolução de alunos: crescimento acumulado nos últimos 6 meses.
   const evolucaoAlunos: PontoEvolucaoAlunos[] = ultimosMeses(6).map(
@@ -128,7 +131,12 @@ export default async function DashboardOverviewPage({
             Visão geral da {sessao.academia.nome_fantasia}.
           </p>
         </div>
-        <DashboardRangeFilter range={janela.range} />
+        <DashboardRangeFilter
+          range={janela.range}
+          desde={janela.desde}
+          ate={janela.ate}
+          custom={janela.custom}
+        />
       </div>
 
       {/* KPIs principais */}
@@ -158,7 +166,7 @@ export default async function DashboardOverviewPage({
           icon={Scale}
           label="Lucro no período"
           value={formatBRL(lucroPeriodo)}
-          hint={janela.label.toLowerCase()}
+          hint={hintPeriodo}
           accent={lucroPeriodo >= 0 ? "volt" : "magenta"}
         />
       </div>
@@ -182,7 +190,7 @@ export default async function DashboardOverviewPage({
           icon={UserPlus}
           label="Novos alunos"
           value={String(novosAlunos)}
-          hint={janela.label.toLowerCase()}
+          hint={hintPeriodo}
           accent="cyan"
         />
         <StatTile

@@ -97,6 +97,59 @@ export async function alternarAtivoProduto(
   revalidatePath(`/painel/${slug}/loja`);
 }
 
+/**
+ * Dá baixa de estoque e registra a venda como receita (venda_produto, paga).
+ * Ex.: vendeu 1 par de meias -> baixa 1 do estoque e lança a receita.
+ */
+export async function registrarVendaProduto(
+  slug: string,
+  produtoId: string,
+  quantidade: number
+): Promise<{ ok?: boolean; erro?: string }> {
+  const sessao = await requireSessao(slug);
+  const qtd = Math.max(1, Math.floor(Number(quantidade) || 1));
+  const supabase = createClient();
+
+  const { data: produto, error: e1 } = await supabase
+    .from("produtos")
+    .select("*")
+    .eq("id", produtoId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+  if (e1 || !produto) return { erro: "Produto não encontrado." };
+
+  if (produto.estoque != null && produto.estoque < qtd) {
+    return { erro: `Estoque insuficiente (restam ${produto.estoque}).` };
+  }
+
+  // Baixa de estoque (se controlado).
+  if (produto.estoque != null) {
+    const { error: eUpd } = await supabase
+      .from("produtos")
+      .update({ estoque: Math.max(0, produto.estoque - qtd) })
+      .eq("id", produtoId)
+      .eq("academia_id", sessao.academia.id);
+    if (eUpd) return { erro: `Falha ao baixar estoque: ${eUpd.message}` };
+  }
+
+  // Lança a receita da venda.
+  const { error: eRec } = await supabase.from("receitas").insert({
+    academia_id: sessao.academia.id,
+    tipo: "venda_produto",
+    descricao: `Venda - ${produto.nome}${qtd > 1 ? ` (x${qtd})` : ""}`,
+    valor: Number(produto.preco) * qtd,
+    data: new Date().toISOString().slice(0, 10),
+    status: "pago",
+    observacoes: "Baixa de estoque na loja",
+  });
+  if (eRec) return { erro: `Falha ao lançar a venda: ${eRec.message}` };
+
+  revalidatePath(`/painel/${slug}/loja`);
+  revalidatePath(`/painel/${slug}/financeiro`, "layout");
+  revalidatePath(`/painel/${slug}`);
+  return { ok: true };
+}
+
 export async function excluirProduto(
   slug: string,
   produtoId: string

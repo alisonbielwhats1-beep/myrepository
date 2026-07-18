@@ -53,35 +53,71 @@ export function agruparPorMes(
   }));
 }
 
-/** Receita e despesa (apenas pagas) agrupadas por dia (últimos `dias` dias). */
-export function agruparPorDia(
+/**
+ * Receita e despesa (apenas pagas) agrupadas para o gráfico, dentro do
+ * intervalo [desde, ate] (ISO). Escolhe automaticamente a granularidade:
+ * por dia se o período tem até ~2 meses, por mês se for mais longo.
+ */
+export function agruparFinanceiro(
   receitas: Receita[],
   despesas: Despesa[],
-  dias: number
+  desde: string,
+  ate: string
 ): PontoFinanceiroMensal[] {
   const pad = (n: number) => String(n).padStart(2, "0");
-  const receitaPorDia = new Map<string, number>();
-  const despesaPorDia = new Map<string, number>();
+  const dDesde = new Date(desde + "T00:00:00");
+  const dAte = new Date(ate + "T00:00:00");
+  const spanDias =
+    Math.round((dAte.getTime() - dDesde.getTime()) / 86400_000) + 1;
 
+  const receitaPago = new Map<string, number>();
+  const despesaPago = new Map<string, number>();
+
+  if (spanDias <= 62) {
+    // Granularidade diária.
+    for (const r of receitas) {
+      if (r.status !== "pago" || r.data < desde || r.data > ate) continue;
+      receitaPago.set(r.data, (receitaPago.get(r.data) ?? 0) + Number(r.valor));
+    }
+    for (const d of despesas) {
+      if (d.status !== "pago" || d.data < desde || d.data > ate) continue;
+      despesaPago.set(d.data, (despesaPago.get(d.data) ?? 0) + Number(d.valor));
+    }
+    const out: PontoFinanceiroMensal[] = [];
+    for (let i = 0; i < spanDias; i++) {
+      const dt = new Date(dDesde.getFullYear(), dDesde.getMonth(), dDesde.getDate() + i);
+      const chave = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+      out.push({
+        mes: `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}`,
+        receita: Math.round((receitaPago.get(chave) ?? 0) * 100) / 100,
+        despesa: Math.round((despesaPago.get(chave) ?? 0) * 100) / 100,
+      });
+    }
+    return out;
+  }
+
+  // Granularidade mensal.
   for (const r of receitas) {
-    if (r.status !== "pago") continue;
-    receitaPorDia.set(r.data, (receitaPorDia.get(r.data) ?? 0) + Number(r.valor));
+    if (r.status !== "pago" || r.data < desde || r.data > ate) continue;
+    const k = chaveMes(r.data);
+    receitaPago.set(k, (receitaPago.get(k) ?? 0) + Number(r.valor));
   }
   for (const d of despesas) {
-    if (d.status !== "pago") continue;
-    despesaPorDia.set(d.data, (despesaPorDia.get(d.data) ?? 0) + Number(d.valor));
+    if (d.status !== "pago" || d.data < desde || d.data > ate) continue;
+    const k = chaveMes(d.data);
+    despesaPago.set(k, (despesaPago.get(k) ?? 0) + Number(d.valor));
   }
-
-  const hoje = new Date();
   const out: PontoFinanceiroMensal[] = [];
-  for (let i = dias - 1; i >= 0; i--) {
-    const dt = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - i);
-    const chave = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  let cursor = new Date(dDesde.getFullYear(), dDesde.getMonth(), 1);
+  const fim = new Date(dAte.getFullYear(), dAte.getMonth(), 1);
+  while (cursor <= fim) {
+    const k = `${cursor.getFullYear()}-${pad(cursor.getMonth() + 1)}`;
     out.push({
-      mes: `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}`,
-      receita: Math.round((receitaPorDia.get(chave) ?? 0) * 100) / 100,
-      despesa: Math.round((despesaPorDia.get(chave) ?? 0) * 100) / 100,
+      mes: NOMES_MES[cursor.getMonth()],
+      receita: Math.round((receitaPago.get(k) ?? 0) * 100) / 100,
+      despesa: Math.round((despesaPago.get(k) ?? 0) * 100) / 100,
     });
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
   }
   return out;
 }

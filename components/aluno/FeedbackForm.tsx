@@ -5,17 +5,18 @@ import { useFormState, useFormStatus } from "react-dom";
 import { CheckCircle2, Loader2, Send, Star } from "lucide-react";
 import { CATEGORIAS_FEEDBACK } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { enviarFeedback } from "@/app/aluno/[slug]/[alunoId]/actions";
+
+type EstadoFeedback = { erro?: string; ok?: boolean; savedAt?: number };
 
 export default function FeedbackForm({
-  slug,
-  alunoId,
+  enviar,
 }: {
-  slug: string;
-  alunoId: string;
+  enviar: (
+    estado: EstadoFeedback,
+    formData: FormData
+  ) => Promise<EstadoFeedback>;
 }) {
-  const acao = enviarFeedback.bind(null, slug, alunoId);
-  const [estado, formAction] = useFormState(acao, {});
+  const [estado, formAction] = useFormState(enviar, {});
   const [nota, setNota] = useState(0);
   const [hover, setHover] = useState(0);
 
