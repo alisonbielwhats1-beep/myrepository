@@ -31,6 +31,30 @@ export async function gerarFolha(
   return { criadas: (data as number) ?? 0 };
 }
 
+/**
+ * Gera as mensalidades pendentes do mês para todos os alunos ativos com plano,
+ * respeitando a recorrência de cada plano. Idempotente.
+ */
+export async function gerarMensalidades(
+  slug: string,
+  competencia: string
+): Promise<{ erro?: string; criadas?: number }> {
+  await requireSessao(slug);
+  const supabase = createClient();
+  const comp = /^\d{4}-\d{2}-\d{2}$/.test(competencia)
+    ? competencia
+    : new Date().toISOString().slice(0, 10);
+
+  const { data, error } = await supabase.rpc("gerar_mensalidades_do_mes", {
+    p_competencia: comp,
+  });
+  if (error) return { erro: `Falha ao gerar mensalidades: ${error.message}` };
+
+  revalidatePath(`/painel/${slug}/financeiro`, "layout");
+  revalidatePath(`/painel/${slug}`);
+  return { criadas: (data as number) ?? 0 };
+}
+
 // ---------------------------------------------------------------------------
 // Receitas
 // ---------------------------------------------------------------------------

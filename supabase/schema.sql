@@ -139,6 +139,7 @@ create table if not exists public.planos (
   descricao          text,
   valor_mensal       numeric(10,2) not null default 0,
   recorrencia_meses  integer       not null default 1,
+  cobranca_recorrente boolean      not null default true, -- gera mensalidade automática?
   ativo              boolean       not null default true,
   criado_em          timestamptz   not null default now(),
   atualizado_em      timestamptz   not null default now()
@@ -249,11 +250,13 @@ create table if not exists public.receitas (
   id            uuid                    primary key default gen_random_uuid(),
   academia_id   uuid                    not null references public.academias(id) on delete cascade,
   aluno_id      uuid                    references public.alunos(id) on delete set null,
+  produto_id    uuid,                   -- venda vinculada a um produto (FK adicionada após produtos)
   tipo          tipo_receita_enum       not null default 'outra',
   descricao     text                    not null,
   valor         numeric(10,2)           not null default 0,
   data          date                    not null default current_date,
   status        status_pagamento_enum   not null default 'pendente',
+  competencia   date,                   -- mês de referência da mensalidade (dia 1)
   observacoes   text,
   criado_em     timestamptz             not null default now(),
   atualizado_em timestamptz             not null default now()
@@ -267,6 +270,13 @@ create index if not exists idx_receitas_data      on public.receitas(data);
 create index if not exists idx_receitas_status    on public.receitas(status);
 create index if not exists idx_receitas_tipo      on public.receitas(tipo);
 create index if not exists idx_receitas_aluno     on public.receitas(aluno_id);
+create index if not exists idx_receitas_produto   on public.receitas(produto_id);
+create index if not exists idx_receitas_competencia on public.receitas(competencia);
+
+-- Não deixa gerar duas mensalidades do mesmo aluno para a mesma competência.
+create unique index if not exists uidx_mensalidade_aluno_comp
+  on public.receitas (aluno_id, competencia)
+  where tipo = 'mensalidade' and aluno_id is not null and competencia is not null;
 
 -- -----------------------------------------------------------------------------
 -- 2.10 despesas
@@ -350,6 +360,7 @@ create table if not exists public.produtos (
   preco         numeric(10,2)            not null default 0,
   imagem_url    text,
   estoque       integer,                 -- null = não controla estoque
+  estoque_minimo integer                 not null default 5, -- limite p/ alerta de reposição
   destaque      boolean                  not null default false,
   ativo         boolean                  not null default true,
   ordem         integer                  not null default 0,
@@ -362,6 +373,18 @@ comment on table public.produtos is 'Produtos da loja de cada academia (suplemen
 create index if not exists idx_produtos_academia  on public.produtos(academia_id);
 create index if not exists idx_produtos_ativo      on public.produtos(ativo);
 create index if not exists idx_produtos_categoria  on public.produtos(categoria);
+
+-- FK de receita -> produto (adicionada após produtos existir).
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'receitas_produto_id_fkey'
+  ) then
+    alter table public.receitas
+      add constraint receitas_produto_id_fkey
+      foreign key (produto_id) references public.produtos(id) on delete set null;
+  end if;
+end$$;
 
 -- -----------------------------------------------------------------------------
 -- 2.14 feedbacks — opiniões/avaliações dos alunos (nota 1–5 + comentário).
@@ -760,6 +783,67 @@ end;
 $$;
 
 grant execute on function public.gerar_folha_do_mes(date) to authenticated;
+
+-- 7.2b Mensalidade recorrente: cria a mensalidade pendente de cada aluno ativo
+-- com plano, respeitando a recorrência (mensal todo mês; trimestral/anual só
+-- quando fecha o ciclo desde a matrícula). Idempotente. Retorna quantas criou.
+create or replace function public.gerar_mensalidades_do_mes(p_competencia date)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_academia   uuid := public.academia_id_atual();
+  v_comp       date := date_trunc('month', p_competencia)::date;
+  v_ultimo_dia integer := extract(day from (v_comp + interval '1 month - 1 day'));
+  v_criadas    integer := 0;
+  r            record;
+  v_data       date;
+  v_dia        integer;
+  v_meses      integer;
+begin
+  if v_academia is null then
+    raise exception 'Sem academia no contexto do usuário';
+  end if;
+
+  for r in
+    select a.id, a.nome, a.criado_em, p.valor_mensal, p.recorrencia_meses
+    from public.alunos a
+    join public.planos p on p.id = a.plano_id
+    where a.academia_id = v_academia
+      and a.status_matricula = 'ativa'
+      and coalesce(p.valor_mensal, 0) > 0
+      and p.cobranca_recorrente = true
+  loop
+    v_meses := (extract(year from v_comp)::int * 12 + extract(month from v_comp)::int)
+             - (extract(year from r.criado_em)::int * 12 + extract(month from r.criado_em)::int);
+    if v_meses < 0 or (r.recorrencia_meses > 0 and (v_meses % r.recorrencia_meses) <> 0) then
+      continue;
+    end if;
+
+    v_dia := least(greatest(extract(day from r.criado_em)::int, 1), v_ultimo_dia);
+    v_data := make_date(extract(year from v_comp)::int, extract(month from v_comp)::int, v_dia);
+
+    insert into public.receitas
+      (academia_id, aluno_id, tipo, descricao, valor, data, status, competencia)
+    values
+      (v_academia, r.id, 'mensalidade', 'Mensalidade - ' || r.nome,
+       r.valor_mensal, v_data, 'pendente', v_comp)
+    on conflict (aluno_id, competencia)
+      where tipo = 'mensalidade' and aluno_id is not null and competencia is not null
+    do nothing;
+
+    if found then
+      v_criadas := v_criadas + 1;
+    end if;
+  end loop;
+
+  return v_criadas;
+end;
+$$;
+
+grant execute on function public.gerar_mensalidades_do_mes(date) to authenticated;
 
 -- 7.3 RPC pública: treino compartilhado por QR (só se `publico = true`).
 create or replace function public.obter_treino_publico(p_token uuid)

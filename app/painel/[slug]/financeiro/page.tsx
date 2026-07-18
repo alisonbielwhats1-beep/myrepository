@@ -1,9 +1,22 @@
-import { ArrowDownCircle, ArrowUpCircle, BarChart3, Clock, Scale, Wallet } from "lucide-react";
+import {
+  ArrowDownCircle,
+  ArrowUpCircle,
+  BarChart3,
+  Scale,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 import StatTile from "@/components/painel/StatTile";
 import { GraficoFinanceiroMensal } from "@/components/painel/DashboardCharts";
+import DREResumo from "@/components/painel/financeiro/DREResumo";
 import { requireSessao } from "@/lib/auth";
 import { getDespesas, getReceitas } from "@/lib/data";
-import { agruparPorMes, calcularKpisFinanceiro, ultimosMeses } from "@/lib/financeiro";
+import {
+  agruparPorMes,
+  calcularDRE,
+  calcularKpisFinanceiro,
+  ultimosMeses,
+} from "@/lib/financeiro";
 import { formatBRL } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +36,10 @@ export default async function FinanceiroOverviewPage({
 
   const kpis = calcularKpisFinanceiro(receitas, despesas);
   const dadosMensais = agruparPorMes(receitas, despesas, 6);
+  const dre = calcularDRE(receitas, despesas);
+  // Saldo projetado = caixa atual + a receber - a pagar (pendências futuras).
+  const saldoProjetado =
+    kpis.fluxoCaixa + kpis.receitasPendentes - kpis.despesasPendentes;
 
   return (
     <div className="space-y-6">
@@ -57,25 +74,29 @@ export default async function FinanceiroOverviewPage({
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="surface flex items-center gap-3 rounded-2xl p-4">
-          <Clock className="h-5 w-5 flex-none text-amber-400" />
-          <div>
-            <p className="text-sm text-slate-300">Receitas pendentes</p>
-            <p className="font-semibold text-white">
-              {formatBRL(kpis.receitasPendentes)}
-            </p>
-          </div>
-        </div>
-        <div className="surface flex items-center gap-3 rounded-2xl p-4">
-          <Clock className="h-5 w-5 flex-none text-amber-400" />
-          <div>
-            <p className="text-sm text-slate-300">Despesas pendentes</p>
-            <p className="font-semibold text-white">
-              {formatBRL(kpis.despesasPendentes)}
-            </p>
-          </div>
-        </div>
+      {/* Projeção de caixa */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <StatTile
+          icon={ArrowUpCircle}
+          label="A receber"
+          value={formatBRL(kpis.receitasPendentes)}
+          hint="pendências futuras"
+          accent="volt"
+        />
+        <StatTile
+          icon={ArrowDownCircle}
+          label="A pagar"
+          value={formatBRL(kpis.despesasPendentes)}
+          hint="pendências futuras"
+          accent="magenta"
+        />
+        <StatTile
+          icon={TrendingUp}
+          label="Saldo projetado"
+          value={formatBRL(saldoProjetado)}
+          hint="caixa + a receber - a pagar"
+          accent={saldoProjetado >= 0 ? "cyan" : "magenta"}
+        />
       </div>
 
       <div className="surface rounded-2xl p-5">
@@ -86,6 +107,8 @@ export default async function FinanceiroOverviewPage({
         <p className="mb-2 text-xs text-slate-500">Últimos 6 meses, valores pagos</p>
         <GraficoFinanceiroMensal dados={dadosMensais} />
       </div>
+
+      <DREResumo dre={dre} periodo="Últimos 6 meses" />
     </div>
   );
 }

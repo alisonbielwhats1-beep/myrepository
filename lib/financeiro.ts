@@ -2,7 +2,12 @@
 // pelo Dashboard, a partir das receitas/despesas já buscadas do banco.
 
 import { PontoFinanceiroMensal } from "@/components/painel/DashboardCharts";
-import { Despesa, Receita } from "./types";
+import {
+  CategoriaDespesa,
+  Despesa,
+  Receita,
+  TipoReceita,
+} from "./types";
 
 const NOMES_MES = [
   "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -120,6 +125,59 @@ export function agruparFinanceiro(
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
   }
   return out;
+}
+
+export interface LinhaDRE<T> {
+  chave: T;
+  total: number;
+}
+
+export interface DRE {
+  receitasPorTipo: LinhaDRE<TipoReceita>[];
+  despesasPorCategoria: LinhaDRE<CategoriaDespesa>[];
+  totalReceita: number;
+  totalDespesa: number;
+  lucro: number;
+  margem: number; // % do lucro sobre a receita
+}
+
+/**
+ * DRE simples (só valores pagos): receita por tipo, despesa por categoria,
+ * lucro e margem. Considera receitas/despesas já filtradas para o período.
+ */
+export function calcularDRE(receitas: Receita[], despesas: Despesa[]): DRE {
+  const recMap = new Map<TipoReceita, number>();
+  const despMap = new Map<CategoriaDespesa, number>();
+
+  for (const r of receitas) {
+    if (r.status !== "pago") continue;
+    recMap.set(r.tipo, (recMap.get(r.tipo) ?? 0) + Number(r.valor));
+  }
+  for (const d of despesas) {
+    if (d.status !== "pago") continue;
+    despMap.set(d.categoria, (despMap.get(d.categoria) ?? 0) + Number(d.valor));
+  }
+
+  const receitasPorTipo = Array.from(recMap.entries())
+    .map(([chave, total]) => ({ chave, total }))
+    .sort((a, b) => b.total - a.total);
+  const despesasPorCategoria = Array.from(despMap.entries())
+    .map(([chave, total]) => ({ chave, total }))
+    .sort((a, b) => b.total - a.total);
+
+  const totalReceita = receitasPorTipo.reduce((a, l) => a + l.total, 0);
+  const totalDespesa = despesasPorCategoria.reduce((a, l) => a + l.total, 0);
+  const lucro = totalReceita - totalDespesa;
+  const margem = totalReceita > 0 ? (lucro / totalReceita) * 100 : 0;
+
+  return {
+    receitasPorTipo,
+    despesasPorCategoria,
+    totalReceita,
+    totalDespesa,
+    lucro,
+    margem,
+  };
 }
 
 export interface KpisFinanceiro {

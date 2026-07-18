@@ -327,6 +327,15 @@ function FormularioProduto({
               className="inp"
             />
           </Field>
+          <Field label="Estoque mínimo (alerta)">
+            <input
+              name="estoque_minimo"
+              type="number"
+              min={0}
+              defaultValue={produtoExistente?.estoque_minimo ?? 5}
+              className="inp"
+            />
+          </Field>
           <label className="block sm:col-span-2">
             <span className="mb-1 block text-xs font-medium text-slate-400">
               Descrição

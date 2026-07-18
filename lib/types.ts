@@ -111,6 +111,7 @@ export interface Plano {
   descricao: string | null;
   valor_mensal: number;
   recorrencia_meses: number;
+  cobranca_recorrente: boolean;
   ativo: boolean;
   criado_em: string;
   atualizado_em: string;
@@ -274,11 +275,13 @@ export interface Receita {
   id: string;
   academia_id: string;
   aluno_id: string | null;
+  produto_id: string | null;
   tipo: TipoReceita;
   descricao: string;
   valor: number;
   data: string;
   status: StatusPagamento;
+  competencia: string | null;
   observacoes: string | null;
   criado_em: string;
   atualizado_em: string;
@@ -309,6 +312,7 @@ export interface Produto {
   preco: number;
   imagem_url: string | null;
   estoque: number | null;
+  estoque_minimo: number;
   destaque: boolean;
   ativo: boolean;
   ordem: number;

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useFormState } from "react-dom";
-import { Pencil, Plus } from "lucide-react";
+import { CalendarClock, Loader2, Pencil, Plus } from "lucide-react";
 import { Aluno, Receita, TIPOS_RECEITA } from "@/lib/types";
 import { cn, formatBRL } from "@/lib/utils";
 import { baixarCSV } from "@/lib/csv";
@@ -13,6 +13,7 @@ import {
   atualizarReceita,
   criarReceita,
   excluirReceita,
+  gerarMensalidades,
 } from "@/app/painel/[slug]/financeiro/actions";
 
 export default function ReceitasView({
@@ -26,6 +27,22 @@ export default function ReceitasView({
 }) {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [mensPending, startMens] = useTransition();
+  const [mensMsg, setMensMsg] = useState<string | null>(null);
+
+  const gerarMens = () => {
+    setMensMsg(null);
+    const competencia = new Date().toISOString().slice(0, 7) + "-01";
+    startMens(async () => {
+      const r = await gerarMensalidades(slug, competencia);
+      if (r.erro) setMensMsg(r.erro);
+      else if (r.criadas === 0)
+        setMensMsg(
+          "Nenhuma nova mensalidade a gerar (já lançadas ou planos sem cobrança automática)."
+        );
+      else setMensMsg(`${r.criadas} mensalidade(s) gerada(s) para este mês.`);
+    });
+  };
 
   const totalPago = receitas
     .filter((r) => r.status === "pago")
@@ -52,13 +69,23 @@ export default function ReceitasView({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <button
-          onClick={() => setMostrarForm((v) => !v)}
-          className={cn("no-print", mostrarForm ? "btn-ghost" : "btn-volt")}
-        >
-          <Plus className="h-4 w-4" />
-          {mostrarForm ? "Fechar formulário" : "Lançar receita"}
-        </button>
+        <div className="no-print flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setMostrarForm((v) => !v)}
+            className={mostrarForm ? "btn-ghost" : "btn-volt"}
+          >
+            <Plus className="h-4 w-4" />
+            {mostrarForm ? "Fechar formulário" : "Lançar receita"}
+          </button>
+          <button onClick={gerarMens} disabled={mensPending} className="btn-ghost">
+            {mensPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CalendarClock className="h-4 w-4" />
+            )}
+            Gerar mensalidades do mês
+          </button>
+        </div>
         <ExportBar
           onExportarCSV={() =>
             baixarCSV(
@@ -76,6 +103,12 @@ export default function ReceitasView({
           }
         />
       </div>
+
+      {mensMsg && (
+        <p className="no-print rounded-lg border border-ink-600 bg-ink-800 px-3 py-2 text-sm text-slate-300">
+          {mensMsg}
+        </p>
+      )}
 
       {mostrarForm && (
         <FormularioReceita

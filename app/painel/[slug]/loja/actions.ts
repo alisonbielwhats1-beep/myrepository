@@ -26,6 +26,7 @@ function lerCampos(formData: FormData) {
     preco: Number(formData.get("preco") ?? 0) || 0,
     imagem_url: String(formData.get("imagem_url") ?? "").trim() || null,
     estoque: estoqueRaw === "" ? null : Number(estoqueRaw),
+    estoque_minimo: Math.max(0, Number(formData.get("estoque_minimo") ?? 5) || 0),
     destaque: formData.get("destaque") === "on",
     ativo: formData.get("ativo") === "on",
   };
@@ -132,9 +133,10 @@ export async function registrarVendaProduto(
     if (eUpd) return { erro: `Falha ao baixar estoque: ${eUpd.message}` };
   }
 
-  // Lança a receita da venda.
+  // Lança a receita da venda (vinculada ao produto, para o relatório da loja).
   const { error: eRec } = await supabase.from("receitas").insert({
     academia_id: sessao.academia.id,
+    produto_id: produtoId,
     tipo: "venda_produto",
     descricao: `Venda - ${produto.nome}${qtd > 1 ? ` (x${qtd})` : ""}`,
     valor: Number(produto.preco) * qtd,

@@ -256,6 +256,62 @@ export async function getProdutosPublicos(
   return (data as ProdutoPublico[]) ?? [];
 }
 
+export interface LinhaVenda {
+  produtoId: string | null;
+  nome: string;
+  vendas: number;
+  total: number;
+}
+
+/**
+ * Relatório de vendas da loja (receitas do tipo venda_produto, pagas) a partir
+ * de `desde` (ISO). Retorna total geral e ranking por produto (mais vendidos).
+ */
+export async function getRelatorioVendas(
+  academiaId: string,
+  desde: string
+): Promise<{ total: number; qtdVendas: number; ranking: LinhaVenda[] }> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("receitas")
+    .select("valor, produto_id, descricao, produto:produtos(nome)")
+    .eq("academia_id", academiaId)
+    .eq("tipo", "venda_produto")
+    .eq("status", "pago")
+    .gte("data", desde);
+  if (error) throw new Error(`Falha ao carregar vendas: ${error.message}`);
+
+  const linhas = (data as unknown as {
+    valor: number;
+    produto_id: string | null;
+    descricao: string;
+    produto: { nome: string } | null;
+  }[]) ?? [];
+
+  const mapa = new Map<string, LinhaVenda>();
+  let total = 0;
+  for (const l of linhas) {
+    total += Number(l.valor);
+    const chave = l.produto_id ?? l.descricao;
+    const nome = l.produto?.nome ?? l.descricao.replace(/^Venda - /, "");
+    const atual = mapa.get(chave);
+    if (atual) {
+      atual.vendas += 1;
+      atual.total += Number(l.valor);
+    } else {
+      mapa.set(chave, {
+        produtoId: l.produto_id,
+        nome,
+        vendas: 1,
+        total: Number(l.valor),
+      });
+    }
+  }
+
+  const ranking = Array.from(mapa.values()).sort((a, b) => b.total - a.total);
+  return { total, qtdVendas: linhas.length, ranking };
+}
+
 /** Feedbacks (avaliações) dos alunos — mais recentes primeiro. */
 export async function getFeedbacks(academiaId: string): Promise<Feedback[]> {
   const supabase = createClient();
