@@ -1,7 +1,15 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import GestaoAlunos from "@/components/painel/GestaoAlunos";
 import { requireSessao } from "@/lib/auth";
-import { getAlunos, getPlanos, getTodosOsTreinos } from "@/lib/data";
+import {
+  getAlunos,
+  getCatalogoExercicios,
+  getPlanos,
+  getTodoProgresso,
+  getTodosOsTreinos,
+} from "@/lib/data";
+
+export const dynamic = "force-dynamic";
 
 export default async function AlunosPage({
   params,
@@ -9,10 +17,12 @@ export default async function AlunosPage({
   params: { slug: string };
 }) {
   const sessao = await requireSessao(params.slug);
-  const [alunos, treinos, planos] = await Promise.all([
+  const [alunos, treinos, planos, catalogo, progresso] = await Promise.all([
     getAlunos(sessao.academia.id),
     getTodosOsTreinos(sessao.academia.id),
     getPlanos(sessao.academia.id),
+    getCatalogoExercicios(),
+    getTodoProgresso(sessao.academia.id),
   ]);
 
   return (
@@ -32,6 +42,8 @@ export default async function AlunosPage({
         alunosIniciais={alunos}
         treinosIniciais={treinos}
         planos={planos}
+        catalogo={catalogo}
+        progresso={progresso}
       />
     </div>
   );

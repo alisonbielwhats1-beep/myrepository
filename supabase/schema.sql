@@ -52,6 +52,13 @@ begin
   if not exists (select 1 from pg_type where typname = 'status_pagamento_enum') then
     create type status_pagamento_enum as enum ('pago', 'pendente');
   end if;
+
+  if not exists (select 1 from pg_type where typname = 'grupo_muscular_enum') then
+    create type grupo_muscular_enum as enum (
+      'peito', 'costas', 'perna', 'ombro', 'biceps', 'triceps',
+      'abdomen', 'gluteos', 'panturrilha', 'cardio', 'outro'
+    );
+  end if;
 end$$;
 
 -- =============================================================================
@@ -69,6 +76,7 @@ create table if not exists public.academias (
   logo_url      text,
   cor_primaria  text        default '#adff42',
   telefone      text,
+  whatsapp      text,        -- número usado no mini-site público (botão WhatsApp)
   criado_em     timestamptz not null default now(),
   atualizado_em timestamptz not null default now()
 );
@@ -282,6 +290,48 @@ create unique index if not exists uidx_despesa_salario_unica
   on public.despesas (funcionario_id, competencia)
   where funcionario_id is not null;
 
+-- -----------------------------------------------------------------------------
+-- 2.11 catalogo_exercicios — biblioteca GLOBAL (não é dado de tenant) usada
+-- para montar treinos com 1 clique por grupo muscular (Peito, Costas...).
+-- -----------------------------------------------------------------------------
+create table if not exists public.catalogo_exercicios (
+  id                       uuid                    primary key default gen_random_uuid(),
+  grupo_muscular           grupo_muscular_enum     not null,
+  nome                     text                    not null,
+  series_padrao            integer                 not null default 3,
+  repeticoes_padrao        text                    not null default '12',
+  imagem_demonstracao_url  text,
+  video_demonstracao_url   text,
+  ordem                    integer                 not null default 0,
+  criado_em                timestamptz             not null default now()
+);
+
+create index if not exists idx_catalogo_grupo on public.catalogo_exercicios(grupo_muscular);
+
+-- -----------------------------------------------------------------------------
+-- 2.12 progresso_aluno — peso, medidas e fotos ao longo do tempo.
+-- -----------------------------------------------------------------------------
+create table if not exists public.progresso_aluno (
+  id                  uuid          primary key default gen_random_uuid(),
+  academia_id         uuid          not null references public.academias(id) on delete cascade,
+  aluno_id            uuid          not null references public.alunos(id)    on delete cascade,
+  data                date          not null default current_date,
+  peso_kg             numeric(5,2),
+  percentual_gordura  numeric(4,1),
+  peito_cm            numeric(5,1),
+  cintura_cm          numeric(5,1),
+  quadril_cm          numeric(5,1),
+  braco_cm            numeric(5,1),
+  coxa_cm             numeric(5,1),
+  foto_url            text,
+  observacoes         text,          -- nota interna do professor (não exposta na RPC pública)
+  criado_em           timestamptz   not null default now()
+);
+
+create index if not exists idx_progresso_academia on public.progresso_aluno(academia_id);
+create index if not exists idx_progresso_aluno     on public.progresso_aluno(aluno_id);
+create index if not exists idx_progresso_data       on public.progresso_aluno(data);
+
 -- =============================================================================
 -- 3. ÍNDICES (tabelas originais)
 -- =============================================================================
@@ -354,6 +404,18 @@ alter table public.acessos_catraca   enable row level security;
 alter table public.funcionarios      enable row level security;
 alter table public.receitas          enable row level security;
 alter table public.despesas          enable row level security;
+alter table public.progresso_aluno   enable row level security;
+alter table public.catalogo_exercicios enable row level security;
+
+-- catalogo_exercicios: biblioteca global, leitura para qualquer autenticado
+-- (não tem academia_id — não é dado de tenant, é conteúdo de referência).
+drop policy if exists "catalogo_leitura_autenticados" on public.catalogo_exercicios;
+create policy "catalogo_leitura_autenticados" on public.catalogo_exercicios
+  for select to authenticated using (true);
+
+drop policy if exists "catalogo_service_role" on public.catalogo_exercicios;
+create policy "catalogo_service_role" on public.catalogo_exercicios
+  for all to service_role using (true) with check (true);
 
 -- 6.1 perfis_admin: cada admin só enxerga o próprio perfil.
 drop policy if exists "perfil_proprio_select" on public.perfis_admin;
@@ -379,7 +441,7 @@ declare
 begin
   foreach tbl in array array[
     'alunos', 'planos', 'treinos', 'acessos_catraca',
-    'funcionarios', 'receitas', 'despesas'
+    'funcionarios', 'receitas', 'despesas', 'progresso_aluno'
   ] loop
     execute format('drop policy if exists "tenant_select_%1$s" on public.%1$s;', tbl);
     execute format(
@@ -444,7 +506,8 @@ declare
 begin
   foreach tbl in array array[
     'academias', 'perfis_admin', 'alunos', 'planos', 'treinos', 'exercicios_treino',
-    'acessos_catraca', 'funcionarios', 'receitas', 'despesas'
+    'acessos_catraca', 'funcionarios', 'receitas', 'despesas', 'progresso_aluno',
+    'catalogo_exercicios'
   ] loop
     execute format('drop policy if exists "service_role_total_%1$s" on public.%1$s;', tbl);
     execute format(
@@ -520,6 +583,22 @@ as $$
       ) order by t.ordem)
       from public.treinos t
       where t.aluno_id = p_aluno_id and t.ativo = true
+    ), '[]'::jsonb),
+    'progresso', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', pr.id,
+        'data', pr.data,
+        'peso_kg', pr.peso_kg,
+        'percentual_gordura', pr.percentual_gordura,
+        'peito_cm', pr.peito_cm,
+        'cintura_cm', pr.cintura_cm,
+        'quadril_cm', pr.quadril_cm,
+        'braco_cm', pr.braco_cm,
+        'coxa_cm', pr.coxa_cm,
+        'foto_url', pr.foto_url
+      ) order by pr.data asc)
+      from public.progresso_aluno pr
+      where pr.aluno_id = p_aluno_id
     ), '[]'::jsonb)
   )
   where exists (select 1 from public.alunos where id = p_aluno_id);
@@ -530,7 +609,7 @@ comment on function public.obter_ficha_aluno(uuid) is
 
 grant execute on function public.obter_ficha_aluno(uuid) to anon, authenticated;
 
--- 7.1 Lookup público mínimo de academia por slug (nome/cor para a marca do PWA).
+-- 7.1 Lookup público mínimo de academia por slug — dados do mini-site.
 create or replace function public.obter_academia_publica(p_slug text)
 returns jsonb
 language sql
@@ -539,12 +618,40 @@ set search_path = public
 stable
 as $$
   select jsonb_build_object(
-    'id', id, 'nome_fantasia', nome_fantasia, 'slug_url', slug_url, 'cor_primaria', cor_primaria
+    'id', id,
+    'nome_fantasia', nome_fantasia,
+    'slug_url', slug_url,
+    'cor_primaria', cor_primaria,
+    'logo_url', logo_url,
+    'endereco', endereco,
+    'whatsapp', whatsapp
   )
   from public.academias where slug_url = p_slug;
 $$;
 
 grant execute on function public.obter_academia_publica(text) to anon, authenticated;
+
+-- 7.1b Planos públicos do mini-site (só campos comerciais).
+create or replace function public.obter_planos_publicos(p_slug text)
+returns jsonb
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', pl.id,
+    'nome', pl.nome,
+    'descricao', pl.descricao,
+    'valor_mensal', pl.valor_mensal,
+    'recorrencia_meses', pl.recorrencia_meses
+  ) order by pl.valor_mensal), '[]'::jsonb)
+  from public.planos pl
+  join public.academias ac on ac.id = pl.academia_id
+  where ac.slug_url = p_slug and pl.ativo = true;
+$$;
+
+grant execute on function public.obter_planos_publicos(text) to anon, authenticated;
 
 -- 7.2 Folha salarial automática: cria uma despesa (categoria 'salarios') para
 -- cada funcionário ativo com salário e dia de pagamento, no mês informado.
@@ -647,6 +754,57 @@ $$;
 grant execute on function public.obter_treino_publico(uuid) to anon, authenticated;
 
 -- =============================================================================
--- Fim do schema. Nenhum dado de demonstração é inserido por este script.
--- Use `npm run criar-academia` para provisionar a primeira academia + admin.
+-- 8. SEED do catálogo de exercícios (biblioteca global, não é dado de tenant).
+-- Idempotente por nome+grupo — seguro rodar de novo. Fotos reais de
+-- github.com/yuhonas/free-exercise-db (licença Unlicense/domínio público).
+-- =============================================================================
+insert into public.catalogo_exercicios
+  (grupo_muscular, nome, series_padrao, repeticoes_padrao, imagem_demonstracao_url, ordem)
+select * from (values
+  ('peito'::grupo_muscular_enum, 'Supino Reto com Barra', 4, '8-10', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/0.jpg', 1),
+  ('peito', 'Supino Inclinado Halteres', 3, '10-12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Press/0.jpg', 2),
+  ('peito', 'Crucifixo na Máquina', 3, '12-15', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Butterfly/0.jpg', 3),
+  ('peito', 'Flexão de Braço', 3, 'até a falha', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/0.jpg', 4),
+  ('peito', 'Crossover no Cabo', 3, '12-15', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Crossover/0.jpg', 5),
+  ('costas', 'Puxada Frontal', 4, '10-12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/0.jpg', 1),
+  ('costas', 'Remada Curvada', 4, '8-10', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/0.jpg', 2),
+  ('costas', 'Remada Baixa (Cabo)', 3, '10-12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Cable_Rows/0.jpg', 3),
+  ('costas', 'Puxada Supinada', 3, '10-12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Close-Grip_Front_Lat_Pulldown/0.jpg', 4),
+  ('costas', 'Levantamento Terra', 3, '6-8', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Deadlift/0.jpg', 5),
+  ('biceps', 'Rosca Direta Barra', 3, '10-12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/0.jpg', 1),
+  ('biceps', 'Rosca Alternada', 3, '12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Alternate_Bicep_Curl/0.jpg', 2),
+  ('biceps', 'Rosca Scott', 3, '10-12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Preacher_Curl/0.jpg', 3),
+  ('biceps', 'Rosca Martelo', 3, '10-12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hammer_Curls/0.jpg', 4),
+  ('triceps', 'Tríceps Corda', 4, '12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_Rope_Attachment/0.jpg', 1),
+  ('triceps', 'Tríceps Francês', 3, '10-12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Overhead_Barbell_Triceps_Extension/0.jpg', 2),
+  ('triceps', 'Tríceps Testa', 3, '10-12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Triceps_Press/0.jpg', 3),
+  ('triceps', 'Mergulho no Banco', 3, '12-15', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bench_Dips/0.jpg', 4),
+  ('perna', 'Agachamento Livre', 4, '8-10', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/0.jpg', 1),
+  ('perna', 'Leg Press 45°', 4, '10-12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/0.jpg', 2),
+  ('perna', 'Cadeira Extensora', 3, '12-15', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Extensions/0.jpg', 3),
+  ('perna', 'Cadeira Flexora', 3, '12-15', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Leg_Curl/0.jpg', 4),
+  ('perna', 'Afundo (Passada)', 3, '10-12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Walking_Lunge/0.jpg', 5),
+  ('ombro', 'Desenvolvimento com Halteres', 4, '8-10', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Shoulder_Press/0.jpg', 1),
+  ('ombro', 'Elevação Lateral', 3, '12-15', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_Lateral_Raise/0.jpg', 2),
+  ('ombro', 'Elevação Frontal', 3, '12-15', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Front_Dumbbell_Raise/0.jpg', 3),
+  ('ombro', 'Remada Alta', 3, '10-12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Upright_Barbell_Row/0.jpg', 4),
+  ('abdomen', 'Abdominal Supra', 3, '15-20', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Crunches/0.jpg', 1),
+  ('abdomen', 'Prancha', 3, '30-60s', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/0.jpg', 2),
+  ('abdomen', 'Elevação de Pernas', 3, '15', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hanging_Leg_Raise/0.jpg', 3),
+  ('gluteos', 'Elevação Pélvica', 4, '10-12', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Hip_Thrust/0.jpg', 1),
+  ('gluteos', 'Cadeira Abdutora', 3, '12-15', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Thigh_Abductor/0.jpg', 2),
+  ('panturrilha', 'Panturrilha em Pé', 4, '15-20', 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/0.jpg', 1),
+  ('cardio', 'Esteira', 1, '20-30 min', null, 1),
+  ('cardio', 'Bicicleta Ergométrica', 1, '20-30 min', null, 2)
+) as v(grupo_muscular, nome, series_padrao, repeticoes_padrao, imagem_demonstracao_url, ordem)
+where not exists (
+  select 1 from public.catalogo_exercicios c
+  where c.grupo_muscular = v.grupo_muscular and c.nome = v.nome
+);
+
+-- =============================================================================
+-- Fim do schema. Nenhum dado de demonstração é inserido por este script
+-- (o catálogo de exercícios acima é biblioteca de referência, não dado de
+-- tenant). Use `npm run criar-academia` para provisionar a primeira
+-- academia + admin.
 -- =============================================================================

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useFormState } from "react-dom";
 import { Dumbbell, Layers, Plus, Share2, Target } from "lucide-react";
-import { Treino } from "@/lib/types";
+import { CatalogoExercicio, Treino } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
@@ -26,9 +26,11 @@ const MODALIDADES_SUGERIDAS = [
 export default function GestaoTreinos({
   slug,
   treinosIniciais,
+  catalogo,
 }: {
   slug: string;
   treinosIniciais: Treino[];
+  catalogo: CatalogoExercicio[];
 }) {
   const treinos = treinosIniciais;
   const [mostrarForm, setMostrarForm] = useState(treinos.length === 0);
@@ -55,7 +57,11 @@ export default function GestaoTreinos({
       </button>
 
       {mostrarForm && (
-        <FormularioTreino slug={slug} onSalvo={() => setMostrarForm(false)} />
+        <FormularioTreino
+          slug={slug}
+          catalogo={catalogo}
+          onSalvo={() => setMostrarForm(false)}
+        />
       )}
 
       {treinos.length === 0 && !mostrarForm ? (
@@ -138,9 +144,11 @@ function CardTreino({ slug, treino }: { slug: string; treino: Treino }) {
 
 function FormularioTreino({
   slug,
+  catalogo,
   onSalvo,
 }: {
   slug: string;
+  catalogo: CatalogoExercicio[];
   onSalvo: () => void;
 }) {
   const acao = criarTreinoBiblioteca.bind(null, slug);
@@ -208,7 +216,7 @@ function FormularioTreino({
       </div>
 
       <div className="mt-4">
-        <ExercicioBuilder key={resetKey} />
+        <ExercicioBuilder key={resetKey} catalogo={catalogo} />
       </div>
 
       <FormActions salvarLabel="Salvar treino" className="mt-4" />

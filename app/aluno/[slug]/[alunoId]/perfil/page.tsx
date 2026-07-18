@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { BadgeCheck, CreditCard, ShieldCheck } from "lucide-react";
+import { BadgeCheck, CreditCard, Ruler, ShieldCheck } from "lucide-react";
+import { GraficoProgressoPeso } from "@/components/painel/DashboardCharts";
 import { requireFichaAluno } from "@/lib/aluno-publico";
 import { badgeStatusMatricula, cn } from "@/lib/utils";
 
@@ -9,7 +10,18 @@ export default async function PerfilPage({
   params: { slug: string; alunoId: string };
 }) {
   const ficha = await requireFichaAluno(params.slug, params.alunoId);
-  const { aluno } = ficha;
+  const { aluno, progresso } = ficha;
+
+  const dadosPeso = progresso
+    .filter((p) => p.peso_kg != null)
+    .map((p) => ({
+      data: new Date(p.data + "T00:00:00").toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+      }),
+      peso: Number(p.peso_kg),
+    }));
+  const ultimoProgresso = progresso[progresso.length - 1];
 
   return (
     <div className="space-y-6">
@@ -62,10 +74,68 @@ export default async function PerfilPage({
         </div>
       </div>
 
+      {/* Evolução */}
+      {progresso.length > 0 && (
+        <div className="surface rounded-2xl p-5">
+          <div className="flex items-center gap-2 text-slate-300">
+            <Ruler className="h-4 w-4 text-volt-300" />
+            <span className="text-sm font-medium">Sua evolução</span>
+          </div>
+
+          {dadosPeso.length >= 2 && (
+            <div className="mt-3">
+              <GraficoProgressoPeso dados={dadosPeso} />
+            </div>
+          )}
+
+          {ultimoProgresso && (
+            <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+              {ultimoProgresso.peso_kg != null && (
+                <Medida label="Peso" valor={`${ultimoProgresso.peso_kg} kg`} />
+              )}
+              {ultimoProgresso.percentual_gordura != null && (
+                <Medida
+                  label="% Gordura"
+                  valor={`${ultimoProgresso.percentual_gordura}%`}
+                />
+              )}
+              {ultimoProgresso.peito_cm != null && (
+                <Medida label="Peito" valor={`${ultimoProgresso.peito_cm} cm`} />
+              )}
+              {ultimoProgresso.cintura_cm != null && (
+                <Medida label="Cintura" valor={`${ultimoProgresso.cintura_cm} cm`} />
+              )}
+              {ultimoProgresso.braco_cm != null && (
+                <Medida label="Braço" valor={`${ultimoProgresso.braco_cm} cm`} />
+              )}
+              {ultimoProgresso.coxa_cm != null && (
+                <Medida label="Coxa" valor={`${ultimoProgresso.coxa_cm} cm`} />
+              )}
+            </div>
+          )}
+          <p className="mt-3 text-xs text-slate-500">
+            Última medição em{" "}
+            {ultimoProgresso &&
+              new Date(ultimoProgresso.data + "T00:00:00").toLocaleDateString(
+                "pt-BR"
+              )}
+          </p>
+        </div>
+      )}
+
       <p className="px-1 text-center text-xs text-slate-500">
         Para atualizar seus dados de contato, fale com a recepção da
         academia.
       </p>
+    </div>
+  );
+}
+
+function Medida({ label, valor }: { label: string; valor: string }) {
+  return (
+    <div className="rounded-xl bg-ink-700/60 p-3">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="font-semibold text-white">{valor}</p>
     </div>
   );
 }

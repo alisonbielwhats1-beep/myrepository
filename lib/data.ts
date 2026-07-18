@@ -4,34 +4,45 @@
 
 import { createClient } from "./supabase/server";
 import {
+  AcademiaPublica,
   AcessoCatraca,
   Aluno,
+  CatalogoExercicio,
   Despesa,
   FichaAlunoPublica,
   Funcionario,
   Plano,
+  PlanoPublico,
+  ProgressoAluno,
   Receita,
   Treino,
   TreinoPublico,
 } from "./types";
 
 /**
- * Lookup público mínimo de academia por slug (nome, cor) via RPC
- * `obter_academia_publica` — usado apenas pela tela do aluno (sem login).
- * Não retorna endereço/telefone completos das tabelas internas.
+ * Lookup público mínimo de academia por slug (mini-site) via RPC
+ * `obter_academia_publica` — usado pela tela do aluno e pela landing pública,
+ * sem exigir login. Não retorna telefone/CPF/dados internos sensíveis.
  */
-export async function getAcademiaPublica(slug: string): Promise<{
-  id: string;
-  nome_fantasia: string;
-  slug_url: string;
-  cor_primaria: string | null;
-} | null> {
+export async function getAcademiaPublica(
+  slug: string
+): Promise<AcademiaPublica | null> {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("obter_academia_publica", {
     p_slug: slug,
   });
   if (error) throw new Error(`Falha ao carregar academia: ${error.message}`);
-  return data && (data as { id: string }).id ? data : null;
+  return data && (data as { id: string }).id ? (data as AcademiaPublica) : null;
+}
+
+/** Planos públicos do mini-site (nome, valor, descrição) via RPC. */
+export async function getPlanosPublicos(slug: string): Promise<PlanoPublico[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_planos_publicos", {
+    p_slug: slug,
+  });
+  if (error) throw new Error(`Falha ao carregar planos: ${error.message}`);
+  return (data as PlanoPublico[]) ?? [];
 }
 
 export async function getAlunos(academiaId: string): Promise<Aluno[]> {
@@ -214,4 +225,82 @@ export async function getTreinoPublico(
   if (error) throw new Error(`Falha ao carregar treino: ${error.message}`);
   if (!data || !(data as TreinoPublico).treino) return null;
   return data as TreinoPublico;
+}
+
+/** Catálogo global de exercícios (grupo muscular), para montagem rápida de treino. */
+export async function getCatalogoExercicios(): Promise<CatalogoExercicio[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("catalogo_exercicios")
+    .select("*")
+    .order("grupo_muscular", { ascending: true })
+    .order("ordem", { ascending: true });
+  if (error) throw new Error(`Falha ao carregar catálogo: ${error.message}`);
+  return (data as CatalogoExercicio[]) ?? [];
+}
+
+/** Histórico de progresso de um aluno (mais recente primeiro). */
+export async function getProgressoAluno(
+  academiaId: string,
+  alunoId: string
+): Promise<ProgressoAluno[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("progresso_aluno")
+    .select("*")
+    .eq("academia_id", academiaId)
+    .eq("aluno_id", alunoId)
+    .order("data", { ascending: false });
+  if (error) throw new Error(`Falha ao carregar progresso: ${error.message}`);
+  return (data as ProgressoAluno[]) ?? [];
+}
+
+/** Todos os registros de progresso da academia (todos os alunos), mais recentes primeiro. */
+export async function getTodoProgresso(
+  academiaId: string
+): Promise<ProgressoAluno[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("progresso_aluno")
+    .select("*")
+    .eq("academia_id", academiaId)
+    .order("data", { ascending: false });
+  if (error) throw new Error(`Falha ao carregar progresso: ${error.message}`);
+  return (data as ProgressoAluno[]) ?? [];
+}
+
+/**
+ * Alunos ativos sem nenhum acesso registrado nos últimos `dias` dias
+ * (nunca vieram OU sumiram) — para o painel de alertas.
+ */
+export async function getAlunosSumidos(
+  academiaId: string,
+  dias = 14
+): Promise<Aluno[]> {
+  const supabase = createClient();
+  const desde = new Date(Date.now() - dias * 86400_000).toISOString();
+
+  const [{ data: alunos, error: e1 }, { data: acessosRecentes, error: e2 }] =
+    await Promise.all([
+      supabase
+        .from("alunos")
+        .select("*")
+        .eq("academia_id", academiaId)
+        .eq("status_matricula", "ativa"),
+      supabase
+        .from("acessos_catraca")
+        .select("aluno_id")
+        .eq("academia_id", academiaId)
+        .gte("data_hora_entrada", desde),
+    ]);
+
+  if (e1) throw new Error(`Falha ao carregar alunos: ${e1.message}`);
+  if (e2) throw new Error(`Falha ao carregar acessos: ${e2.message}`);
+
+  const idsComAcessoRecente = new Set(
+    (acessosRecentes ?? []).map((a) => a.aluno_id).filter(Boolean)
+  );
+  return ((alunos as Aluno[]) ?? []).filter(
+    (a) => !idsComAcessoRecente.has(a.id)
+  );
 }

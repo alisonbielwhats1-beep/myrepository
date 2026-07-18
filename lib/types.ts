@@ -38,6 +38,33 @@ export const TIPOS_RECEITA: { value: TipoReceita; label: string }[] = [
   { value: "outra", label: "Outra receita" },
 ];
 
+export type GrupoMuscular =
+  | "peito"
+  | "costas"
+  | "perna"
+  | "ombro"
+  | "biceps"
+  | "triceps"
+  | "abdomen"
+  | "gluteos"
+  | "panturrilha"
+  | "cardio"
+  | "outro";
+
+export const GRUPOS_MUSCULARES: { value: GrupoMuscular; label: string }[] = [
+  { value: "peito", label: "Peito" },
+  { value: "costas", label: "Costas" },
+  { value: "perna", label: "Perna" },
+  { value: "ombro", label: "Ombro" },
+  { value: "biceps", label: "Bíceps" },
+  { value: "triceps", label: "Tríceps" },
+  { value: "abdomen", label: "Abdômen" },
+  { value: "gluteos", label: "Glúteos" },
+  { value: "panturrilha", label: "Panturrilha" },
+  { value: "cardio", label: "Cardio" },
+  { value: "outro", label: "Outro" },
+];
+
 export interface Academia {
   id: string;
   nome_fantasia: string;
@@ -46,6 +73,7 @@ export interface Academia {
   logo_url: string | null;
   cor_primaria: string | null;
   telefone: string | null;
+  whatsapp: string | null;
   criado_em: string;
   atualizado_em: string;
 }
@@ -107,6 +135,68 @@ export interface Treino {
   criado_em: string;
   atualizado_em: string;
   exercicios?: ExercicioTreino[];
+}
+
+export interface CatalogoExercicio {
+  id: string;
+  grupo_muscular: GrupoMuscular;
+  nome: string;
+  series_padrao: number;
+  repeticoes_padrao: string;
+  imagem_demonstracao_url: string | null;
+  video_demonstracao_url: string | null;
+  ordem: number;
+}
+
+export interface ProgressoAluno {
+  id: string;
+  academia_id: string;
+  aluno_id: string;
+  data: string;
+  peso_kg: number | null;
+  percentual_gordura: number | null;
+  peito_cm: number | null;
+  cintura_cm: number | null;
+  quadril_cm: number | null;
+  braco_cm: number | null;
+  coxa_cm: number | null;
+  foto_url: string | null;
+  observacoes: string | null;
+  criado_em: string;
+}
+
+/** Registro de progresso exposto na ficha pública (sem `observacoes`). */
+export interface ProgressoPublico {
+  id: string;
+  data: string;
+  peso_kg: number | null;
+  percentual_gordura: number | null;
+  peito_cm: number | null;
+  cintura_cm: number | null;
+  quadril_cm: number | null;
+  braco_cm: number | null;
+  coxa_cm: number | null;
+  foto_url: string | null;
+}
+
+/** Retorno da RPC pública obter_academia_publica (mini-site). */
+export interface AcademiaPublica {
+  id: string;
+  nome_fantasia: string;
+  slug_url: string;
+  cor_primaria: string | null;
+  logo_url: string | null;
+  endereco: string | null;
+  whatsapp: string | null;
+}
+
+/** Retorno da RPC pública obter_planos_publicos (mini-site). */
+export interface PlanoPublico {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  valor_mensal: number;
+  recorrencia_meses: number;
 }
 
 /** Retorno da RPC pública obter_treino_publico (treino compartilhado por QR). */
@@ -208,6 +298,7 @@ export interface FichaAlunoPublica {
     slug_url: string;
   };
   treinos: FichaTreinoPublico[];
+  progresso: ProgressoPublico[];
 }
 
 export interface FichaTreinoPublico {

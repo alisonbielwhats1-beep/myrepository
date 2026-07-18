@@ -186,3 +186,59 @@ export async function excluirTreino(slug: string, treinoId: string): Promise<voi
 
   revalidatePath(`/painel/${slug}/alunos`);
 }
+
+// ---------------------------------------------------------------------------
+// Progresso do aluno (peso, medidas, fotos ao longo do tempo)
+// ---------------------------------------------------------------------------
+export async function registrarProgresso(
+  slug: string,
+  alunoId: string,
+  _estado: EstadoAcaoAluno,
+  formData: FormData
+): Promise<EstadoAcaoAluno> {
+  const sessao = await requireSessao(slug);
+  const supabase = createClient();
+
+  const num = (nome: string) => {
+    const v = String(formData.get(nome) ?? "").trim();
+    return v ? Number(v) : null;
+  };
+
+  const { error } = await supabase.from("progresso_aluno").insert({
+    academia_id: sessao.academia.id,
+    aluno_id: alunoId,
+    data: String(formData.get("data") ?? "").trim() || new Date().toISOString().slice(0, 10),
+    peso_kg: num("peso_kg"),
+    percentual_gordura: num("percentual_gordura"),
+    peito_cm: num("peito_cm"),
+    cintura_cm: num("cintura_cm"),
+    quadril_cm: num("quadril_cm"),
+    braco_cm: num("braco_cm"),
+    coxa_cm: num("coxa_cm"),
+    foto_url: String(formData.get("foto_url") ?? "").trim() || null,
+    observacoes: String(formData.get("observacoes") ?? "").trim() || null,
+  });
+
+  if (error) return { erro: `Falha ao registrar progresso: ${error.message}` };
+
+  revalidatePath(`/painel/${slug}/alunos`);
+  return { ok: true, savedAt: Date.now() };
+}
+
+export async function excluirProgresso(
+  slug: string,
+  registroId: string
+): Promise<void> {
+  const sessao = await requireSessao(slug);
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from("progresso_aluno")
+    .delete()
+    .eq("id", registroId)
+    .eq("academia_id", sessao.academia.id);
+
+  if (error) throw new Error(`Falha ao excluir registro: ${error.message}`);
+
+  revalidatePath(`/painel/${slug}/alunos`);
+}

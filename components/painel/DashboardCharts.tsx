@@ -31,6 +31,7 @@ export type PontoFinanceiroMensal = {
   despesa: number;
 };
 export type PontoEvolucaoAlunos = { mes: string; alunos: number };
+export type PontoPeso = { data: string; peso: number };
 
 const tooltipStyle = {
   backgroundColor: "#12141d",
@@ -225,6 +226,40 @@ export function GraficoEvolucaoAlunos({
           stroke="#3ee6ff"
           strokeWidth={2.5}
           dot={{ r: 3, fill: "#3ee6ff" }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Linha: evolução do peso do aluno ao longo do tempo. */
+export function GraficoProgressoPeso({ dados }: { dados: PontoPeso[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <LineChart data={dados} margin={{ left: -20, right: 8, top: 8 }}>
+        <XAxis
+          dataKey="data"
+          tick={{ fill: "#64748b", fontSize: 11 }}
+          axisLine={{ stroke: "#242838" }}
+          tickLine={false}
+        />
+        <YAxis
+          tick={{ fill: "#64748b", fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          domain={["dataMin - 2", "dataMax + 2"]}
+        />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          formatter={(v: number) => `${v} kg`}
+        />
+        <Line
+          type="monotone"
+          dataKey="peso"
+          name="Peso (kg)"
+          stroke="#adff42"
+          strokeWidth={2.5}
+          dot={{ r: 3, fill: "#adff42" }}
         />
       </LineChart>
     </ResponsiveContainer>

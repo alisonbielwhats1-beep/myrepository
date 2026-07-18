@@ -8,19 +8,25 @@ import {
   Dumbbell,
   ImagePlus,
   Pencil,
-  Plus,
   QrCode,
   Target,
-  Trash2,
   UserPlus,
   UserRound,
-  Video,
   X,
 } from "lucide-react";
-import { Aluno, ExercicioTreino, Plano, StatusMatricula, Treino } from "@/lib/types";
+import {
+  Aluno,
+  CatalogoExercicio,
+  Plano,
+  ProgressoAluno as TipoProgresso,
+  StatusMatricula,
+  Treino,
+} from "@/lib/types";
 import { badgeStatusMatricula, cn } from "@/lib/utils";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
+import ExercicioBuilder from "@/components/painel/ExercicioBuilder";
+import ProgressoAluno from "@/components/painel/ProgressoAluno";
 import {
   atualizarAluno,
   criarAluno,
@@ -29,34 +35,20 @@ import {
   excluirTreino,
 } from "@/app/painel/[slug]/alunos/actions";
 
-type NovoExercicio = {
-  nome_exercicio: string;
-  series: number;
-  repeticoes: string;
-  carga_kg: number;
-  imagem_demonstracao_url: string;
-  video_demonstracao_url: string;
-};
-
-const EX_VAZIO: NovoExercicio = {
-  nome_exercicio: "",
-  series: 3,
-  repeticoes: "12",
-  carga_kg: 0,
-  imagem_demonstracao_url: "",
-  video_demonstracao_url: "",
-};
-
 export default function GestaoAlunos({
   slug,
   alunosIniciais,
   treinosIniciais,
   planos,
+  catalogo,
+  progresso,
 }: {
   slug: string;
   alunosIniciais: Aluno[];
   treinosIniciais: Treino[];
   planos: Plano[];
+  catalogo: CatalogoExercicio[];
+  progresso: TipoProgresso[];
 }) {
   const alunos = alunosIniciais;
   const treinos = treinosIniciais;
@@ -162,6 +154,7 @@ export default function GestaoAlunos({
               slug={slug}
               alunoId={alunoSelecionado.id}
               proximaOrdem={treinosDoAluno.length + 1}
+              catalogo={catalogo}
             />
           )}
         </div>
@@ -216,6 +209,16 @@ export default function GestaoAlunos({
               </div>
             )}
           </div>
+        )}
+
+        {/* Progresso (peso, medidas, fotos) */}
+        {alunoSelecionado && (
+          <ProgressoAluno
+            slug={slug}
+            alunoId={alunoSelecionado.id}
+            alunoNome={alunoSelecionado.nome}
+            registros={progresso.filter((p) => p.aluno_id === alunoSelecionado.id)}
+          />
         )}
       </div>
     </div>
@@ -456,39 +459,30 @@ function FormularioTreino({
   slug,
   alunoId,
   proximaOrdem,
+  catalogo,
 }: {
   slug: string;
   alunoId: string;
   proximaOrdem: number;
+  catalogo: CatalogoExercicio[];
 }) {
   const acao = criarTreino.bind(null, slug, alunoId);
   const [estado, formAction] = useFormState(acao, {});
   const [nomeTreino, setNomeTreino] = useState("");
   const [objetivo, setObjetivo] = useState("Hipertrofia");
-  const [exercicios, setExercicios] = useState<NovoExercicio[]>([{ ...EX_VAZIO }]);
+  const [resetKey, setResetKey] = useState(0);
 
   useEffect(() => {
     if (estado.ok) {
       setNomeTreino("");
       setObjetivo("Hipertrofia");
-      setExercicios([{ ...EX_VAZIO }]);
+      setResetKey((k) => k + 1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado.savedAt]);
 
-  const setEx = (i: number, patch: Partial<NovoExercicio>) =>
-    setExercicios((prev) =>
-      prev.map((ex, idx) => (idx === i ? { ...ex, ...patch } : ex))
-    );
-
-  const addLinhaEx = () => setExercicios((p) => [...p, { ...EX_VAZIO }]);
-  const rmLinhaEx = (i: number) =>
-    setExercicios((p) => (p.length > 1 ? p.filter((_, idx) => idx !== i) : p));
-
   return (
     <form action={formAction} className="mt-4 space-y-4">
-      <input type="hidden" name="exercicios_json" value={JSON.stringify(exercicios)} />
-
       {estado.erro && (
         <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
           {estado.erro}
@@ -520,94 +514,7 @@ function FormularioTreino({
         </Field>
       </div>
 
-      <div className="space-y-4">
-        {exercicios.map((ex, i) => (
-          <div
-            key={i}
-            className="rounded-xl border border-ink-600 bg-ink-900/50 p-4"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Exercício {i + 1}
-              </span>
-              <button
-                type="button"
-                onClick={() => rmLinhaEx(i)}
-                className="text-slate-500 transition hover:text-red-400"
-                aria-label="Remover exercício"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="mt-3 grid gap-3 md:grid-cols-[1fr_minmax(0,180px)]">
-              <div className="space-y-3">
-                <input
-                  value={ex.nome_exercicio}
-                  onChange={(e) => setEx(i, { nome_exercicio: e.target.value })}
-                  placeholder="Nome do exercício"
-                  className="inp"
-                />
-                <div className="grid grid-cols-3 gap-2">
-                  <Field label="Séries">
-                    <input
-                      type="number"
-                      min={0}
-                      value={ex.series}
-                      onChange={(e) => setEx(i, { series: Number(e.target.value) })}
-                      className="inp"
-                    />
-                  </Field>
-                  <Field label="Reps">
-                    <input
-                      value={ex.repeticoes}
-                      onChange={(e) => setEx(i, { repeticoes: e.target.value })}
-                      placeholder="10-12"
-                      className="inp"
-                    />
-                  </Field>
-                  <Field label="Carga (kg)">
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.5"
-                      value={ex.carga_kg}
-                      onChange={(e) => setEx(i, { carga_kg: Number(e.target.value) })}
-                      className="inp"
-                    />
-                  </Field>
-                </div>
-              </div>
-
-              <ImageUpload
-                value={ex.imagem_demonstracao_url}
-                onChange={(url) => setEx(i, { imagem_demonstracao_url: url })}
-                aspect="aspect-[4/3]"
-                hint="Imagem do equipamento"
-              />
-
-              <Field label="Vídeo de demonstração (≤ 10s)">
-                <div className="flex items-center gap-2">
-                  <Video className="h-4 w-4 flex-none text-volt-300" />
-                  <input
-                    type="url"
-                    value={ex.video_demonstracao_url}
-                    onChange={(e) =>
-                      setEx(i, { video_demonstracao_url: e.target.value })
-                    }
-                    placeholder="URL do clipe (mp4/webm) — Supabase Storage"
-                    className="inp"
-                  />
-                </div>
-              </Field>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <button type="button" onClick={addLinhaEx} className="btn-ghost w-full">
-        <Plus className="h-4 w-4" /> Adicionar exercício
-      </button>
+      <ExercicioBuilder key={resetKey} catalogo={catalogo} />
 
       <FormActions salvarLabel="Salvar ficha de treino" />
     </form>

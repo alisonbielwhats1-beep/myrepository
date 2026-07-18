@@ -9,6 +9,9 @@ const nextConfig = {
       { protocol: "https", hostname: "**.supabase.co" },
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "plus.unsplash.com" },
+      // Fotos reais e livres de direitos (domínio público) do catálogo de
+      // exercícios: github.com/yuhonas/free-exercise-db (licença Unlicense).
+      { protocol: "https", hostname: "raw.githubusercontent.com" },
     ],
   },
 };

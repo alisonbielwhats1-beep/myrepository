@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Trash2, Video } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Plus, Trash2, Video, Zap } from "lucide-react";
 import ImageUpload from "@/components/ui/ImageUpload";
+import { CatalogoExercicio, GRUPOS_MUSCULARES, GrupoMuscular } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export type LinhaExercicio = {
   nome_exercicio: string;
@@ -24,27 +26,120 @@ const VAZIO: LinhaExercicio = {
 
 /**
  * Construtor de exercícios reutilizável. Publica a lista em um input oculto
- * (name="exercicios_json") para envio via Server Action.
+ * (name="exercicios_json") para envio via Server Action. Com o catálogo,
+ * mostra botões por grupo muscular (Peito, Costas...) para montar o treino
+ * com 1 clique — os exercícios já vêm com séries/reps padrão e a animação
+ * (quando disponível). Também é possível adicionar exercícios manualmente.
  */
-export default function ExercicioBuilder() {
-  const [exercicios, setExercicios] = useState<LinhaExercicio[]>([{ ...VAZIO }]);
+export default function ExercicioBuilder({
+  catalogo = [],
+  iniciais = [],
+}: {
+  catalogo?: CatalogoExercicio[];
+  iniciais?: LinhaExercicio[];
+}) {
+  const [exercicios, setExercicios] = useState<LinhaExercicio[]>(iniciais);
+  const [grupoAberto, setGrupoAberto] = useState<GrupoMuscular | null>(null);
 
   const setEx = (i: number, patch: Partial<LinhaExercicio>) =>
     setExercicios((prev) =>
       prev.map((ex, idx) => (idx === i ? { ...ex, ...patch } : ex))
     );
-  const add = () => setExercicios((p) => [...p, { ...VAZIO }]);
-  const rm = (i: number) =>
-    setExercicios((p) => (p.length > 1 ? p.filter((_, idx) => idx !== i) : p));
+  const add = (base: LinhaExercicio = { ...VAZIO }) =>
+    setExercicios((p) => [...p, base]);
+  const rm = (i: number) => setExercicios((p) => p.filter((_, idx) => idx !== i));
+
+  const gruposComItens = useMemo(() => {
+    const disponiveis = new Set(catalogo.map((c) => c.grupo_muscular));
+    return GRUPOS_MUSCULARES.filter((g) => disponiveis.has(g.value));
+  }, [catalogo]);
+
+  const itensDoGrupo = useMemo(
+    () =>
+      grupoAberto ? catalogo.filter((c) => c.grupo_muscular === grupoAberto) : [],
+    [catalogo, grupoAberto]
+  );
+
+  const adicionarDoCatalogo = (item: CatalogoExercicio) => {
+    add({
+      nome_exercicio: item.nome,
+      series: item.series_padrao,
+      repeticoes: item.repeticoes_padrao,
+      carga_kg: 0,
+      imagem_demonstracao_url: item.imagem_demonstracao_url ?? "",
+      video_demonstracao_url: item.video_demonstracao_url ?? "",
+    });
+  };
 
   return (
     <div className="space-y-4">
-      <input type="hidden" name="exercicios_json" value={JSON.stringify(exercicios)} />
+      <input
+        type="hidden"
+        name="exercicios_json"
+        value={JSON.stringify(exercicios)}
+      />
+
+      {/* Montagem rápida por grupo muscular */}
+      {gruposComItens.length > 0 && (
+        <div>
+          <span className="mb-1.5 block text-xs font-medium text-slate-400">
+            Adicionar por grupo muscular
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {gruposComItens.map((g) => (
+              <button
+                key={g.value}
+                type="button"
+                onClick={() =>
+                  setGrupoAberto((atual) => (atual === g.value ? null : g.value))
+                }
+                className={cn(
+                  "rounded-lg px-3 py-1.5 text-sm font-semibold transition",
+                  grupoAberto === g.value
+                    ? "bg-volt-300 text-ink-950"
+                    : "border border-ink-600 bg-ink-800 text-slate-300 hover:bg-ink-700"
+                )}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+
+          {grupoAberto && (
+            <div className="mt-2 flex flex-wrap gap-2 rounded-xl border border-ink-600 bg-ink-900/50 p-3">
+              {itensDoGrupo.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => adicionarDoCatalogo(item)}
+                  className="flex items-center gap-1.5 rounded-lg border border-ink-600 bg-ink-800 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-volt-500/50 hover:bg-ink-700"
+                >
+                  {item.video_demonstracao_url && (
+                    <Video className="h-3 w-3 text-volt-300" />
+                  )}
+                  {item.nome}
+                  <Plus className="h-3 w-3 text-slate-500" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {exercicios.length === 0 && (
+        <p className="rounded-xl border border-dashed border-ink-600 px-4 py-6 text-center text-sm text-slate-500">
+          Nenhum exercício ainda — escolha um grupo muscular acima ou adicione
+          manualmente.
+        </p>
+      )}
 
       {exercicios.map((ex, i) => (
         <div key={i} className="rounded-xl border border-ink-600 bg-ink-900/50 p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {ex.video_demonstracao_url && (
+                <Zap className="h-3 w-3 text-volt-300" />
+              )}
               Exercício {i + 1}
             </span>
             <button
@@ -120,8 +215,8 @@ export default function ExercicioBuilder() {
         </div>
       ))}
 
-      <button type="button" onClick={add} className="btn-ghost w-full">
-        <Plus className="h-4 w-4" /> Adicionar exercício
+      <button type="button" onClick={() => add()} className="btn-ghost w-full">
+        <Plus className="h-4 w-4" /> Adicionar exercício manualmente
       </button>
     </div>
   );
