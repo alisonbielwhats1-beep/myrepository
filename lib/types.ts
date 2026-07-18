@@ -126,8 +126,10 @@ export interface Funcionario {
   telefone: string | null;
   email: string | null;
   cpf: string | null;
+  foto_url: string | null;
   data_admissao: string | null;
   salario: number | null;
+  dia_pagamento: number | null;
   status: StatusFuncionario;
   criado_em: string;
   atualizado_em: string;
@@ -157,6 +159,8 @@ export interface Despesa {
   data: string;
   status: StatusPagamento;
   observacoes: string | null;
+  funcionario_id: string | null;
+  competencia: string | null;
   criado_em: string;
   atualizado_em: string;
 }

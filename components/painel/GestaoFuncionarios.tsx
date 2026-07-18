@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useFormState } from "react-dom";
+import Image from "next/image";
 import {
   Briefcase,
+  CalendarClock,
   Mail,
   Pencil,
   Phone,
@@ -15,6 +17,7 @@ import { Funcionario, StatusFuncionario } from "@/lib/types";
 import { cn, formatBRL } from "@/lib/utils";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
+import ImageUpload from "@/components/ui/ImageUpload";
 import {
   atualizarFuncionario,
   criarFuncionario,
@@ -106,8 +109,20 @@ export default function GestaoFuncionarios({
                   key={f.id}
                   className="flex flex-wrap items-center gap-4 px-5 py-4 hover:bg-ink-700/30"
                 >
-                  <div className="grid h-10 w-10 flex-none place-items-center rounded-full bg-ink-700 text-slate-400">
-                    <UserRound className="h-5 w-5" />
+                  <div className="relative h-10 w-10 flex-none overflow-hidden rounded-full bg-ink-700 ring-1 ring-ink-600">
+                    {f.foto_url ? (
+                      <Image
+                        src={f.foto_url}
+                        alt={f.nome}
+                        fill
+                        sizes="40px"
+                        className="media-native object-cover"
+                      />
+                    ) : (
+                      <span className="grid h-full w-full place-items-center text-slate-400">
+                        <UserRound className="h-5 w-5" />
+                      </span>
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-white">{f.nome}</p>
@@ -180,6 +195,7 @@ function FormularioFuncionario({
     ? atualizarFuncionario.bind(null, slug, funcionarioExistente.id)
     : criarFuncionario.bind(null, slug);
   const [estado, formAction] = useFormState(acao, {});
+  const [foto, setFoto] = useState(funcionarioExistente?.foto_url ?? "");
 
   useEffect(() => {
     if (estado.ok) onSalvo();
@@ -199,79 +215,114 @@ function FormularioFuncionario({
         </p>
       )}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <Field label="Nome completo">
-          <input
-            name="nome"
-            defaultValue={funcionarioExistente?.nome}
-            placeholder="Ex: Ana Souza"
-            className="inp"
-            required
+      <div className="mt-4 grid gap-4 sm:grid-cols-[130px_1fr]">
+        {/* Foto */}
+        <div>
+          <span className="mb-1 block text-xs font-medium text-slate-400">
+            Foto
+          </span>
+          <input type="hidden" name="foto_url" value={foto} />
+          <ImageUpload
+            value={foto}
+            onChange={setFoto}
+            aspect="aspect-square"
+            hint="Foto do funcionário"
           />
-        </Field>
-        <Field label="Cargo">
-          <input
-            name="cargo"
-            defaultValue={funcionarioExistente?.cargo}
-            placeholder="Ex: Personal Trainer"
-            className="inp"
-            required
-          />
-        </Field>
-        <Field label="Telefone">
-          <input
-            name="telefone"
-            defaultValue={funcionarioExistente?.telefone ?? ""}
-            placeholder="(11) 90000-0000"
-            className="inp"
-          />
-        </Field>
-        <Field label="E-mail">
-          <input
-            name="email"
-            type="email"
-            defaultValue={funcionarioExistente?.email ?? ""}
-            placeholder="funcionario@email.com"
-            className="inp"
-          />
-        </Field>
-        <Field label="CPF">
-          <input
-            name="cpf"
-            defaultValue={funcionarioExistente?.cpf ?? ""}
-            placeholder="000.000.000-00"
-            className="inp"
-          />
-        </Field>
-        <Field label="Data de admissão">
-          <input
-            name="data_admissao"
-            type="date"
-            defaultValue={funcionarioExistente?.data_admissao ?? ""}
-            className="inp"
-          />
-        </Field>
-        <Field label="Salário (R$)">
-          <input
-            name="salario"
-            type="number"
-            min={0}
-            step="0.01"
-            defaultValue={funcionarioExistente?.salario ?? 0}
-            className="inp"
-          />
-        </Field>
-        <Field label="Status">
-          <select
-            name="status"
-            defaultValue={funcionarioExistente?.status ?? ("ativo" as StatusFuncionario)}
-            className="inp"
-          >
-            <option value="ativo">Ativo</option>
-            <option value="inativo">Inativo</option>
-          </select>
-        </Field>
+        </div>
+
+        {/* Demais campos */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Nome completo">
+            <input
+              name="nome"
+              defaultValue={funcionarioExistente?.nome}
+              placeholder="Ex: Ana Souza"
+              className="inp"
+              required
+            />
+          </Field>
+          <Field label="Cargo">
+            <input
+              name="cargo"
+              defaultValue={funcionarioExistente?.cargo}
+              placeholder="Ex: Personal Trainer"
+              className="inp"
+              required
+            />
+          </Field>
+          <Field label="Telefone">
+            <input
+              name="telefone"
+              defaultValue={funcionarioExistente?.telefone ?? ""}
+              placeholder="(11) 90000-0000"
+              className="inp"
+            />
+          </Field>
+          <Field label="E-mail">
+            <input
+              name="email"
+              type="email"
+              defaultValue={funcionarioExistente?.email ?? ""}
+              placeholder="funcionario@email.com"
+              className="inp"
+            />
+          </Field>
+          <Field label="CPF">
+            <input
+              name="cpf"
+              defaultValue={funcionarioExistente?.cpf ?? ""}
+              placeholder="000.000.000-00"
+              className="inp"
+            />
+          </Field>
+          <Field label="Data de admissão">
+            <input
+              name="data_admissao"
+              type="date"
+              defaultValue={funcionarioExistente?.data_admissao ?? ""}
+              className="inp"
+            />
+          </Field>
+          <Field label="Salário (R$)">
+            <input
+              name="salario"
+              type="number"
+              min={0}
+              step="0.01"
+              defaultValue={funcionarioExistente?.salario ?? 0}
+              className="inp"
+            />
+          </Field>
+          <Field label="Dia de pagamento (1-31)">
+            <input
+              name="dia_pagamento"
+              type="number"
+              min={1}
+              max={31}
+              defaultValue={funcionarioExistente?.dia_pagamento ?? ""}
+              placeholder="Ex: 5"
+              className="inp"
+            />
+          </Field>
+          <Field label="Status">
+            <select
+              name="status"
+              defaultValue={funcionarioExistente?.status ?? ("ativo" as StatusFuncionario)}
+              className="inp"
+            >
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </Field>
+        </div>
       </div>
+
+      <p className="mt-3 flex items-start gap-2 rounded-lg border border-ink-600 bg-ink-900/40 px-3 py-2 text-xs text-slate-400">
+        <CalendarClock className="mt-0.5 h-3.5 w-3.5 flex-none text-volt-300" />
+        Com salário e dia de pagamento preenchidos, o sistema lança
+        automaticamente a <b className="text-slate-300">despesa de salário</b>{" "}
+        (categoria Salários) na data do pagamento, todo mês.
+      </p>
 
       <FormActions
         onCancelar={onCancelar}

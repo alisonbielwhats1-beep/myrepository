@@ -7,6 +7,30 @@ import { CategoriaDespesa, StatusPagamento, TipoReceita } from "@/lib/types";
 
 export type EstadoAcaoFinanceiro = { erro?: string; ok?: boolean; savedAt?: number };
 
+/**
+ * Gera a folha salarial (despesas de 'Salários') de um mês. `competencia` é
+ * uma data ISO qualquer dentro do mês desejado; usa a academia do admin.
+ */
+export async function gerarFolha(
+  slug: string,
+  competencia: string
+): Promise<{ erro?: string; criadas?: number }> {
+  await requireSessao(slug);
+  const supabase = createClient();
+  const comp = /^\d{4}-\d{2}-\d{2}$/.test(competencia)
+    ? competencia
+    : new Date().toISOString().slice(0, 10);
+
+  const { data, error } = await supabase.rpc("gerar_folha_do_mes", {
+    p_competencia: comp,
+  });
+  if (error) return { erro: `Falha ao gerar folha: ${error.message}` };
+
+  revalidatePath(`/painel/${slug}/financeiro`, "layout");
+  revalidatePath(`/painel/${slug}`);
+  return { criadas: (data as number) ?? 0 };
+}
+
 // ---------------------------------------------------------------------------
 // Receitas
 // ---------------------------------------------------------------------------

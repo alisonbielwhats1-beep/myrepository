@@ -124,10 +124,14 @@ export async function getFuncionarios(
   return (data as Funcionario[]) ?? [];
 }
 
-/** Receitas desde `desde` (ISO date), mais recentes primeiro. */
+/**
+ * Receitas mais recentes primeiro. Filtra por `desde` (>= data) e/ou `ate`
+ * (<= data), ambos ISO "YYYY-MM-DD".
+ */
 export async function getReceitas(
   academiaId: string,
-  desde?: string
+  desde?: string,
+  ate?: string
 ): Promise<Receita[]> {
   const supabase = createClient();
   let query = supabase
@@ -136,15 +140,20 @@ export async function getReceitas(
     .eq("academia_id", academiaId)
     .order("data", { ascending: false });
   if (desde) query = query.gte("data", desde);
+  if (ate) query = query.lte("data", ate);
   const { data, error } = await query;
   if (error) throw new Error(`Falha ao carregar receitas: ${error.message}`);
   return (data as Receita[]) ?? [];
 }
 
-/** Despesas desde `desde` (ISO date), mais recentes primeiro. */
+/**
+ * Despesas mais recentes primeiro. Filtra por `desde` (>= data) e/ou `ate`
+ * (<= data), ambos ISO "YYYY-MM-DD".
+ */
 export async function getDespesas(
   academiaId: string,
-  desde?: string
+  desde?: string,
+  ate?: string
 ): Promise<Despesa[]> {
   const supabase = createClient();
   let query = supabase
@@ -153,6 +162,7 @@ export async function getDespesas(
     .eq("academia_id", academiaId)
     .order("data", { ascending: false });
   if (desde) query = query.gte("data", desde);
+  if (ate) query = query.lte("data", ate);
   const { data, error } = await query;
   if (error) throw new Error(`Falha ao carregar despesas: ${error.message}`);
   return (data as Despesa[]) ?? [];

@@ -153,11 +153,16 @@ create table if not exists public.treinos (
   aluno_id      uuid        not null references public.alunos(id)    on delete cascade,
   nome_treino   text        not null,   -- Ex: "Treino A - Peito e Tríceps"
   objetivo      text,                    -- Ex: "Hipertrofia"
+  modalidade    text,                    -- Ex: "Musculação", "Funcional", "Crossfit"
   ordem         integer     not null default 0,
   ativo         boolean     not null default true,
+  publico       boolean     not null default false, -- se true, abre pelo link/QR público
+  share_token   uuid        not null default gen_random_uuid(),
   criado_em     timestamptz not null default now(),
   atualizado_em timestamptz not null default now()
 );
+
+create unique index if not exists uidx_treinos_share_token on public.treinos(share_token);
 
 comment on table public.treinos is 'Fichas de treino (ex: Treino A, B, C) de cada aluno.';
 
@@ -208,8 +213,10 @@ create table if not exists public.funcionarios (
   telefone        text,
   email           text,
   cpf             text,
+  foto_url        text,
   data_admissao   date,
   salario         numeric(10,2)             default 0,
+  dia_pagamento   integer,                  -- 1..31: dia do mês em que o salário é pago
   status          status_funcionario_enum   not null default 'ativo',
   criado_em       timestamptz               not null default now(),
   atualizado_em   timestamptz               not null default now(),
@@ -251,16 +258,18 @@ create index if not exists idx_receitas_aluno     on public.receitas(aluno_id);
 -- 2.10 despesas
 -- -----------------------------------------------------------------------------
 create table if not exists public.despesas (
-  id            uuid                     primary key default gen_random_uuid(),
-  academia_id   uuid                     not null references public.academias(id) on delete cascade,
-  descricao     text                     not null,
-  categoria     categoria_despesa_enum   not null default 'outros',
-  valor         numeric(10,2)            not null default 0,
-  data          date                     not null default current_date,
-  status        status_pagamento_enum    not null default 'pendente',
-  observacoes   text,
-  criado_em     timestamptz              not null default now(),
-  atualizado_em timestamptz              not null default now()
+  id             uuid                     primary key default gen_random_uuid(),
+  academia_id    uuid                     not null references public.academias(id) on delete cascade,
+  descricao      text                     not null,
+  categoria      categoria_despesa_enum   not null default 'outros',
+  valor          numeric(10,2)            not null default 0,
+  data           date                     not null default current_date,
+  status         status_pagamento_enum    not null default 'pendente',
+  observacoes    text,
+  funcionario_id uuid                     references public.funcionarios(id) on delete set null,
+  competencia    date,                    -- mês de referência (dia 1) da folha salarial
+  criado_em      timestamptz              not null default now(),
+  atualizado_em  timestamptz              not null default now()
 );
 
 comment on table public.despesas is 'Despesas operacionais de cada academia.';
@@ -269,6 +278,9 @@ create index if not exists idx_despesas_academia  on public.despesas(academia_id
 create index if not exists idx_despesas_data       on public.despesas(data);
 create index if not exists idx_despesas_status     on public.despesas(status);
 create index if not exists idx_despesas_categoria  on public.despesas(categoria);
+create unique index if not exists uidx_despesa_salario_unica
+  on public.despesas (funcionario_id, competencia)
+  where funcionario_id is not null;
 
 -- =============================================================================
 -- 3. ÍNDICES (tabelas originais)
@@ -533,6 +545,106 @@ as $$
 $$;
 
 grant execute on function public.obter_academia_publica(text) to anon, authenticated;
+
+-- 7.2 Folha salarial automática: cria uma despesa (categoria 'salarios') para
+-- cada funcionário ativo com salário e dia de pagamento, no mês informado.
+-- Idempotente (índice único funcionario_id+competencia). Usa a academia do
+-- admin logado. Retorna quantas despesas foram criadas.
+create or replace function public.gerar_folha_do_mes(p_competencia date)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_academia   uuid := public.academia_id_atual();
+  v_comp       date := date_trunc('month', p_competencia)::date;
+  v_ultimo_dia integer := extract(day from (v_comp + interval '1 month - 1 day'));
+  v_criadas    integer := 0;
+  r            record;
+  v_data       date;
+begin
+  if v_academia is null then
+    raise exception 'Sem academia no contexto do usuário';
+  end if;
+
+  for r in
+    select id, nome, salario, dia_pagamento
+    from public.funcionarios
+    where academia_id = v_academia
+      and status = 'ativo'
+      and coalesce(salario, 0) > 0
+      and dia_pagamento is not null
+  loop
+    v_data := make_date(
+      extract(year from v_comp)::int,
+      extract(month from v_comp)::int,
+      least(greatest(r.dia_pagamento, 1), v_ultimo_dia)
+    );
+
+    insert into public.despesas
+      (academia_id, descricao, categoria, valor, data, status, funcionario_id, competencia)
+    values
+      (v_academia, 'Salário - ' || r.nome, 'salarios', r.salario, v_data, 'pendente', r.id, v_comp)
+    on conflict (funcionario_id, competencia) where funcionario_id is not null
+    do nothing;
+
+    if found then
+      v_criadas := v_criadas + 1;
+    end if;
+  end loop;
+
+  return v_criadas;
+end;
+$$;
+
+grant execute on function public.gerar_folha_do_mes(date) to authenticated;
+
+-- 7.3 RPC pública: treino compartilhado por QR (só se `publico = true`).
+create or replace function public.obter_treino_publico(p_token uuid)
+returns jsonb
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select jsonb_build_object(
+    'treino', jsonb_build_object(
+      'id', t.id,
+      'nome_treino', t.nome_treino,
+      'objetivo', t.objetivo,
+      'modalidade', t.modalidade,
+      'ordem', t.ordem
+    ),
+    'academia', jsonb_build_object(
+      'nome_fantasia', ac.nome_fantasia,
+      'slug_url', ac.slug_url
+    ),
+    'exercicios', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', e.id,
+        'treino_id', e.treino_id,
+        'nome_exercicio', e.nome_exercicio,
+        'series', e.series,
+        'repeticoes', e.repeticoes,
+        'carga_kg', e.carga_kg,
+        'descanso_segundos', e.descanso_segundos,
+        'imagem_demonstracao_url', e.imagem_demonstracao_url,
+        'video_demonstracao_url', e.video_demonstracao_url,
+        'observacoes', e.observacoes,
+        'ordem', e.ordem,
+        'criado_em', e.criado_em
+      ) order by e.ordem), '[]'::jsonb)
+      from public.exercicios_treino e
+      where e.treino_id = t.id
+    )
+  )
+  from public.treinos t
+  join public.academias ac on ac.id = t.academia_id
+  where t.share_token = p_token and t.publico = true;
+$$;
+
+grant execute on function public.obter_treino_publico(uuid) to anon, authenticated;
 
 -- =============================================================================
 -- Fim do schema. Nenhum dado de demonstração é inserido por este script.

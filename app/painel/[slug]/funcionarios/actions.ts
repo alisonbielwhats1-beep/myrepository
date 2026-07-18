@@ -8,16 +8,27 @@ import { StatusFuncionario } from "@/lib/types";
 export type EstadoAcaoFuncionario = { erro?: string; ok?: boolean; savedAt?: number };
 
 function lerCampos(formData: FormData) {
+  const dia = Number(formData.get("dia_pagamento") ?? 0);
   return {
     nome: String(formData.get("nome") ?? "").trim(),
     cargo: String(formData.get("cargo") ?? "").trim(),
     telefone: String(formData.get("telefone") ?? "").trim() || null,
     email: String(formData.get("email") ?? "").trim() || null,
     cpf: String(formData.get("cpf") ?? "").trim() || null,
+    foto_url: String(formData.get("foto_url") ?? "").trim() || null,
     data_admissao: String(formData.get("data_admissao") ?? "").trim() || null,
     salario: Number(formData.get("salario") ?? 0) || 0,
+    dia_pagamento: dia >= 1 && dia <= 31 ? dia : null,
     status: (formData.get("status") as StatusFuncionario) || "ativo",
   };
+}
+
+/** Gera a folha do mês atual (ignora erro silenciosamente — é best-effort). */
+async function gerarFolhaMesAtual(
+  supabase: ReturnType<typeof createClient>
+): Promise<void> {
+  const competencia = new Date().toISOString().slice(0, 7) + "-01";
+  await supabase.rpc("gerar_folha_do_mes", { p_competencia: competencia });
 }
 
 export async function criarFuncionario(
@@ -38,7 +49,13 @@ export async function criarFuncionario(
 
   if (error) return { erro: `Falha ao cadastrar funcionário: ${error.message}` };
 
+  // Salário definido -> já lança a despesa da folha deste mês.
+  if (campos.salario > 0 && campos.dia_pagamento) {
+    await gerarFolhaMesAtual(supabase);
+  }
+
   revalidatePath(`/painel/${slug}/funcionarios`);
+  revalidatePath(`/painel/${slug}/financeiro`, "layout");
   revalidatePath(`/painel/${slug}`);
   return { ok: true, savedAt: Date.now() };
 }
@@ -64,7 +81,12 @@ export async function atualizarFuncionario(
 
   if (error) return { erro: `Falha ao atualizar funcionário: ${error.message}` };
 
+  if (campos.salario > 0 && campos.dia_pagamento) {
+    await gerarFolhaMesAtual(supabase);
+  }
+
   revalidatePath(`/painel/${slug}/funcionarios`);
+  revalidatePath(`/painel/${slug}/financeiro`, "layout");
   revalidatePath(`/painel/${slug}`);
   return { ok: true, savedAt: Date.now() };
 }
