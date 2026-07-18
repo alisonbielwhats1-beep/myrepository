@@ -95,6 +95,9 @@ alter table public.treinos
   add column if not exists publico     boolean not null default false,
   add column if not exists share_token uuid    not null default gen_random_uuid();
 
+-- Permite treinos "da biblioteca" (modelo), sem aluno vinculado.
+alter table public.treinos alter column aluno_id drop not null;
+
 create unique index if not exists uidx_treinos_share_token
   on public.treinos (share_token);
 

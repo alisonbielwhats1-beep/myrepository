@@ -96,14 +96,33 @@ export interface ExercicioTreino {
 export interface Treino {
   id: string;
   academia_id: string;
-  aluno_id: string;
+  aluno_id: string | null;
   nome_treino: string;
   objetivo: string | null;
+  modalidade: string | null;
   ordem: number;
   ativo: boolean;
+  publico: boolean;
+  share_token: string;
   criado_em: string;
   atualizado_em: string;
   exercicios?: ExercicioTreino[];
+}
+
+/** Retorno da RPC pública obter_treino_publico (treino compartilhado por QR). */
+export interface TreinoPublico {
+  treino: {
+    id: string;
+    nome_treino: string;
+    objetivo: string | null;
+    modalidade: string | null;
+    ordem: number;
+  };
+  academia: {
+    nome_fantasia: string;
+    slug_url: string;
+  };
+  exercicios: ExercicioTreino[];
 }
 
 export interface AcessoCatraca {

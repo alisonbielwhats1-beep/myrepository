@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   DollarSign,
+  Dumbbell,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -37,7 +38,8 @@ export default function Sidebar({
   const itens = [
     { href: base, label: "Dashboard", icon: LayoutDashboard, exact: true },
     { href: `${base}/recepcao`, label: "Recepção / Catraca", icon: ScanLine },
-    { href: `${base}/alunos`, label: "Alunos & Treinos", icon: Users },
+    { href: `${base}/alunos`, label: "Alunos", icon: Users },
+    { href: `${base}/treinos`, label: "Treinos", icon: Dumbbell },
     { href: `${base}/funcionarios`, label: "Funcionários", icon: UserRound },
     { href: `${base}/financeiro`, label: "Financeiro", icon: DollarSign },
     { href: `${base}/dashboard`, label: "Relatórios / BI", icon: BarChart3 },

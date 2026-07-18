@@ -17,11 +17,13 @@ export default async function AlunosPage({
 
   return (
     <div className="space-y-6">
-      <Breadcrumbs slug={params.slug} items={[{ label: "Alunos & Treinos" }]} />
+      <Breadcrumbs slug={params.slug} items={[{ label: "Alunos" }]} />
       <div>
-        <h1 className="text-2xl font-bold text-white">Alunos &amp; Treinos</h1>
+        <h1 className="text-2xl font-bold text-white">Alunos</h1>
         <p className="text-sm text-slate-400">
-          Cadastre alunos e monte fichas de treino com imagens e vídeos reais.
+          Cadastre alunos e monte a ficha individual de cada um. Treinos-modelo
+          para compartilhar por QR ficam na aba{" "}
+          <span className="text-slate-300">Treinos</span>.
         </p>
       </div>
 

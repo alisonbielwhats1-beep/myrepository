@@ -12,6 +12,7 @@ import {
   Plano,
   Receita,
   Treino,
+  TreinoPublico,
 } from "./types";
 
 /**
@@ -91,6 +92,23 @@ export async function getTodosOsTreinos(academiaId: string): Promise<Treino[]> {
     .from("treinos")
     .select("*, exercicios:exercicios_treino(*)")
     .eq("academia_id", academiaId)
+    .not("aluno_id", "is", null)
+    .order("ordem", { ascending: true });
+  if (error) throw new Error(`Falha ao carregar treinos: ${error.message}`);
+  return (data as Treino[]) ?? [];
+}
+
+/** Treinos da biblioteca (modelos, sem aluno vinculado), por modalidade. */
+export async function getTreinosBiblioteca(
+  academiaId: string
+): Promise<Treino[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("treinos")
+    .select("*, exercicios:exercicios_treino(*)")
+    .eq("academia_id", academiaId)
+    .is("aluno_id", null)
+    .order("modalidade", { ascending: true })
     .order("ordem", { ascending: true });
   if (error) throw new Error(`Falha ao carregar treinos: ${error.message}`);
   return (data as Treino[]) ?? [];
@@ -183,4 +201,17 @@ export async function getFichaAlunoPublica(
   if (error) throw new Error(`Falha ao carregar ficha do aluno: ${error.message}`);
   if (!data || !(data as FichaAlunoPublica).aluno) return null;
   return data as FichaAlunoPublica;
+}
+
+/** Treino compartilhado por QR (público) via RPC obter_treino_publico. */
+export async function getTreinoPublico(
+  token: string
+): Promise<TreinoPublico | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_treino_publico", {
+    p_token: token,
+  });
+  if (error) throw new Error(`Falha ao carregar treino: ${error.message}`);
+  if (!data || !(data as TreinoPublico).treino) return null;
+  return data as TreinoPublico;
 }

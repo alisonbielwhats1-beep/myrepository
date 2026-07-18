@@ -150,7 +150,7 @@ end$$;
 create table if not exists public.treinos (
   id            uuid        primary key default gen_random_uuid(),
   academia_id   uuid        not null references public.academias(id) on delete cascade,
-  aluno_id      uuid        not null references public.alunos(id)    on delete cascade,
+  aluno_id      uuid        references public.alunos(id) on delete cascade, -- null = treino da biblioteca (modelo)
   nome_treino   text        not null,   -- Ex: "Treino A - Peito e Tríceps"
   objetivo      text,                    -- Ex: "Hipertrofia"
   modalidade    text,                    -- Ex: "Musculação", "Funcional", "Crossfit"
