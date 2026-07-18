@@ -6,11 +6,13 @@ import {
   DollarSign,
   Scale,
   TrendingUp,
+  UserPlus,
   UserRound,
-  UserX,
   Users,
+  UserX,
 } from "lucide-react";
 import StatTile from "@/components/painel/StatTile";
+import DashboardRangeFilter from "@/components/painel/DashboardRangeFilter";
 import {
   GraficoEvolucaoAlunos,
   GraficoFinanceiroMensal,
@@ -27,23 +29,27 @@ import {
   getFuncionarios,
   getReceitas,
 } from "@/lib/data";
-import { agruparPorMes, calcularKpisFinanceiro, ultimosMeses } from "@/lib/financeiro";
+import { agruparPorDia, agruparPorMes, ultimosMeses } from "@/lib/financeiro";
+import { resolverJanelaDashboard } from "@/lib/periodo";
 import { formatBRL } from "@/lib/utils";
 
 export default async function DashboardOverviewPage({
   params,
+  searchParams,
 }: {
   params: { slug: string };
+  searchParams?: { range?: string };
 }) {
   const sessao = await requireSessao(params.slug);
-  const janela = ultimosMeses(6);
-  const desde = `${janela[0].chave}-01`;
+  const janela = resolverJanelaDashboard(searchParams?.range);
 
+  // Busca o histórico completo: inadimplência e próximos vencimentos precisam
+  // de dados fora da janela do filtro; o recorte do período é feito abaixo.
   const [alunos, funcionarios, receitas, despesas, sumidos] = await Promise.all([
     getAlunos(sessao.academia.id),
     getFuncionarios(sessao.academia.id),
-    getReceitas(sessao.academia.id, desde),
-    getDespesas(sessao.academia.id, desde),
+    getReceitas(sessao.academia.id),
+    getDespesas(sessao.academia.id),
     getAlunosSumidos(sessao.academia.id, 14),
   ]);
 
@@ -53,6 +59,7 @@ export default async function DashboardOverviewPage({
   const alunosAtivos = alunos.filter((a) => a.status_matricula === "ativa").length;
   const funcionariosAtivos = funcionarios.filter((f) => f.status === "ativo").length;
 
+  // ---- Inadimplência (histórica, independe do filtro) ----
   const vencidas = receitas.filter(
     (r) => r.tipo === "mensalidade" && r.status === "pendente" && r.data < hojeIso
   );
@@ -78,30 +85,50 @@ export default async function DashboardOverviewPage({
   const inadimplentes = Array.from(inadimplentesMap.values()).sort(
     (a, b) => b.diasAtraso - a.diasAtraso
   );
-  const alunosInadimplentes = inadimplentes.length;
 
   const proximosVencimentos = receitas
     .filter((r) => r.status === "pendente" && r.data >= hojeIso && r.data <= em14dias)
     .sort((a, b) => a.data.localeCompare(b.data))
     .slice(0, 8);
 
-  const kpis = calcularKpisFinanceiro(receitas, despesas);
-  const dadosMensais = agruparPorMes(receitas, despesas, 6);
+  // ---- Recorte do período selecionado (KPIs + gráfico financeiro) ----
+  const receitasPeriodo = receitas.filter((r) => r.data >= janela.desde);
+  const despesasPeriodo = despesas.filter((d) => d.data >= janela.desde);
 
-  // Evolução de alunos: total cadastrado até o fim de cada mês da janela.
-  const evolucaoAlunos: PontoEvolucaoAlunos[] = janela.map(({ chave, label }) => {
-    const fimDoMes = `${chave}-31`;
-    const total = alunos.filter((a) => a.criado_em.slice(0, 10) <= fimDoMes).length;
-    return { mes: label, alunos: total };
-  });
+  const receitaPeriodo = receitasPeriodo
+    .filter((r) => r.status === "pago" && r.data <= hojeIso)
+    .reduce((acc, r) => acc + Number(r.valor), 0);
+  const despesaPeriodo = despesasPeriodo
+    .filter((d) => d.status === "pago" && d.data <= hojeIso)
+    .reduce((acc, d) => acc + Number(d.valor), 0);
+  const lucroPeriodo = receitaPeriodo - despesaPeriodo;
+  const novosAlunos = alunos.filter(
+    (a) => a.criado_em.slice(0, 10) >= janela.desde
+  ).length;
+
+  const dadosFinanceiro = janela.porDia
+    ? agruparPorDia(receitasPeriodo, despesasPeriodo, janela.dias)
+    : agruparPorMes(receitasPeriodo, despesasPeriodo, janela.meses);
+
+  // Evolução de alunos: crescimento acumulado nos últimos 6 meses.
+  const evolucaoAlunos: PontoEvolucaoAlunos[] = ultimosMeses(6).map(
+    ({ chave, label }) => {
+      const fimDoMes = `${chave}-31`;
+      const total = alunos.filter((a) => a.criado_em.slice(0, 10) <= fimDoMes).length;
+      return { mes: label, alunos: total };
+    }
+  );
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-sm text-slate-400">
-          Visão geral da {sessao.academia.nome_fantasia}.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-sm text-slate-400">
+            Visão geral da {sessao.academia.nome_fantasia}.
+          </p>
+        </div>
+        <DashboardRangeFilter range={janela.range} />
       </div>
 
       {/* KPIs principais */}
@@ -116,9 +143,9 @@ export default async function DashboardOverviewPage({
         <StatTile
           icon={AlertTriangle}
           label="Inadimplentes"
-          value={String(alunosInadimplentes)}
+          value={String(inadimplentes.length)}
           hint="mensalidade vencida"
-          accent={alunosInadimplentes > 0 ? "magenta" : "slate"}
+          accent={inadimplentes.length > 0 ? "magenta" : "slate"}
         />
         <StatTile
           icon={UserRound}
@@ -129,27 +156,34 @@ export default async function DashboardOverviewPage({
         />
         <StatTile
           icon={Scale}
-          label="Lucro do mês"
-          value={formatBRL(kpis.lucroMes)}
-          hint="receita - despesa"
-          accent={kpis.lucroMes >= 0 ? "volt" : "magenta"}
+          label="Lucro no período"
+          value={formatBRL(lucroPeriodo)}
+          hint={janela.label.toLowerCase()}
+          accent={lucroPeriodo >= 0 ? "volt" : "magenta"}
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatTile
           icon={DollarSign}
-          label="Receita do mês"
-          value={formatBRL(kpis.receitaMes)}
-          hint="pagas neste mês"
+          label="Receita no período"
+          value={formatBRL(receitaPeriodo)}
+          hint="recebido"
           accent="volt"
         />
         <StatTile
           icon={TrendingUp}
-          label="Despesa do mês"
-          value={formatBRL(kpis.despesaMes)}
-          hint="pagas neste mês"
+          label="Despesa no período"
+          value={formatBRL(despesaPeriodo)}
+          hint="pago"
           accent="magenta"
+        />
+        <StatTile
+          icon={UserPlus}
+          label="Novos alunos"
+          value={String(novosAlunos)}
+          hint={janela.label.toLowerCase()}
+          accent="cyan"
         />
         <StatTile
           icon={UserX}
@@ -167,9 +201,9 @@ export default async function DashboardOverviewPage({
         {/* Gráficos financeiros + evolução de alunos */}
         <div className="space-y-6">
           <div className="surface rounded-2xl p-5">
-            <h2 className="font-semibold text-white">Receita x Despesa (mensal)</h2>
-            <p className="mb-2 text-xs text-slate-500">Últimos 6 meses</p>
-            <GraficoFinanceiroMensal dados={dadosMensais} />
+            <h2 className="font-semibold text-white">Receita x Despesa</h2>
+            <p className="mb-2 text-xs text-slate-500">{janela.label}</p>
+            <GraficoFinanceiroMensal dados={dadosFinanceiro} />
           </div>
           <div className="surface rounded-2xl p-5">
             <h2 className="font-semibold text-white">Evolução de alunos</h2>

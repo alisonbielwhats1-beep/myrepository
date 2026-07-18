@@ -53,6 +53,39 @@ export function agruparPorMes(
   }));
 }
 
+/** Receita e despesa (apenas pagas) agrupadas por dia (últimos `dias` dias). */
+export function agruparPorDia(
+  receitas: Receita[],
+  despesas: Despesa[],
+  dias: number
+): PontoFinanceiroMensal[] {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const receitaPorDia = new Map<string, number>();
+  const despesaPorDia = new Map<string, number>();
+
+  for (const r of receitas) {
+    if (r.status !== "pago") continue;
+    receitaPorDia.set(r.data, (receitaPorDia.get(r.data) ?? 0) + Number(r.valor));
+  }
+  for (const d of despesas) {
+    if (d.status !== "pago") continue;
+    despesaPorDia.set(d.data, (despesaPorDia.get(d.data) ?? 0) + Number(d.valor));
+  }
+
+  const hoje = new Date();
+  const out: PontoFinanceiroMensal[] = [];
+  for (let i = dias - 1; i >= 0; i--) {
+    const dt = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - i);
+    const chave = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+    out.push({
+      mes: `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}`,
+      receita: Math.round((receitaPorDia.get(chave) ?? 0) * 100) / 100,
+      despesa: Math.round((despesaPorDia.get(chave) ?? 0) * 100) / 100,
+    });
+  }
+  return out;
+}
+
 export interface KpisFinanceiro {
   receitaMes: number;
   despesaMes: number;

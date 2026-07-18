@@ -59,6 +59,12 @@ begin
       'abdomen', 'gluteos', 'panturrilha', 'cardio', 'outro'
     );
   end if;
+
+  if not exists (select 1 from pg_type where typname = 'categoria_produto_enum') then
+    create type categoria_produto_enum as enum (
+      'suplemento', 'acessorio', 'vestuario', 'bebida', 'equipamento', 'outro'
+    );
+  end if;
 end$$;
 
 -- =============================================================================
@@ -332,6 +338,51 @@ create index if not exists idx_progresso_academia on public.progresso_aluno(acad
 create index if not exists idx_progresso_aluno     on public.progresso_aluno(aluno_id);
 create index if not exists idx_progresso_data       on public.progresso_aluno(data);
 
+-- -----------------------------------------------------------------------------
+-- 2.13 produtos — loja de cada academia (suplementos, acessórios...).
+-- -----------------------------------------------------------------------------
+create table if not exists public.produtos (
+  id            uuid                     primary key default gen_random_uuid(),
+  academia_id   uuid                     not null references public.academias(id) on delete cascade,
+  nome          text                     not null,
+  descricao     text,
+  categoria     categoria_produto_enum   not null default 'outro',
+  preco         numeric(10,2)            not null default 0,
+  imagem_url    text,
+  estoque       integer,                 -- null = não controla estoque
+  destaque      boolean                  not null default false,
+  ativo         boolean                  not null default true,
+  ordem         integer                  not null default 0,
+  criado_em     timestamptz              not null default now(),
+  atualizado_em timestamptz              not null default now()
+);
+
+comment on table public.produtos is 'Produtos da loja de cada academia (suplementos, acessórios, etc.).';
+
+create index if not exists idx_produtos_academia  on public.produtos(academia_id);
+create index if not exists idx_produtos_ativo      on public.produtos(ativo);
+create index if not exists idx_produtos_categoria  on public.produtos(categoria);
+
+-- -----------------------------------------------------------------------------
+-- 2.14 feedbacks — opiniões/avaliações dos alunos (nota 1–5 + comentário).
+-- -----------------------------------------------------------------------------
+create table if not exists public.feedbacks (
+  id            uuid          primary key default gen_random_uuid(),
+  academia_id   uuid          not null references public.academias(id) on delete cascade,
+  aluno_id      uuid          references public.alunos(id) on delete set null,
+  nota          integer       not null check (nota between 1 and 5),
+  categoria     text,
+  comentario    text,
+  lido          boolean       not null default false,
+  criado_em     timestamptz   not null default now()
+);
+
+comment on table public.feedbacks is 'Opiniões/avaliações dos alunos sobre a academia.';
+
+create index if not exists idx_feedbacks_academia on public.feedbacks(academia_id);
+create index if not exists idx_feedbacks_lido      on public.feedbacks(lido);
+create index if not exists idx_feedbacks_criado    on public.feedbacks(criado_em);
+
 -- =============================================================================
 -- 3. ÍNDICES (tabelas originais)
 -- =============================================================================
@@ -361,7 +412,7 @@ do $$
 declare t text;
 begin
   foreach t in array array[
-    'academias', 'alunos', 'planos', 'treinos', 'funcionarios', 'receitas', 'despesas'
+    'academias', 'alunos', 'planos', 'treinos', 'funcionarios', 'receitas', 'despesas', 'produtos'
   ] loop
     execute format(
       'drop trigger if exists trg_%1$s_upd on public.%1$s;
@@ -405,6 +456,8 @@ alter table public.funcionarios      enable row level security;
 alter table public.receitas          enable row level security;
 alter table public.despesas          enable row level security;
 alter table public.progresso_aluno   enable row level security;
+alter table public.produtos          enable row level security;
+alter table public.feedbacks         enable row level security;
 alter table public.catalogo_exercicios enable row level security;
 
 -- catalogo_exercicios: biblioteca global, leitura para qualquer autenticado
@@ -441,7 +494,8 @@ declare
 begin
   foreach tbl in array array[
     'alunos', 'planos', 'treinos', 'acessos_catraca',
-    'funcionarios', 'receitas', 'despesas', 'progresso_aluno'
+    'funcionarios', 'receitas', 'despesas', 'progresso_aluno',
+    'produtos', 'feedbacks'
   ] loop
     execute format('drop policy if exists "tenant_select_%1$s" on public.%1$s;', tbl);
     execute format(
@@ -507,7 +561,7 @@ begin
   foreach tbl in array array[
     'academias', 'perfis_admin', 'alunos', 'planos', 'treinos', 'exercicios_treino',
     'acessos_catraca', 'funcionarios', 'receitas', 'despesas', 'progresso_aluno',
-    'catalogo_exercicios'
+    'produtos', 'feedbacks', 'catalogo_exercicios'
   ] loop
     execute format('drop policy if exists "service_role_total_%1$s" on public.%1$s;', tbl);
     execute format(
@@ -752,6 +806,65 @@ as $$
 $$;
 
 grant execute on function public.obter_treino_publico(uuid) to anon, authenticated;
+
+-- 7.4 RPC pública — produtos ativos da academia (loja do mini-site / aluno).
+create or replace function public.obter_produtos_publicos(p_slug text)
+returns jsonb
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', pr.id,
+    'nome', pr.nome,
+    'descricao', pr.descricao,
+    'categoria', pr.categoria,
+    'preco', pr.preco,
+    'imagem_url', pr.imagem_url,
+    'destaque', pr.destaque
+  ) order by pr.destaque desc, pr.ordem, pr.nome), '[]'::jsonb)
+  from public.produtos pr
+  join public.academias ac on ac.id = pr.academia_id
+  where ac.slug_url = p_slug and pr.ativo = true;
+$$;
+
+grant execute on function public.obter_produtos_publicos(text) to anon, authenticated;
+
+-- 7.5 RPC pública — registrar feedback do aluno (sem login). Resolve a
+-- academia a partir do aluno e valida a nota (1–5).
+create or replace function public.registrar_feedback(
+  p_aluno_id   uuid,
+  p_nota       integer,
+  p_categoria  text,
+  p_comentario text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_academia uuid;
+  v_id       uuid;
+begin
+  select academia_id into v_academia from public.alunos where id = p_aluno_id;
+  if v_academia is null then
+    raise exception 'Aluno não encontrado';
+  end if;
+  if p_nota is null or p_nota < 1 or p_nota > 5 then
+    raise exception 'Nota deve ser entre 1 e 5';
+  end if;
+
+  insert into public.feedbacks (academia_id, aluno_id, nota, categoria, comentario)
+  values (v_academia, p_aluno_id, p_nota, nullif(trim(p_categoria), ''), nullif(trim(p_comentario), ''))
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+grant execute on function public.registrar_feedback(uuid, integer, text, text) to anon, authenticated;
 
 -- =============================================================================
 -- 8. SEED do catálogo de exercícios (biblioteca global, não é dado de tenant).

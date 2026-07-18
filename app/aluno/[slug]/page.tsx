@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
-import { CheckCircle2, MapPin, MessageCircle, QrCode } from "lucide-react";
+import { CheckCircle2, MapPin, MessageCircle, QrCode, ShoppingBag } from "lucide-react";
 import Logo from "@/components/Logo";
-import { getAcademiaPublica, getPlanosPublicos } from "@/lib/data";
+import ProdutoImagem from "@/components/loja/ProdutoImagem";
+import { getAcademiaPublica, getPlanosPublicos, getProdutosPublicos } from "@/lib/data";
 import { formatBRL } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,10 @@ export default async function MiniSiteAcademia({
   const academia = await getAcademiaPublica(params.slug);
   if (!academia) notFound();
 
-  const planos = await getPlanosPublicos(params.slug);
+  const [planos, produtos] = await Promise.all([
+    getPlanosPublicos(params.slug),
+    getProdutosPublicos(params.slug),
+  ]);
   const whatsappDigits = academia.whatsapp?.replace(/\D/g, "");
   const linkWhatsapp = whatsappDigits
     ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(
@@ -90,6 +94,43 @@ export default async function MiniSiteAcademia({
               className="btn-volt mt-4 w-full"
             >
               <CheckCircle2 className="h-4 w-4" /> Quero me matricular
+            </a>
+          )}
+        </section>
+      )}
+
+      {/* Loja */}
+      {produtos.length > 0 && (
+        <section>
+          <h2 className="mb-3 flex items-center justify-center gap-1.5 text-center text-sm font-semibold uppercase tracking-wide text-slate-400">
+            <ShoppingBag className="h-3.5 w-3.5" /> Nossa loja
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            {produtos.map((p) => (
+              <div key={p.id} className="surface overflow-hidden rounded-2xl">
+                <ProdutoImagem
+                  nome={p.nome}
+                  imagemUrl={p.imagem_url}
+                  categoria={p.categoria}
+                  className="h-28 w-full"
+                />
+                <div className="p-3">
+                  <p className="truncate text-sm font-medium text-white">{p.nome}</p>
+                  <p className="mt-0.5 font-bold text-volt-300">
+                    {formatBRL(p.preco)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {linkWhatsapp && (
+            <a
+              href={linkWhatsapp}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-ghost mt-3 w-full"
+            >
+              <MessageCircle className="h-4 w-4" /> Comprar pelo WhatsApp
             </a>
           )}
         </section>

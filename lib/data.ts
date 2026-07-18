@@ -9,10 +9,13 @@ import {
   Aluno,
   CatalogoExercicio,
   Despesa,
+  Feedback,
   FichaAlunoPublica,
   Funcionario,
   Plano,
   PlanoPublico,
+  Produto,
+  ProdutoPublico,
   ProgressoAluno,
   Receita,
   Treino,
@@ -225,6 +228,44 @@ export async function getTreinoPublico(
   if (error) throw new Error(`Falha ao carregar treino: ${error.message}`);
   if (!data || !(data as TreinoPublico).treino) return null;
   return data as TreinoPublico;
+}
+
+/** Produtos da loja da academia (admin) — ordenados por destaque e ordem. */
+export async function getProdutos(academiaId: string): Promise<Produto[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("produtos")
+    .select("*")
+    .eq("academia_id", academiaId)
+    .order("destaque", { ascending: false })
+    .order("ordem", { ascending: true })
+    .order("nome", { ascending: true });
+  if (error) throw new Error(`Falha ao carregar produtos: ${error.message}`);
+  return (data as Produto[]) ?? [];
+}
+
+/** Produtos ativos da loja via RPC pública (mini-site / aluno, sem login). */
+export async function getProdutosPublicos(
+  slug: string
+): Promise<ProdutoPublico[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_produtos_publicos", {
+    p_slug: slug,
+  });
+  if (error) throw new Error(`Falha ao carregar produtos: ${error.message}`);
+  return (data as ProdutoPublico[]) ?? [];
+}
+
+/** Feedbacks (avaliações) dos alunos — mais recentes primeiro. */
+export async function getFeedbacks(academiaId: string): Promise<Feedback[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("feedbacks")
+    .select("*, aluno:alunos(id, nome)")
+    .eq("academia_id", academiaId)
+    .order("criado_em", { ascending: false });
+  if (error) throw new Error(`Falha ao carregar feedbacks: ${error.message}`);
+  return (data as Feedback[]) ?? [];
 }
 
 /** Catálogo global de exercícios (grupo muscular), para montagem rápida de treino. */

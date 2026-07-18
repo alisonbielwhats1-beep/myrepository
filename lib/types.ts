@@ -65,6 +65,32 @@ export const GRUPOS_MUSCULARES: { value: GrupoMuscular; label: string }[] = [
   { value: "outro", label: "Outro" },
 ];
 
+export type CategoriaProduto =
+  | "suplemento"
+  | "acessorio"
+  | "vestuario"
+  | "bebida"
+  | "equipamento"
+  | "outro";
+
+export const CATEGORIAS_PRODUTO: { value: CategoriaProduto; label: string }[] = [
+  { value: "suplemento", label: "Suplemento" },
+  { value: "acessorio", label: "Acessório" },
+  { value: "vestuario", label: "Vestuário" },
+  { value: "bebida", label: "Bebida / Garrafa" },
+  { value: "equipamento", label: "Equipamento" },
+  { value: "outro", label: "Outro" },
+];
+
+export const CATEGORIAS_FEEDBACK: { value: string; label: string }[] = [
+  { value: "geral", label: "Geral" },
+  { value: "estrutura", label: "Estrutura" },
+  { value: "atendimento", label: "Atendimento" },
+  { value: "limpeza", label: "Limpeza" },
+  { value: "equipamentos", label: "Equipamentos" },
+  { value: "aulas", label: "Aulas" },
+];
+
 export interface Academia {
   id: string;
   nome_fantasia: string;
@@ -272,6 +298,45 @@ export interface Despesa {
   competencia: string | null;
   criado_em: string;
   atualizado_em: string;
+}
+
+export interface Produto {
+  id: string;
+  academia_id: string;
+  nome: string;
+  descricao: string | null;
+  categoria: CategoriaProduto;
+  preco: number;
+  imagem_url: string | null;
+  estoque: number | null;
+  destaque: boolean;
+  ativo: boolean;
+  ordem: number;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+/** Produto exposto publicamente (loja do mini-site / aluno). */
+export interface ProdutoPublico {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  categoria: CategoriaProduto;
+  preco: number;
+  imagem_url: string | null;
+  destaque: boolean;
+}
+
+export interface Feedback {
+  id: string;
+  academia_id: string;
+  aluno_id: string | null;
+  nota: number;
+  categoria: string | null;
+  comentario: string | null;
+  lido: boolean;
+  criado_em: string;
+  aluno?: Pick<Aluno, "id" | "nome"> | null;
 }
 
 /** Perfil do administrador autenticado + a academia que ele gerencia. */
