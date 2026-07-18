@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import Logo from "@/components/Logo";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 import { sairAction } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
 
@@ -82,10 +83,14 @@ export default function Sidebar({
         })}
       </nav>
 
-      <div className="border-t border-ink-700 p-3">
-        <p className="truncate px-2 pb-2 text-[11px] text-slate-500">
-          {adminEmail}
-        </p>
+      <div className="space-y-3 border-t border-ink-700 p-3">
+        <div className="flex items-center justify-between gap-2 px-1">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            Tema
+          </span>
+          <ThemeToggle />
+        </div>
+        <p className="truncate px-2 text-[11px] text-slate-500">{adminEmail}</p>
         <form action={sairAction}>
           <button type="submit" className="btn-ghost w-full justify-start">
             <LogOut className="h-4 w-4" /> Sair

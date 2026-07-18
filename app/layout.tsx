@@ -22,18 +22,27 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#07080d",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#07080d" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f6f9" },
+  ],
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
 };
 
+// Aplica o tema salvo ANTES da primeira pintura (evita "piscar" de tema).
+const NO_FLASH_SCRIPT = `(function(){try{var t=localStorage.getItem('gymflow-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} dark`}>
+    <html lang="pt-BR" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }} />
+      </head>
       <body className="min-h-dvh bg-ink-950 font-sans antialiased">
         <ServiceWorkerRegister />
         {children}

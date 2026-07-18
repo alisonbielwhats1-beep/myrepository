@@ -5,8 +5,12 @@ import type { Config } from "tailwindcss";
  * Paleta vibrante estilo "app de treino premium" com base escura (dark mode nativo),
  * acentos em lima/verde-energia e magenta, e superfícies com profundidade.
  */
+// Cor via CSS var (RGB separado por espaço) preservando os utilitários de
+// opacidade do Tailwind (ex: bg-ink-800/80). As variáveis trocam por tema.
+const v = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
+
 const config: Config = {
-  darkMode: "class",
+  darkMode: ["class", '[data-theme="dark"]'],
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -15,13 +19,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Fundos/superfícies/bordas — trocam entre escuro e claro por tema.
         ink: {
-          950: "#07080d",
-          900: "#0b0d14",
-          800: "#12141d",
-          700: "#1a1d29",
-          600: "#242838",
-          500: "#333849",
+          950: v("ink-950"),
+          900: v("ink-900"),
+          800: v("ink-800"),
+          700: v("ink-700"),
+          600: v("ink-600"),
+          500: v("ink-500"),
+        },
+        // Texto forte (títulos). Literalmente branco no escuro, quase-preto no claro.
+        white: v("fg-strong"),
+        // Escala de texto secundário/terciário — também troca por tema.
+        slate: {
+          200: v("slate-200"),
+          300: v("slate-300"),
+          400: v("slate-400"),
+          500: v("slate-500"),
+          600: v("slate-600"),
         },
         volt: {
           50: "#f2ffe0",

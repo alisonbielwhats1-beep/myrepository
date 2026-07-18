@@ -61,7 +61,10 @@ export default function QRCodeCard({
         {/* QR grande e centralizado */}
         <div className="relative mx-auto mt-6 w-fit">
           <span className="absolute inset-0 -z-0 rounded-3xl bg-volt-300/20 blur-xl" />
-          <div className="relative rounded-3xl bg-white p-5">
+          <div
+            className="relative rounded-3xl p-5"
+            style={{ backgroundColor: "#ffffff" }}
+          >
             <QRCodeSVG
               value={payload}
               size={220}
