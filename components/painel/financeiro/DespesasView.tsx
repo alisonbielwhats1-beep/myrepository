@@ -53,13 +53,13 @@ export default function DespesasView({
       <div className="grid grid-cols-2 gap-4">
         <div className="surface rounded-2xl p-4">
           <p className="label-muted">Pago no período</p>
-          <p className="mt-1 text-2xl font-bold text-magenta-400">
+          <p className="mt-1 text-xl font-bold tabular-nums text-magenta-400 [overflow-wrap:anywhere] sm:text-2xl">
             {formatBRL(totalPago)}
           </p>
         </div>
         <div className="surface rounded-2xl p-4">
           <p className="label-muted">A pagar no período</p>
-          <p className="mt-1 text-2xl font-bold text-amber-300">
+          <p className="mt-1 text-xl font-bold tabular-nums text-amber-300 [overflow-wrap:anywhere] sm:text-2xl">
             {formatBRL(totalPendente)}
           </p>
         </div>

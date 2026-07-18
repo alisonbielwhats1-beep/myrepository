@@ -2,7 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useFormState } from "react-dom";
-import { Dumbbell, Layers, Plus, Share2, Target } from "lucide-react";
+import {
+  ChevronDown,
+  Dumbbell,
+  Layers,
+  Plus,
+  Repeat,
+  Share2,
+  Target,
+  Timer,
+  Weight,
+} from "lucide-react";
 import { CatalogoExercicio, Treino } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import FormActions from "@/components/ui/FormActions";
@@ -91,42 +101,112 @@ export default function GestaoTreinos({
 }
 
 function CardTreino({ slug, treino }: { slug: string; treino: Treino }) {
+  const [aberto, setAberto] = useState(false);
+  const exercicios = treino.exercicios ?? [];
+
   return (
     <div className="surface flex flex-col rounded-2xl p-5">
-      <div className="flex items-start justify-between gap-2">
-        <div>
+      {/* Cabeçalho clicável: abre/fecha os detalhes do treino */}
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        className="flex items-start justify-between gap-2 text-left"
+      >
+        <div className="min-w-0">
           <h3 className="font-semibold text-white">{treino.nome_treino}</h3>
-          {treino.objetivo && (
-            <span className="chip mt-2 border-magenta-500/30 bg-magenta-500/10 text-magenta-400">
-              <Target className="h-3.5 w-3.5" /> {treino.objetivo}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {treino.objetivo && (
+              <span className="chip border-magenta-500/30 bg-magenta-500/10 text-magenta-400">
+                <Target className="h-3.5 w-3.5" /> {treino.objetivo}
+              </span>
+            )}
+            <span className="text-xs text-slate-500">
+              {exercicios.length} exercícios
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-none items-center gap-2">
+          {treino.publico && (
+            <span className="chip border-volt-500/30 bg-volt-500/10 text-volt-300">
+              <Share2 className="h-3 w-3" /> público
+            </span>
+          )}
+          <ChevronDown
+            className={cn(
+              "h-5 w-5 text-slate-500 transition-transform",
+              aberto && "rotate-180"
+            )}
+          />
+        </div>
+      </button>
+
+      {aberto ? (
+        <ul className="mt-4 space-y-2">
+          {exercicios.length === 0 && (
+            <li className="text-sm text-slate-500">
+              Este treino ainda não tem exercícios.
+            </li>
+          )}
+          {exercicios.map((ex, i) => (
+            <li
+              key={ex.id}
+              className="flex items-center gap-3 rounded-xl border border-ink-700 bg-ink-900/40 p-2"
+            >
+              <div className="h-12 w-12 flex-none overflow-hidden rounded-lg bg-ink-700">
+                {ex.imagem_demonstracao_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={ex.imagem_demonstracao_url}
+                    alt={ex.nome_exercicio}
+                    className="media-native h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="grid h-full w-full place-items-center text-slate-500">
+                    <Dumbbell className="h-4 w-4" />
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-white">
+                  {i + 1}. {ex.nome_exercicio}
+                </p>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <Repeat className="h-3 w-3" /> {ex.series}x {ex.repeticoes}
+                  </span>
+                  {!!ex.carga_kg && ex.carga_kg > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Weight className="h-3 w-3" /> {ex.carga_kg} kg
+                    </span>
+                  )}
+                  {!!ex.descanso_segundos && (
+                    <span className="flex items-center gap-1">
+                      <Timer className="h-3 w-3" /> {ex.descanso_segundos}s
+                    </span>
+                  )}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {exercicios.slice(0, 6).map((ex) => (
+            <span
+              key={ex.id}
+              className="chip border-ink-600 bg-ink-700/60 text-slate-300"
+            >
+              {ex.nome_exercicio}
+            </span>
+          ))}
+          {exercicios.length > 6 && (
+            <span className="chip border-ink-600 bg-ink-700/60 text-slate-400">
+              +{exercicios.length - 6}
             </span>
           )}
         </div>
-        {treino.publico && (
-          <span className="chip border-volt-500/30 bg-volt-500/10 text-volt-300">
-            <Share2 className="h-3 w-3" /> público
-          </span>
-        )}
-      </div>
-
-      <p className="mt-3 text-xs text-slate-500">
-        {treino.exercicios?.length ?? 0} exercícios
-      </p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {(treino.exercicios ?? []).slice(0, 6).map((ex) => (
-          <span
-            key={ex.id}
-            className="chip border-ink-600 bg-ink-700/60 text-slate-300"
-          >
-            {ex.nome_exercicio}
-          </span>
-        ))}
-        {(treino.exercicios?.length ?? 0) > 6 && (
-          <span className="chip border-ink-600 bg-ink-700/60 text-slate-400">
-            +{(treino.exercicios?.length ?? 0) - 6}
-          </span>
-        )}
-      </div>
+      )}
 
       <div className="mt-4 flex items-center gap-2 border-t border-ink-700 pt-4">
         <CompartilharTreino slug={slug} treino={treino} />

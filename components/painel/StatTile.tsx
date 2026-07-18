@@ -22,16 +22,16 @@ export default function StatTile({
   } as const;
 
   return (
-    <div className="surface rounded-2xl p-5">
-      <div className="flex items-center justify-between">
-        <span className="label-muted">{label}</span>
+    <div className="surface rounded-2xl p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-2">
+        <span className="label-muted min-w-0">{label}</span>
         <span
           className={cn(
-            "grid h-9 w-9 place-items-center rounded-xl",
+            "grid h-8 w-8 flex-none place-items-center rounded-xl sm:h-9 sm:w-9",
             accentMap[accent]
           )}
         >
-          <Icon className="h-4.5 w-4.5" />
+          <Icon className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
         </span>
       </div>
       <div className="mt-3 stat-value">{value}</div>

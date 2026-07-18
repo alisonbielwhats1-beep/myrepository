@@ -136,7 +136,8 @@ body {
   }
 
   .stat-value {
-    @apply text-3xl font-bold tracking-tight text-white;
+    @apply text-xl font-bold leading-tight tracking-tight text-white tabular-nums
+      [overflow-wrap:anywhere] sm:text-2xl lg:text-3xl;
   }
 
   .label-muted {
