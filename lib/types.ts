@@ -129,6 +129,10 @@ export interface Aluno {
   status_matricula: StatusMatricula;
   plano_id: string | null;
   matricula_codigo: string | null;
+  objetivo: string | null;
+  condicoes_medicas: string | null;
+  contato_emergencia_nome: string | null;
+  contato_emergencia_telefone: string | null;
   criado_em: string;
   atualizado_em: string;
 }

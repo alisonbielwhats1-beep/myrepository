@@ -6,6 +6,7 @@ import Image from "next/image";
 import {
   Check,
   Dumbbell,
+  HeartPulse,
   ImagePlus,
   Pencil,
   QrCode,
@@ -133,6 +134,20 @@ export default function GestaoAlunos({
 
       {/* Coluna direita: montagem da ficha de treino */}
       <div className="space-y-6">
+        {alunoSelecionado?.condicoes_medicas && (
+          <div className="surface flex items-start gap-3 rounded-2xl border-magenta-500/30 p-4">
+            <HeartPulse className="mt-0.5 h-4 w-4 flex-none text-magenta-400" />
+            <div>
+              <p className="text-sm font-semibold text-magenta-300">
+                Atenção — condições médicas
+              </p>
+              <p className="mt-0.5 whitespace-pre-line text-sm text-slate-300">
+                {alunoSelecionado.condicoes_medicas}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="surface rounded-2xl p-5">
           <div className="flex items-center justify-between">
             <h2 className="flex items-center gap-2 font-semibold text-white">
@@ -454,6 +469,52 @@ function FormularioAluno({
             hint="Foto do aluno (estado original)"
           />
         </Field>
+      </div>
+
+      <div className="mt-5 border-t border-ink-700 pt-4">
+        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <HeartPulse className="h-3.5 w-3.5 text-magenta-400" /> Saúde e anamnese
+          <span className="normal-case text-slate-500">
+            — só a equipe vê, nunca aparece pro aluno
+          </span>
+        </p>
+        <div className="mt-3 space-y-3">
+          <Field label="Objetivo">
+            <input
+              name="objetivo"
+              defaultValue={alunoExistente?.objetivo ?? ""}
+              placeholder="Ex: Emagrecimento, hipertrofia, condicionamento..."
+              className="inp"
+            />
+          </Field>
+          <Field label="Condições médicas / restrições / lesões">
+            <textarea
+              name="condicoes_medicas"
+              defaultValue={alunoExistente?.condicoes_medicas ?? ""}
+              placeholder="Ex: Hérnia de disco L4-L5, evitar carga axial. Hipertensão controlada."
+              rows={3}
+              className="inp"
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Contato de emergência">
+              <input
+                name="contato_emergencia_nome"
+                defaultValue={alunoExistente?.contato_emergencia_nome ?? ""}
+                placeholder="Nome"
+                className="inp"
+              />
+            </Field>
+            <Field label="Telefone de emergência">
+              <input
+                name="contato_emergencia_telefone"
+                defaultValue={alunoExistente?.contato_emergencia_telefone ?? ""}
+                placeholder="(11) 90000-0000"
+                className="inp"
+              />
+            </Field>
+          </div>
+        </div>
       </div>
 
       <FormActions

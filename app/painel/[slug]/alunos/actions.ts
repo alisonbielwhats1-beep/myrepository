@@ -11,6 +11,18 @@ function proximaMatricula(totalAtual: number): string {
   return `AL-${String(totalAtual + 1).padStart(4, "0")}`;
 }
 
+/** Campos de anamnese/saúde — nunca expostos na ficha pública do aluno. */
+function lerCamposSaude(formData: FormData) {
+  return {
+    objetivo: String(formData.get("objetivo") ?? "").trim() || null,
+    condicoes_medicas: String(formData.get("condicoes_medicas") ?? "").trim() || null,
+    contato_emergencia_nome:
+      String(formData.get("contato_emergencia_nome") ?? "").trim() || null,
+    contato_emergencia_telefone:
+      String(formData.get("contato_emergencia_telefone") ?? "").trim() || null,
+  };
+}
+
 /** Registra no histórico o plano que o aluno passou a ter (troca/renovação). */
 async function registrarHistoricoPlano(
   supabase: ReturnType<typeof createClient>,
@@ -64,6 +76,7 @@ export async function criarAluno(
       status_matricula: (formData.get("status") as StatusMatricula) || "ativa",
       plano_id: planoId,
       matricula_codigo: proximaMatricula(count ?? 0),
+      ...lerCamposSaude(formData),
     })
     .select("id")
     .single();
@@ -112,6 +125,7 @@ export async function atualizarAluno(
         String(formData.get("foto_perfil_url") ?? "").trim() || null,
       status_matricula: (formData.get("status") as StatusMatricula) || "ativa",
       plano_id: planoId,
+      ...lerCamposSaude(formData),
     })
     .eq("id", alunoId)
     .eq("academia_id", sessao.academia.id);

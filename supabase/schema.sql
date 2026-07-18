@@ -124,6 +124,10 @@ create table if not exists public.alunos (
   status_matricula  status_matricula_enum  not null default 'ativa',
   plano_id          uuid,
   matricula_codigo  text,
+  objetivo               text,  -- ex: emagrecimento, hipertrofia
+  condicoes_medicas      text,  -- anamnese: restrições/lesões relevantes
+  contato_emergencia_nome      text,
+  contato_emergencia_telefone  text,
   criado_em         timestamptz            not null default now(),
   atualizado_em     timestamptz            not null default now(),
   unique (academia_id, cpf)
