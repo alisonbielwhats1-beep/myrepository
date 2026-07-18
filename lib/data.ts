@@ -270,37 +270,47 @@ export async function getTodoProgresso(
 }
 
 /**
- * Alunos ativos sem nenhum acesso registrado nos últimos `dias` dias
- * (nunca vieram OU sumiram) — para o painel de alertas.
+ * Alunos ativos sem acesso registrado nos últimos `dias` dias (nunca vieram
+ * OU sumiram), com a data do último acesso (quando existir) — para o
+ * painel de alertas do Dashboard.
  */
 export async function getAlunosSumidos(
   academiaId: string,
   dias = 14
-): Promise<Aluno[]> {
+): Promise<{ alunoId: string; nome: string; ultimoAcesso: string | null }[]> {
   const supabase = createClient();
-  const desde = new Date(Date.now() - dias * 86400_000).toISOString();
+  const corte = new Date(Date.now() - dias * 86400_000).toISOString();
 
-  const [{ data: alunos, error: e1 }, { data: acessosRecentes, error: e2 }] =
+  const [{ data: alunos, error: e1 }, { data: acessos, error: e2 }] =
     await Promise.all([
       supabase
         .from("alunos")
-        .select("*")
+        .select("id, nome")
         .eq("academia_id", academiaId)
         .eq("status_matricula", "ativa"),
       supabase
         .from("acessos_catraca")
-        .select("aluno_id")
+        .select("aluno_id, data_hora_entrada")
         .eq("academia_id", academiaId)
-        .gte("data_hora_entrada", desde),
+        .order("data_hora_entrada", { ascending: false }),
     ]);
 
   if (e1) throw new Error(`Falha ao carregar alunos: ${e1.message}`);
   if (e2) throw new Error(`Falha ao carregar acessos: ${e2.message}`);
 
-  const idsComAcessoRecente = new Set(
-    (acessosRecentes ?? []).map((a) => a.aluno_id).filter(Boolean)
-  );
-  return ((alunos as Aluno[]) ?? []).filter(
-    (a) => !idsComAcessoRecente.has(a.id)
-  );
+  const ultimoAcessoPorAluno = new Map<string, string>();
+  for (const a of acessos ?? []) {
+    if (a.aluno_id && !ultimoAcessoPorAluno.has(a.aluno_id)) {
+      ultimoAcessoPorAluno.set(a.aluno_id, a.data_hora_entrada);
+    }
+  }
+
+  return ((alunos as { id: string; nome: string }[]) ?? [])
+    .map((a) => ({
+      alunoId: a.id,
+      nome: a.nome,
+      ultimoAcesso: ultimoAcessoPorAluno.get(a.id) ?? null,
+    }))
+    .filter((a) => !a.ultimoAcesso || a.ultimoAcesso < corte)
+    .sort((x, y) => (x.ultimoAcesso ?? "").localeCompare(y.ultimoAcesso ?? ""));
 }

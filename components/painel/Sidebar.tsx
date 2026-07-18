@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   ScanLine,
+  Settings,
   Users,
   UserRound,
   X,
@@ -43,6 +44,7 @@ export default function Sidebar({
     { href: `${base}/funcionarios`, label: "Funcionários", icon: UserRound },
     { href: `${base}/financeiro`, label: "Financeiro", icon: DollarSign },
     { href: `${base}/dashboard`, label: "Relatórios / BI", icon: BarChart3 },
+    { href: `${base}/configuracoes`, label: "Configurações", icon: Settings },
   ];
 
   const conteudo = (

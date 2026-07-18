@@ -7,6 +7,7 @@ import {
   Scale,
   TrendingUp,
   UserRound,
+  UserX,
   Users,
 } from "lucide-react";
 import StatTile from "@/components/painel/StatTile";
@@ -15,8 +16,17 @@ import {
   GraficoFinanceiroMensal,
   PontoEvolucaoAlunos,
 } from "@/components/painel/DashboardCharts";
+import AlertasPainel, {
+  AlertaInadimplente,
+} from "@/components/painel/AlertasPainel";
 import { requireSessao } from "@/lib/auth";
-import { getAlunos, getDespesas, getFuncionarios, getReceitas } from "@/lib/data";
+import {
+  getAlunos,
+  getAlunosSumidos,
+  getDespesas,
+  getFuncionarios,
+  getReceitas,
+} from "@/lib/data";
 import { agruparPorMes, calcularKpisFinanceiro, ultimosMeses } from "@/lib/financeiro";
 import { formatBRL } from "@/lib/utils";
 
@@ -29,27 +39,46 @@ export default async function DashboardOverviewPage({
   const janela = ultimosMeses(6);
   const desde = `${janela[0].chave}-01`;
 
-  const [alunos, funcionarios, receitas, despesas] = await Promise.all([
+  const [alunos, funcionarios, receitas, despesas, sumidos] = await Promise.all([
     getAlunos(sessao.academia.id),
     getFuncionarios(sessao.academia.id),
     getReceitas(sessao.academia.id, desde),
     getDespesas(sessao.academia.id, desde),
+    getAlunosSumidos(sessao.academia.id, 14),
   ]);
 
   const hojeIso = new Date().toISOString().slice(0, 10);
   const em14dias = new Date(Date.now() + 14 * 86400_000).toISOString().slice(0, 10);
-
+  const nomePorAlunoId = new Map(alunos.map((a) => [a.id, a.nome]));
   const alunosAtivos = alunos.filter((a) => a.status_matricula === "ativa").length;
   const funcionariosAtivos = funcionarios.filter((f) => f.status === "ativo").length;
 
-  const alunosInadimplentes = new Set(
-    receitas
-      .filter(
-        (r) => r.tipo === "mensalidade" && r.status === "pendente" && r.data < hojeIso
-      )
-      .map((r) => r.aluno_id)
-      .filter(Boolean)
-  ).size;
+  const vencidas = receitas.filter(
+    (r) => r.tipo === "mensalidade" && r.status === "pendente" && r.data < hojeIso
+  );
+  const inadimplentesMap = new Map<string, AlertaInadimplente>();
+  for (const r of vencidas) {
+    if (!r.aluno_id) continue;
+    const diasAtraso = Math.floor(
+      (Date.now() - new Date(r.data + "T00:00:00").getTime()) / 86400_000
+    );
+    const atual = inadimplentesMap.get(r.aluno_id);
+    if (atual) {
+      atual.valorTotal += Number(r.valor);
+      atual.diasAtraso = Math.max(atual.diasAtraso, diasAtraso);
+    } else {
+      inadimplentesMap.set(r.aluno_id, {
+        alunoId: r.aluno_id,
+        nome: r.aluno?.nome ?? nomePorAlunoId.get(r.aluno_id) ?? "Aluno",
+        valorTotal: Number(r.valor),
+        diasAtraso,
+      });
+    }
+  }
+  const inadimplentes = Array.from(inadimplentesMap.values()).sort(
+    (a, b) => b.diasAtraso - a.diasAtraso
+  );
+  const alunosInadimplentes = inadimplentes.length;
 
   const proximosVencimentos = receitas
     .filter((r) => r.status === "pendente" && r.data >= hojeIso && r.data <= em14dias)
@@ -107,7 +136,7 @@ export default async function DashboardOverviewPage({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-3 gap-4">
         <StatTile
           icon={DollarSign}
           label="Receita do mês"
@@ -122,7 +151,17 @@ export default async function DashboardOverviewPage({
           hint="pagas neste mês"
           accent="magenta"
         />
+        <StatTile
+          icon={UserX}
+          label="Alunos sumidos"
+          value={String(sumidos.length)}
+          hint="sem acesso há 14+ dias"
+          accent={sumidos.length > 0 ? "magenta" : "slate"}
+        />
       </div>
+
+      {/* Alertas */}
+      <AlertasPainel slug={params.slug} inadimplentes={inadimplentes} sumidos={sumidos} />
 
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         {/* Gráficos financeiros + evolução de alunos */}
