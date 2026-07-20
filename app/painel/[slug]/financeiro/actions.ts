@@ -62,7 +62,7 @@ export async function gerarMensalidades(
 function lerReceita(formData: FormData) {
   return {
     tipo: (formData.get("tipo") as TipoReceita) || "outra",
-    descricao: String(formData.get("descricao") ?? "").trim(),
+    descricao: String(formData.get("descricao") ?? "").trim() || null,
     valor: Number(formData.get("valor") ?? 0) || 0,
     data: String(formData.get("data") ?? "").trim(),
     status: (formData.get("status") as StatusPagamento) || "pendente",
@@ -78,8 +78,8 @@ export async function criarReceita(
 ): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "financeiro");
   const campos = lerReceita(formData);
-  if (!campos.descricao || !campos.data) {
-    return { erro: "Informe descrição e data." };
+  if (!campos.data) {
+    return { erro: "Informe a data." };
   }
 
   const supabase = createClient();
@@ -102,8 +102,8 @@ export async function atualizarReceita(
 ): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "financeiro");
   const campos = lerReceita(formData);
-  if (!campos.descricao || !campos.data) {
-    return { erro: "Informe descrição e data." };
+  if (!campos.data) {
+    return { erro: "Informe a data." };
   }
 
   const supabase = createClient();
@@ -138,7 +138,7 @@ export async function excluirReceita(slug: string, receitaId: string): Promise<v
 // ---------------------------------------------------------------------------
 function lerDespesa(formData: FormData) {
   return {
-    descricao: String(formData.get("descricao") ?? "").trim(),
+    descricao: String(formData.get("descricao") ?? "").trim() || null,
     categoria: (formData.get("categoria") as CategoriaDespesa) || "outros",
     valor: Number(formData.get("valor") ?? 0) || 0,
     data: String(formData.get("data") ?? "").trim(),
@@ -154,8 +154,8 @@ export async function criarDespesa(
 ): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "financeiro");
   const campos = lerDespesa(formData);
-  if (!campos.descricao || !campos.data) {
-    return { erro: "Informe descrição e data." };
+  if (!campos.data) {
+    return { erro: "Informe a data." };
   }
 
   const supabase = createClient();
@@ -178,8 +178,8 @@ export async function atualizarDespesa(
 ): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "financeiro");
   const campos = lerDespesa(formData);
-  if (!campos.descricao || !campos.data) {
-    return { erro: "Informe descrição e data." };
+  if (!campos.data) {
+    return { erro: "Informe a data." };
   }
 
   const supabase = createClient();

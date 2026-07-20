@@ -153,7 +153,7 @@ export default function DespesasView({
                   <tr key={d.id} className="hover:bg-ink-700/30">
                     <td className="px-5 py-3">
                       <span className="flex items-center gap-2 font-medium text-white">
-                        {d.descricao}
+                        {d.descricao || CATEGORIAS_DESPESA.find((c) => c.value === d.categoria)?.label || d.categoria}
                         {ehSalario && (
                           <span className="chip border-ink-600 bg-ink-700 text-[10px] text-slate-400">
                             <Lock className="h-3 w-3" /> folha
@@ -234,15 +234,6 @@ function FormularioDespesa({
         </p>
       )}
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <Field label="Descrição">
-          <input
-            name="descricao"
-            defaultValue={despesaExistente?.descricao}
-            placeholder="Ex: Conta de energia"
-            className="inp"
-            required
-          />
-        </Field>
         <Field label="Categoria">
           <select
             name="categoria"
@@ -255,6 +246,14 @@ function FormularioDespesa({
               </option>
             ))}
           </select>
+        </Field>
+        <Field label="Descrição (opcional)">
+          <input
+            name="descricao"
+            defaultValue={despesaExistente?.descricao ?? ""}
+            placeholder="Ex: Referente a março"
+            className="inp"
+          />
         </Field>
         <Field label="Valor (R$)">
           <input

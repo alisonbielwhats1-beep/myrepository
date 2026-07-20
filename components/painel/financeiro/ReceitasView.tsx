@@ -156,7 +156,9 @@ export default function ReceitasView({
                 ) : (
                   <tr key={r.id} className="hover:bg-ink-700/30">
                     <td className="px-5 py-3">
-                      <p className="font-medium text-white">{r.descricao}</p>
+                      <p className="font-medium text-white">
+                        {r.descricao || TIPOS_RECEITA.find((t) => t.value === r.tipo)?.label || r.tipo}
+                      </p>
                       {r.aluno?.nome && (
                         <p className="text-xs text-slate-500">{r.aluno.nome}</p>
                       )}
@@ -236,15 +238,6 @@ function FormularioReceita({
         </p>
       )}
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <Field label="Descrição">
-          <input
-            name="descricao"
-            defaultValue={receitaExistente?.descricao}
-            placeholder="Ex: Mensalidade - Marina Costa"
-            className="inp"
-            required
-          />
-        </Field>
         <Field label="Tipo">
           <select
             name="tipo"
@@ -257,6 +250,14 @@ function FormularioReceita({
               </option>
             ))}
           </select>
+        </Field>
+        <Field label="Descrição (opcional)">
+          <input
+            name="descricao"
+            defaultValue={receitaExistente?.descricao ?? ""}
+            placeholder="Ex: Marina Costa"
+            className="inp"
+          />
         </Field>
         <Field label="Valor (R$)">
           <input
