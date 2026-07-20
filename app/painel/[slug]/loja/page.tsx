@@ -29,7 +29,10 @@ export default async function LojaPage({
     );
   }
 
-  const vendas = await getRelatorioVendas(sessao.academia.id, desde);
+  const verFinanceiro = sessao.papel === "dono" || sessao.papel === "gerente";
+  const vendas = verFinanceiro
+    ? await getRelatorioVendas(sessao.academia.id, desde)
+    : { total: 0, qtdVendas: 0, ranking: [] };
 
   // Alerta de reposição: produtos com estoque controlado no/abaixo do mínimo.
   const reposicao = produtos.filter(
@@ -68,7 +71,7 @@ export default async function LojaPage({
         </div>
       )}
 
-      {vendas.qtdVendas > 0 && (
+      {verFinanceiro && vendas.qtdVendas > 0 && (
         <RelatorioVendas
           total={vendas.total}
           qtdVendas={vendas.qtdVendas}

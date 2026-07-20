@@ -43,13 +43,14 @@ export default async function DashboardOverviewPage({
   const sessao = await requireSessao(params.slug);
   const janela = resolverJanelaDashboard(searchParams);
 
-  // Busca o histórico completo: inadimplência e próximos vencimentos precisam
-  // de dados fora da janela do filtro; o recorte do período é feito abaixo.
+  // Dono e gerente veem dados financeiros; recepção e instrutor não.
+  const verFinanceiro = sessao.papel === "dono" || sessao.papel === "gerente";
+
   const [alunos, funcionarios, receitas, despesas, sumidos] = await Promise.all([
     getAlunos(sessao.academia.id),
     getFuncionarios(sessao.academia.id),
-    getReceitas(sessao.academia.id),
-    getDespesas(sessao.academia.id),
+    verFinanceiro ? getReceitas(sessao.academia.id) : Promise.resolve([]),
+    verFinanceiro ? getDespesas(sessao.academia.id) : Promise.resolve([]),
     getAlunosSumidos(sessao.academia.id, 14),
   ]);
 
@@ -59,61 +60,62 @@ export default async function DashboardOverviewPage({
   const alunosAtivos = alunos.filter((a) => a.status_matricula === "ativa").length;
   const funcionariosAtivos = funcionarios.filter((f) => f.status === "ativo").length;
 
-  // ---- Inadimplência (histórica, independe do filtro) ----
-  const vencidas = receitas.filter(
-    (r) => r.tipo === "mensalidade" && r.status === "pendente" && r.data < hojeIso
-  );
-  const inadimplentesMap = new Map<string, AlertaInadimplente>();
-  for (const r of vencidas) {
-    if (!r.aluno_id) continue;
-    const diasAtraso = Math.floor(
-      (Date.now() - new Date(r.data + "T00:00:00").getTime()) / 86400_000
+  // ---- Inadimplência (só para quem vê financeiro) ----
+  const inadimplentes: AlertaInadimplente[] = [];
+  const proximosVencimentos: typeof receitas = [];
+
+  if (verFinanceiro) {
+    const vencidas = receitas.filter(
+      (r) => r.tipo === "mensalidade" && r.status === "pendente" && r.data < hojeIso
     );
-    const atual = inadimplentesMap.get(r.aluno_id);
-    if (atual) {
-      atual.valorTotal += Number(r.valor);
-      atual.diasAtraso = Math.max(atual.diasAtraso, diasAtraso);
-    } else {
-      inadimplentesMap.set(r.aluno_id, {
-        alunoId: r.aluno_id,
-        nome: r.aluno?.nome ?? nomePorAlunoId.get(r.aluno_id) ?? "Aluno",
-        valorTotal: Number(r.valor),
-        diasAtraso,
-      });
+    const inadimplentesMap = new Map<string, AlertaInadimplente>();
+    for (const r of vencidas) {
+      if (!r.aluno_id) continue;
+      const diasAtraso = Math.floor(
+        (Date.now() - new Date(r.data + "T00:00:00").getTime()) / 86400_000
+      );
+      const atual = inadimplentesMap.get(r.aluno_id);
+      if (atual) {
+        atual.valorTotal += Number(r.valor);
+        atual.diasAtraso = Math.max(atual.diasAtraso, diasAtraso);
+      } else {
+        inadimplentesMap.set(r.aluno_id, {
+          alunoId: r.aluno_id,
+          nome: r.aluno?.nome ?? nomePorAlunoId.get(r.aluno_id) ?? "Aluno",
+          valorTotal: Number(r.valor),
+          diasAtraso,
+        });
+      }
     }
+    inadimplentes.push(
+      ...Array.from(inadimplentesMap.values()).sort((a, b) => b.diasAtraso - a.diasAtraso)
+    );
+
+    proximosVencimentos.push(
+      ...receitas
+        .filter((r) => r.status === "pendente" && r.data >= hojeIso && r.data <= em14dias)
+        .sort((a, b) => a.data.localeCompare(b.data))
+        .slice(0, 8)
+    );
   }
-  const inadimplentes = Array.from(inadimplentesMap.values()).sort(
-    (a, b) => b.diasAtraso - a.diasAtraso
-  );
 
-  const proximosVencimentos = receitas
-    .filter((r) => r.status === "pendente" && r.data >= hojeIso && r.data <= em14dias)
-    .sort((a, b) => a.data.localeCompare(b.data))
-    .slice(0, 8);
-
-  // ---- Recorte do período selecionado (KPIs + gráfico financeiro) ----
+  // ---- KPIs financeiros (só para quem vê financeiro) ----
   const noPeriodo = (data: string) => data >= janela.desde && data <= janela.ate;
-
-  const receitaPeriodo = receitas
-    .filter((r) => r.status === "pago" && noPeriodo(r.data))
-    .reduce((acc, r) => acc + Number(r.valor), 0);
-  const despesaPeriodo = despesas
-    .filter((d) => d.status === "pago" && noPeriodo(d.data))
-    .reduce((acc, d) => acc + Number(d.valor), 0);
+  const receitaPeriodo = verFinanceiro
+    ? receitas.filter((r) => r.status === "pago" && noPeriodo(r.data)).reduce((acc, r) => acc + Number(r.valor), 0)
+    : 0;
+  const despesaPeriodo = verFinanceiro
+    ? despesas.filter((d) => d.status === "pago" && noPeriodo(d.data)).reduce((acc, d) => acc + Number(d.valor), 0)
+    : 0;
   const lucroPeriodo = receitaPeriodo - despesaPeriodo;
-  const novosAlunos = alunos.filter((a) =>
-    noPeriodo(a.criado_em.slice(0, 10))
-  ).length;
+  const novosAlunos = alunos.filter((a) => noPeriodo(a.criado_em.slice(0, 10))).length;
 
-  const dadosFinanceiro = agruparFinanceiro(
-    receitas,
-    despesas,
-    janela.desde,
-    janela.ate
-  );
+  const dadosFinanceiro = verFinanceiro
+    ? agruparFinanceiro(receitas, despesas, janela.desde, janela.ate)
+    : [];
+
   const hintPeriodo = janela.custom ? "no período" : janela.label.toLowerCase();
 
-  // Evolução de alunos: crescimento acumulado nos últimos 6 meses.
   const evolucaoAlunos: PontoEvolucaoAlunos[] = ultimosMeses(6).map(
     ({ chave, label }) => {
       const fimDoMes = `${chave}-31`;
@@ -131,15 +133,17 @@ export default async function DashboardOverviewPage({
             Visão geral da {sessao.academia.nome_fantasia}.
           </p>
         </div>
-        <DashboardRangeFilter
-          range={janela.range}
-          desde={janela.desde}
-          ate={janela.ate}
-          custom={janela.custom}
-        />
+        {verFinanceiro && (
+          <DashboardRangeFilter
+            range={janela.range}
+            desde={janela.desde}
+            ate={janela.ate}
+            custom={janela.custom}
+          />
+        )}
       </div>
 
-      {/* KPIs principais */}
+      {/* KPIs — linha 1 */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatTile
           icon={Users}
@@ -148,13 +152,23 @@ export default async function DashboardOverviewPage({
           hint={`${alunosAtivos} ativos`}
           accent="volt"
         />
-        <StatTile
-          icon={AlertTriangle}
-          label="Inadimplentes"
-          value={String(inadimplentes.length)}
-          hint="mensalidade vencida"
-          accent={inadimplentes.length > 0 ? "magenta" : "slate"}
-        />
+        {verFinanceiro ? (
+          <StatTile
+            icon={AlertTriangle}
+            label="Inadimplentes"
+            value={String(inadimplentes.length)}
+            hint="mensalidade vencida"
+            accent={inadimplentes.length > 0 ? "magenta" : "slate"}
+          />
+        ) : (
+          <StatTile
+            icon={UserX}
+            label="Alunos sumidos"
+            value={String(sumidos.length)}
+            hint="sem acesso há 14+ dias"
+            accent={sumidos.length > 0 ? "magenta" : "slate"}
+          />
+        )}
         <StatTile
           icon={UserRound}
           label="Funcionários"
@@ -162,57 +176,71 @@ export default async function DashboardOverviewPage({
           hint={`${funcionarios.length} cadastrados`}
           accent="cyan"
         />
-        <StatTile
-          icon={Scale}
-          label="Lucro no período"
-          value={formatBRL(lucroPeriodo)}
-          hint={hintPeriodo}
-          accent={lucroPeriodo >= 0 ? "volt" : "magenta"}
-        />
+        {verFinanceiro ? (
+          <StatTile
+            icon={Scale}
+            label="Lucro no período"
+            value={formatBRL(lucroPeriodo)}
+            hint={hintPeriodo}
+            accent={lucroPeriodo >= 0 ? "volt" : "magenta"}
+          />
+        ) : (
+          <StatTile
+            icon={UserPlus}
+            label="Novos alunos"
+            value={String(novosAlunos)}
+            hint={hintPeriodo}
+            accent="cyan"
+          />
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatTile
-          icon={DollarSign}
-          label="Receita no período"
-          value={formatBRL(receitaPeriodo)}
-          hint="recebido"
-          accent="volt"
-        />
-        <StatTile
-          icon={TrendingUp}
-          label="Despesa no período"
-          value={formatBRL(despesaPeriodo)}
-          hint="pago"
-          accent="magenta"
-        />
-        <StatTile
-          icon={UserPlus}
-          label="Novos alunos"
-          value={String(novosAlunos)}
-          hint={hintPeriodo}
-          accent="cyan"
-        />
-        <StatTile
-          icon={UserX}
-          label="Alunos sumidos"
-          value={String(sumidos.length)}
-          hint="sem acesso há 14+ dias"
-          accent={sumidos.length > 0 ? "magenta" : "slate"}
-        />
-      </div>
+      {/* KPIs — linha 2 (só para quem vê financeiro) */}
+      {verFinanceiro && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatTile
+            icon={DollarSign}
+            label="Receita no período"
+            value={formatBRL(receitaPeriodo)}
+            hint="recebido"
+            accent="volt"
+          />
+          <StatTile
+            icon={TrendingUp}
+            label="Despesa no período"
+            value={formatBRL(despesaPeriodo)}
+            hint="pago"
+            accent="magenta"
+          />
+          <StatTile
+            icon={UserPlus}
+            label="Novos alunos"
+            value={String(novosAlunos)}
+            hint={hintPeriodo}
+            accent="cyan"
+          />
+          <StatTile
+            icon={UserX}
+            label="Alunos sumidos"
+            value={String(sumidos.length)}
+            hint="sem acesso há 14+ dias"
+            accent={sumidos.length > 0 ? "magenta" : "slate"}
+          />
+        </div>
+      )}
 
       {/* Alertas */}
       <AlertasPainel slug={params.slug} inadimplentes={inadimplentes} sumidos={sumidos} />
 
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-        {/* Gráficos financeiros + evolução de alunos */}
         <div className="space-y-6">
-          <div className="surface rounded-2xl p-5">
-            <h2 className="font-semibold text-white">Receita x Despesa</h2>
-            <p className="mb-2 text-xs text-slate-500">{janela.label}</p>
-            <GraficoFinanceiroMensal dados={dadosFinanceiro} />
-          </div>
+          {verFinanceiro && (
+            <div className="surface rounded-2xl p-5">
+              <h2 className="font-semibold text-white">Receita x Despesa</h2>
+              <p className="mb-2 text-xs text-slate-500">{janela.label}</p>
+              <GraficoFinanceiroMensal dados={dadosFinanceiro} />
+            </div>
+          )}
           <div className="surface rounded-2xl p-5">
             <h2 className="font-semibold text-white">Evolução de alunos</h2>
             <p className="mb-2 text-xs text-slate-500">Total cadastrado por mês</p>
@@ -220,46 +248,48 @@ export default async function DashboardOverviewPage({
           </div>
         </div>
 
-        {/* Próximos vencimentos */}
-        <div className="surface rounded-2xl p-5">
-          <div className="flex items-center gap-2">
-            <CalendarClock className="h-4 w-4 text-amber-400" />
-            <h2 className="font-semibold text-white">Próximos vencimentos</h2>
+        {/* Próximos vencimentos — só para quem vê financeiro */}
+        {verFinanceiro && (
+          <div className="surface rounded-2xl p-5">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-amber-400" />
+              <h2 className="font-semibold text-white">Próximos vencimentos</h2>
+            </div>
+            <p className="mb-3 text-xs text-slate-500">Mensalidades pendentes (14 dias)</p>
+
+            {proximosVencimentos.length === 0 ? (
+              <p className="py-6 text-center text-sm text-slate-500">
+                Nenhum vencimento nos próximos 14 dias.
+              </p>
+            ) : (
+              <ul className="divide-y divide-ink-700/70">
+                {proximosVencimentos.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-white">
+                        {r.aluno?.nome ?? r.descricao}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        vence em{" "}
+                        {new Date(r.data + "T00:00:00").toLocaleDateString("pt-BR")}
+                      </p>
+                    </div>
+                    <span className="font-semibold text-amber-300">
+                      {formatBRL(r.valor)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <Link
+              href={`/painel/${params.slug}/financeiro`}
+              className="btn-ghost mt-4 w-full"
+            >
+              Ver financeiro completo <ArrowUpRight className="h-4 w-4" />
+            </Link>
           </div>
-          <p className="mb-3 text-xs text-slate-500">Mensalidades pendentes (14 dias)</p>
-
-          {proximosVencimentos.length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-500">
-              Nenhum vencimento nos próximos 14 dias.
-            </p>
-          ) : (
-            <ul className="divide-y divide-ink-700/70">
-              {proximosVencimentos.map((r) => (
-                <li key={r.id} className="flex items-center justify-between py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-white">
-                      {r.aluno?.nome ?? r.descricao}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      vence em{" "}
-                      {new Date(r.data + "T00:00:00").toLocaleDateString("pt-BR")}
-                    </p>
-                  </div>
-                  <span className="font-semibold text-amber-300">
-                    {formatBRL(r.valor)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <Link
-            href={`/painel/${params.slug}/financeiro`}
-            className="btn-ghost mt-4 w-full"
-          >
-            Ver financeiro completo <ArrowUpRight className="h-4 w-4" />
-          </Link>
-        </div>
+        )}
       </div>
     </div>
   );
