@@ -370,6 +370,33 @@ export async function getRelatorioVendas(
   return { total, qtdVendas: linhas.length, ranking };
 }
 
+export interface VendaRecente {
+  id: string;
+  descricao: string;
+  valor: number;
+  data: string;
+  criado_em: string;
+  produto_id: string | null;
+  produto: { nome: string; preco: number; estoque: number | null } | null;
+}
+
+/** Últimas vendas da loja (tipo venda_produto) — para o histórico com estorno. */
+export async function getVendasRecentes(
+  academiaId: string,
+  limit = 30
+): Promise<VendaRecente[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("receitas")
+    .select("id, descricao, valor, data, criado_em, produto_id, produto:produtos(nome, preco, estoque)")
+    .eq("academia_id", academiaId)
+    .eq("tipo", "venda_produto")
+    .order("criado_em", { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return (data as unknown as VendaRecente[]) ?? [];
+}
+
 /** Feedbacks (avaliações) dos alunos — mais recentes primeiro. */
 export async function getFeedbacks(academiaId: string): Promise<Feedback[]> {
   const supabase = createClient();

@@ -151,6 +151,54 @@ export async function registrarVendaProduto(
   return { ok: true };
 }
 
+/**
+ * Estorna uma venda: apaga a receita e devolve o estoque ao produto.
+ * Só funciona em receitas do tipo venda_produto da própria academia.
+ */
+export async function estornarVenda(
+  slug: string,
+  receitaId: string
+): Promise<void> {
+  const sessao = await requireSecao(slug, "configuracoes");
+  const supabase = createClient();
+
+  const { data: receita, error: e1 } = await supabase
+    .from("receitas")
+    .select("id, valor, produto_id, produto:produtos(preco, estoque)")
+    .eq("id", receitaId)
+    .eq("academia_id", sessao.academia.id)
+    .eq("tipo", "venda_produto")
+    .maybeSingle();
+  if (e1 || !receita) throw new Error("Venda não encontrada.");
+
+  const prod = (receita as unknown as {
+    produto_id: string | null;
+    valor: number;
+    produto: { preco: number; estoque: number | null } | null;
+  });
+
+  if (prod.produto_id && prod.produto && prod.produto.estoque != null) {
+    const preco = Number(prod.produto.preco);
+    const qty = preco > 0 ? Math.round(Number(prod.valor) / preco) : 1;
+    await supabase
+      .from("produtos")
+      .update({ estoque: prod.produto.estoque + qty })
+      .eq("id", prod.produto_id)
+      .eq("academia_id", sessao.academia.id);
+  }
+
+  const { error: e2 } = await supabase
+    .from("receitas")
+    .delete()
+    .eq("id", receitaId)
+    .eq("academia_id", sessao.academia.id);
+  if (e2) throw new Error(`Falha ao estornar: ${e2.message}`);
+
+  revalidatePath(`/painel/${slug}/loja`);
+  revalidatePath(`/painel/${slug}/financeiro`, "layout");
+  revalidatePath(`/painel/${slug}`);
+}
+
 export async function excluirProduto(
   slug: string,
   produtoId: string

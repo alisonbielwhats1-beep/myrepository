@@ -2,9 +2,10 @@ import { AlertTriangle } from "lucide-react";
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import GestaoLoja from "@/components/painel/GestaoLoja";
 import RelatorioVendas from "@/components/painel/loja/RelatorioVendas";
+import HistoricoVendas from "@/components/painel/loja/HistoricoVendas";
 import MigracaoPendente from "@/components/painel/MigracaoPendente";
 import { requireSecao } from "@/lib/auth";
-import { getProdutos, getRelatorioVendas } from "@/lib/data";
+import { getProdutos, getRelatorioVendas, getVendasRecentes } from "@/lib/data";
 import { Produto } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -30,9 +31,12 @@ export default async function LojaPage({
   }
 
   const verFinanceiro = sessao.papel === "dono" || sessao.papel === "gerente";
-  const vendas = verFinanceiro
-    ? await getRelatorioVendas(sessao.academia.id, desde)
-    : { total: 0, qtdVendas: 0, ranking: [] };
+  const [vendas, vendasRecentes] = verFinanceiro
+    ? await Promise.all([
+        getRelatorioVendas(sessao.academia.id, desde),
+        getVendasRecentes(sessao.academia.id, 30),
+      ])
+    : [{ total: 0, qtdVendas: 0, ranking: [] }, []];
 
   // Alerta de reposição: produtos com estoque controlado no/abaixo do mínimo.
   const reposicao = produtos.filter(
@@ -81,6 +85,10 @@ export default async function LojaPage({
       )}
 
       <GestaoLoja slug={params.slug} produtosIniciais={produtos} />
+
+      {verFinanceiro && (
+        <HistoricoVendas slug={params.slug} vendas={vendasRecentes} />
+      )}
     </div>
   );
 }
