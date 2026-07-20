@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 /**
- * Design tokens do AcadFlow.
+ * Design tokens do GestAcad.
  * Paleta vibrante estilo "app de treino premium" com base escura (dark mode nativo),
  * acentos em lima/verde-energia e magenta, e superfícies com profundidade.
  */

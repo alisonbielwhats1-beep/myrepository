@@ -1,4 +1,4 @@
-# AcadFlow — SaaS Multi-tenant para Academias
+# GestAcad — SaaS Multi-tenant para Academias
 
 Plataforma completa de gestão de academias com **Next.js (App Router)**,
 **Tailwind CSS** e **Supabase**. Login por academia, isolamento total de
@@ -151,7 +151,7 @@ arquivos para o **Supabase Storage** e cole a URL pública ao montar a ficha.
 
 Deploy em **um clique** na Vercel:
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Falisonbielwhats1-beep%2Fmyrepository&project-name=acadflow&repository-name=acadflow)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Falisonbielwhats1-beep%2Fmyrepository&project-name=gestacad&repository-name=gestacad)
 
 1. Acesse <https://vercel.com/new> e faça login com o GitHub (ou use o botão
    acima).

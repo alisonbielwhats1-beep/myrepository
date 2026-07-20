@@ -1,5 +1,5 @@
 {
-  "name": "acadflow-saas",
+  "name": "gestacad-saas",
   "version": "1.0.0",
   "private": true,
   "description": "SaaS Multi-tenant (PWA) para gestão de academias — treinos, catraca e BI.",

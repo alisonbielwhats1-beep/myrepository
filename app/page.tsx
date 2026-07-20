@@ -123,7 +123,7 @@ export default function Home() {
         </section>
 
         <footer className="border-t border-ink-700 py-8 text-center text-xs text-slate-500">
-          AcadFlow · Next.js (App Router) · Tailwind CSS · Supabase · PWA
+          GestAcad · Next.js (App Router) · Tailwind CSS · Supabase · PWA
         </footer>
       </div>
     </main>

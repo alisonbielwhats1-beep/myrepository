@@ -41,7 +41,7 @@ begin
     raise exception 'Dados de demonstração já existem para esta academia. Nada foi alterado. Se quiser gerar de novo, use antes o script 004b_remover_dados_demo.sql para limpar.';
   end if;
 
-  perform set_config('acadflow.demo_academia_id', v_academia_id::text, false);
+  perform set_config('gestacad.demo_academia_id', v_academia_id::text, false);
   raise notice 'Gerando dados de demonstração para a academia %', v_academia_id;
 end $$;
 
@@ -49,7 +49,7 @@ end $$;
 -- 1. Planos (só cria se a academia ainda não tiver nenhum).
 -- -----------------------------------------------------------------------------
 insert into public.planos (academia_id, nome, descricao, valor_mensal, recorrencia_meses, ativo)
-select (current_setting('acadflow.demo_academia_id')::uuid), v.nome, v.descricao, v.valor, v.rec, true
+select (current_setting('gestacad.demo_academia_id')::uuid), v.nome, v.descricao, v.valor, v.rec, true
 from (values
   ('Mensal',      'Acesso completo à academia, renovação mensal',        99.90,  1),
   ('Trimestral',  'Acesso completo, plano trimestral com desconto',     269.90,  3),
@@ -57,7 +57,7 @@ from (values
 ) as v(nome, descricao, valor, rec)
 where not exists (
   select 1 from public.planos
-  where academia_id = (current_setting('acadflow.demo_academia_id')::uuid)
+  where academia_id = (current_setting('gestacad.demo_academia_id')::uuid)
 );
 
 -- -----------------------------------------------------------------------------
@@ -77,7 +77,7 @@ insert into public.funcionarios (
   academia_id, nome, cargo, telefone, email, cpf, data_admissao, salario, dia_pagamento, status, criado_em, atualizado_em
 )
 select
-  (current_setting('acadflow.demo_academia_id')::uuid),
+  (current_setting('gestacad.demo_academia_id')::uuid),
   t.nome,
   t.cargo,
   '(11) 9' || lpad((7000 + t.idx * 11)::text, 4, '0') || '-' || lpad((3000 + t.idx * 13)::text, 4, '0'),
@@ -125,7 +125,7 @@ insert into public.alunos (
   status_matricula, plano_id, matricula_codigo, criado_em, atualizado_em
 )
 select
-  (current_setting('acadflow.demo_academia_id')::uuid),
+  (current_setting('gestacad.demo_academia_id')::uuid),
   t.nome,
   lpad((11100000000 + t.idx)::text, 11, '0'),
   'aluno' || t.idx || '@exemplo.com',
@@ -139,7 +139,7 @@ select
 from tmp_alunos t
 join lateral (
   select id from public.planos
-  where academia_id = (current_setting('acadflow.demo_academia_id')::uuid)
+  where academia_id = (current_setting('gestacad.demo_academia_id')::uuid)
   order by valor_mensal
   offset (t.plano_idx - 1) limit 1
 ) pl on true;
@@ -152,7 +152,7 @@ join lateral (
 -- 4.1 Matrícula (uma vez, no dia do cadastro).
 insert into public.receitas (academia_id, aluno_id, tipo, descricao, valor, data, status, observacoes, criado_em)
 select
-  (current_setting('acadflow.demo_academia_id')::uuid),
+  (current_setting('gestacad.demo_academia_id')::uuid),
   a.id,
   'matricula',
   'Taxa de matrícula - ' || a.nome,
@@ -162,7 +162,7 @@ select
   '[DEMO]',
   now()
 from public.alunos a
-where a.academia_id = (current_setting('acadflow.demo_academia_id')::uuid)
+where a.academia_id = (current_setting('gestacad.demo_academia_id')::uuid)
   and a.matricula_codigo like 'DEMO-%';
 
 -- 4.2 Mensalidades recorrentes por ciclo de cobrança do plano.
@@ -179,7 +179,7 @@ with base as (
       / pl.recorrencia_meses) as ciclos_passados
   from public.alunos a
   join public.planos pl on pl.id = a.plano_id
-  where a.academia_id = (current_setting('acadflow.demo_academia_id')::uuid)
+  where a.academia_id = (current_setting('gestacad.demo_academia_id')::uuid)
     and a.matricula_codigo like 'DEMO-%'
 ),
 base2 as (
@@ -196,7 +196,7 @@ ciclos as (
 )
 insert into public.receitas (academia_id, aluno_id, tipo, descricao, valor, data, status, observacoes, criado_em)
 select
-  (current_setting('acadflow.demo_academia_id')::uuid),
+  (current_setting('gestacad.demo_academia_id')::uuid),
   c.aluno_id,
   'mensalidade',
   'Mensalidade - ' || c.nome,
@@ -216,7 +216,7 @@ from ciclos c;
 -- 4.3 Algumas vendas de produto avulsas (loja da academia).
 insert into public.receitas (academia_id, aluno_id, tipo, descricao, valor, data, status, observacoes, criado_em)
 select
-  (current_setting('acadflow.demo_academia_id')::uuid),
+  (current_setting('gestacad.demo_academia_id')::uuid),
   a.aluno_id,
   'venda_produto',
   a.produto,
@@ -227,23 +227,23 @@ select
   now()
 from (
   select
-    (select id from public.alunos where academia_id = (current_setting('acadflow.demo_academia_id')::uuid) and matricula_codigo = 'DEMO-003') as aluno_id,
+    (select id from public.alunos where academia_id = (current_setting('gestacad.demo_academia_id')::uuid) and matricula_codigo = 'DEMO-003') as aluno_id,
     'Whey Protein 900g' as produto, 149.90 as valor, (current_date - interval '2 months')::date as data
   union all
   select
-    (select id from public.alunos where academia_id = (current_setting('acadflow.demo_academia_id')::uuid) and matricula_codigo = 'DEMO-007'),
+    (select id from public.alunos where academia_id = (current_setting('gestacad.demo_academia_id')::uuid) and matricula_codigo = 'DEMO-007'),
     'Camiseta dry-fit', 69.90, (current_date - interval '5 months')::date
   union all
   select
-    (select id from public.alunos where academia_id = (current_setting('acadflow.demo_academia_id')::uuid) and matricula_codigo = 'DEMO-010'),
+    (select id from public.alunos where academia_id = (current_setting('gestacad.demo_academia_id')::uuid) and matricula_codigo = 'DEMO-010'),
     'Coqueteleira', 35.00, (current_date - interval '9 months')::date
   union all
   select
-    (select id from public.alunos where academia_id = (current_setting('acadflow.demo_academia_id')::uuid) and matricula_codigo = 'DEMO-013'),
+    (select id from public.alunos where academia_id = (current_setting('gestacad.demo_academia_id')::uuid) and matricula_codigo = 'DEMO-013'),
     'Luva de treino', 59.90, (current_date - interval '1 months')::date
   union all
   select
-    (select id from public.alunos where academia_id = (current_setting('acadflow.demo_academia_id')::uuid) and matricula_codigo = 'DEMO-016'),
+    (select id from public.alunos where academia_id = (current_setting('gestacad.demo_academia_id')::uuid) and matricula_codigo = 'DEMO-016'),
     'Whey Protein 900g', 149.90, (current_date - interval '15 days')::date
 ) a;
 
@@ -267,7 +267,7 @@ categorias as (
 )
 insert into public.despesas (academia_id, descricao, categoria, valor, data, status, observacoes, criado_em)
 select
-  (current_setting('acadflow.demo_academia_id')::uuid),
+  (current_setting('gestacad.demo_academia_id')::uuid),
   c.descricao,
   c.categoria,
   -- pequena variação de valor por mês, pra não ficar tudo igual
@@ -282,7 +282,7 @@ cross join categorias c;
 -- 5.2 Manutenção e equipamentos: eventos esporádicos, não todo mês.
 insert into public.despesas (academia_id, descricao, categoria, valor, data, status, observacoes, criado_em)
 select
-  (current_setting('acadflow.demo_academia_id')::uuid),
+  (current_setting('gestacad.demo_academia_id')::uuid),
   v.descricao, v.categoria, v.valor, v.data, v.status, '[DEMO]', now()
 from (values
   ('manutencao'::public.categoria_despesa_enum,   'Manutenção de esteiras',       420.00, (current_date - interval '3 months')::date,  'pago'::public.status_pagamento_enum),
@@ -301,7 +301,7 @@ with f as (
     ((extract(year from age(current_date, data_admissao)) * 12
       + extract(month from age(current_date, data_admissao)))::int) as meses_desde_admissao
   from public.funcionarios
-  where academia_id = (current_setting('acadflow.demo_academia_id')::uuid)
+  where academia_id = (current_setting('gestacad.demo_academia_id')::uuid)
     and cpf like 'DEMO-EMP-%'
 ),
 folha as (
@@ -311,7 +311,7 @@ folha as (
 )
 insert into public.despesas (academia_id, descricao, categoria, valor, data, status, funcionario_id, competencia, observacoes, criado_em)
 select
-  (current_setting('acadflow.demo_academia_id')::uuid),
+  (current_setting('gestacad.demo_academia_id')::uuid),
   'Salário - ' || fo.nome,
   'salarios',
   fo.salario,
@@ -330,7 +330,7 @@ from folha fo;
 with elegiveis as (
   select id, nome
   from public.alunos
-  where academia_id = (current_setting('acadflow.demo_academia_id')::uuid)
+  where academia_id = (current_setting('gestacad.demo_academia_id')::uuid)
     and matricula_codigo like 'DEMO-%'
     and status_matricula = 'ativa'
     and nome not in ('Gabriel Oliveira', 'Fernanda Lima', 'Rodrigo Barbosa') -- ficam "sumidos"
@@ -347,7 +347,7 @@ checkins as (
 )
 insert into public.acessos_catraca (academia_id, aluno_id, origem, data_hora_entrada, status_liberacao)
 select
-  (current_setting('acadflow.demo_academia_id')::uuid),
+  (current_setting('gestacad.demo_academia_id')::uuid),
   c.aluno_id,
   'Direto',
   (current_date - (c.n || ' days')::interval) + time '07:30' + ((c.n * 37) % 720 || ' minutes')::interval,
@@ -370,13 +370,13 @@ insert into tmp_treinos (matricula, nome_treino, objetivo, modalidade, publico) 
 
 insert into public.treinos (academia_id, aluno_id, nome_treino, objetivo, modalidade, ordem, ativo, publico, criado_em, atualizado_em)
 select
-  (current_setting('acadflow.demo_academia_id')::uuid),
+  (current_setting('gestacad.demo_academia_id')::uuid),
   a.id,
   t.nome_treino, t.objetivo, t.modalidade, 1, true, t.publico, now(), now()
 from tmp_treinos t
 join public.alunos a
   on a.matricula_codigo = t.matricula
-  and a.academia_id = (current_setting('acadflow.demo_academia_id')::uuid);
+  and a.academia_id = (current_setting('gestacad.demo_academia_id')::uuid);
 
 -- Exercícios de cada treino, puxados do catálogo pelo grupo muscular certo.
 insert into public.exercicios_treino (
@@ -387,7 +387,7 @@ select
   tr.id, ce.nome, ce.series_padrao, ce.repeticoes_padrao, v.carga, 60,
   ce.imagem_demonstracao_url, ce.video_demonstracao_url, ce.ordem
 from public.treinos tr
-join public.alunos a on a.id = tr.aluno_id and a.academia_id = (current_setting('acadflow.demo_academia_id')::uuid)
+join public.alunos a on a.id = tr.aluno_id and a.academia_id = (current_setting('gestacad.demo_academia_id')::uuid)
 join (values
   ('DEMO-001', 'peito'::public.grupo_muscular_enum, 20.0),
   ('DEMO-001', 'triceps'::public.grupo_muscular_enum, 15.0),
@@ -398,7 +398,7 @@ join (values
   ('DEMO-009', 'cardio'::public.grupo_muscular_enum, 0.0)
 ) as v(matricula, grupo, carga) on v.matricula = a.matricula_codigo
 join public.catalogo_exercicios ce on ce.grupo_muscular = v.grupo
-where a.academia_id = (current_setting('acadflow.demo_academia_id')::uuid)
+where a.academia_id = (current_setting('gestacad.demo_academia_id')::uuid)
   and ce.ordem <= 3; -- até 3 exercícios por grupo, pra não lotar a ficha
 
 -- -----------------------------------------------------------------------------
@@ -412,7 +412,7 @@ with alvo as (
       when 'DEMO-009' then 68.0
     end as peso_inicial
   from public.alunos
-  where academia_id = (current_setting('acadflow.demo_academia_id')::uuid)
+  where academia_id = (current_setting('gestacad.demo_academia_id')::uuid)
     and matricula_codigo in ('DEMO-001', 'DEMO-004', 'DEMO-009')
 ),
 serie as (
@@ -420,7 +420,7 @@ serie as (
 )
 insert into public.progresso_aluno (academia_id, aluno_id, data, peso_kg, percentual_gordura, peito_cm, cintura_cm, quadril_cm, braco_cm, coxa_cm, observacoes)
 select
-  (current_setting('acadflow.demo_academia_id')::uuid),
+  (current_setting('gestacad.demo_academia_id')::uuid),
   a.id,
   (date_trunc('month', now()) - ((5 - s.n) || ' months')::interval)::date,
   -- tendência leve (emagrecendo ou ganhando massa, dependendo do aluno)

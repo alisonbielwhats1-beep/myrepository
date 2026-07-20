@@ -1,6 +1,6 @@
 {
-  "name": "AcadFlow — Gestão de Academias",
-  "short_name": "AcadFlow",
+  "name": "GestAcad — Gestão de Academias",
+  "short_name": "GestAcad",
   "description": "Treinos, catraca e inteligência de negócio para a sua academia.",
   "start_url": "/",
   "display": "standalone",
