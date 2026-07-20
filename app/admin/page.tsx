@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { PLANOS_SAAS } from "@/lib/planos";
+import { sairAction } from "@/lib/actions/auth";
 import NovaAcademiaModal from "./NovaAcademiaModal";
 import AcademiaLista from "./AcademiaLista";
+import { LogOut } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +68,15 @@ export default async function AdminPage() {
             <span className="chip border-magenta-500/30 bg-magenta-500/10 text-magenta-300 text-xs font-semibold uppercase tracking-wide">
               Super Admin
             </span>
+            <form action={sairAction}>
+              <button
+                type="submit"
+                className="flex items-center gap-2 rounded-xl border border-ink-600 bg-ink-800 px-3 py-2 text-sm text-slate-400 hover:border-red-500/40 hover:text-red-400 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                Sair
+              </button>
+            </form>
           </div>
         </div>
 
