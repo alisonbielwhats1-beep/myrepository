@@ -15,7 +15,7 @@ export default function Logo({
       </span>
       {showText && (
         <span className="text-lg font-bold tracking-tight text-white">
-          Gym<span className="text-volt-300">Flow</span>
+          Gest<span className="text-volt-300">Acad</span>
         </span>
       )}
     </div>
