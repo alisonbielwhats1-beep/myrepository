@@ -56,8 +56,9 @@ export async function updateSession(request: NextRequest) {
       .split(",")
       .map((e) => e.trim().toLowerCase());
     const email = user.email?.toLowerCase() ?? "";
-    const dest = adminEmails.includes(email) ? "/admin" : "/painel";
-    return NextResponse.redirect(new URL(dest, request.url));
+    // Admin nunca é auto-redirecionado — sempre faz login explícito
+    if (adminEmails.includes(email)) return response;
+    return NextResponse.redirect(new URL("/painel", request.url));
   }
 
   return response;
