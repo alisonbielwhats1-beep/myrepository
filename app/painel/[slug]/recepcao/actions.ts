@@ -1,11 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth"
+import type { EstadoAcao } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { OrigemAcesso } from "@/lib/types";
-
-export type EstadoAcesso = { erro?: string; ok?: boolean; savedAt?: number };
 
 const REPASSE_POR_ORIGEM: Record<OrigemAcesso, number> = {
   Direto: 0,
@@ -16,10 +15,10 @@ const REPASSE_POR_ORIGEM: Record<OrigemAcesso, number> = {
 /** Registra manualmente uma entrada na catraca (recepção sem hardware integrado). */
 export async function registrarAcesso(
   slug: string,
-  _estado: EstadoAcesso,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoAcesso> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "recepcao");
   const supabase = createClient();
 
   const alunoId = String(formData.get("aluno_id") ?? "").trim();

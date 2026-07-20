@@ -484,7 +484,9 @@ export async function getAlunosSumidos(
   const supabase = createClient();
   const corte = new Date(Date.now() - dias * 86400_000).toISOString();
 
-  const [{ data: alunos, error: e1 }, { data: acessos, error: e2 }] =
+  // Carrega apenas os alunos_ids com acesso APÓS o corte — muito menor
+  // do que buscar toda a tabela e filtrar no cliente.
+  const [{ data: alunos, error: e1 }, { data: acessosRecentes, error: e2 }] =
     await Promise.all([
       supabase
         .from("alunos")
@@ -493,27 +495,20 @@ export async function getAlunosSumidos(
         .eq("status_matricula", "ativa"),
       supabase
         .from("acessos_catraca")
-        .select("aluno_id, data_hora_entrada")
+        .select("aluno_id")
         .eq("academia_id", academiaId)
-        .order("data_hora_entrada", { ascending: false }),
+        .gte("data_hora_entrada", corte)
+        .not("aluno_id", "is", null),
     ]);
 
   if (e1) throw new Error(`Falha ao carregar alunos: ${e1.message}`);
   if (e2) throw new Error(`Falha ao carregar acessos: ${e2.message}`);
 
-  const ultimoAcessoPorAluno = new Map<string, string>();
-  for (const a of acessos ?? []) {
-    if (a.aluno_id && !ultimoAcessoPorAluno.has(a.aluno_id)) {
-      ultimoAcessoPorAluno.set(a.aluno_id, a.data_hora_entrada);
-    }
-  }
+  const comAcessoRecente = new Set(
+    (acessosRecentes ?? []).map((a) => a.aluno_id as string)
+  );
 
   return ((alunos as { id: string; nome: string }[]) ?? [])
-    .map((a) => ({
-      alunoId: a.id,
-      nome: a.nome,
-      ultimoAcesso: ultimoAcessoPorAluno.get(a.id) ?? null,
-    }))
-    .filter((a) => !a.ultimoAcesso || a.ultimoAcesso < corte)
-    .sort((x, y) => (x.ultimoAcesso ?? "").localeCompare(y.ultimoAcesso ?? ""));
+    .filter((a) => !comAcessoRecente.has(a.id))
+    .map((a) => ({ alunoId: a.id, nome: a.nome, ultimoAcesso: null }));
 }

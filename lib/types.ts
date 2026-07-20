@@ -347,6 +347,9 @@ export interface Feedback {
   aluno?: Pick<Aluno, "id" | "nome"> | null;
 }
 
+/** Retorno padrão de Server Actions: erro, sucesso e timestamp para forçar re-render. */
+export type EstadoAcao = { erro?: string; ok?: boolean; savedAt?: number };
+
 export type Papel = "dono" | "gerente" | "recepcao" | "instrutor";
 
 export const PAPEIS: { value: Papel; label: string; descricao: string }[] = [

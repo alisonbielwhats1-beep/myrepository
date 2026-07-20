@@ -34,6 +34,43 @@ function rotuloCategoria(c: CategoriaProduto): string {
   return CATEGORIAS_PRODUTO.find((x) => x.value === c)?.label ?? c;
 }
 
+function AtivoToggle({ slug, produto }: { slug: string; produto: Produto }) {
+  const [pending, startTransition] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
+
+  const toggle = () => {
+    setErro(null);
+    startTransition(async () => {
+      try {
+        await alternarAtivoProduto(slug, produto.id, !produto.ativo);
+      } catch {
+        setErro("Falha ao atualizar.");
+      }
+    });
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={pending}
+        title={produto.ativo ? "Ocultar da loja" : "Mostrar na loja"}
+        className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition hover:bg-ink-700 hover:text-white disabled:opacity-50"
+      >
+        {pending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : produto.ativo ? (
+          <Eye className="h-4 w-4" />
+        ) : (
+          <EyeOff className="h-4 w-4" />
+        )}
+      </button>
+      {erro && <span className="text-xs text-red-400">{erro}</span>}
+    </>
+  );
+}
+
 export default function GestaoLoja({
   slug,
   produtosIniciais,
@@ -172,18 +209,7 @@ export default function GestaoLoja({
                   </div>
 
                   <div className="mt-3 flex items-center gap-1 border-t border-ink-700 pt-3">
-                    <button
-                      type="button"
-                      onClick={() => alternarAtivoProduto(slug, p.id, !p.ativo)}
-                      title={p.ativo ? "Ocultar da loja" : "Mostrar na loja"}
-                      className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition hover:bg-ink-700 hover:text-white"
-                    >
-                      {p.ativo ? (
-                        <Eye className="h-4 w-4" />
-                      ) : (
-                        <EyeOff className="h-4 w-4" />
-                      )}
-                    </button>
+                    <AtivoToggle slug={slug} produto={p} />
                     <button
                       type="button"
                       onClick={() => setEditandoId(p.id)}

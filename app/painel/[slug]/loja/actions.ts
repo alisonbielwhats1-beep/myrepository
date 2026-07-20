@@ -1,11 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth"
+import type { EstadoAcao } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { CategoriaProduto } from "@/lib/types";
-
-export type EstadoProduto = { erro?: string; ok?: boolean; savedAt?: number };
 
 const CATEGORIAS_VALIDAS: CategoriaProduto[] = [
   "suplemento",
@@ -34,10 +33,10 @@ function lerCampos(formData: FormData) {
 
 export async function criarProduto(
   slug: string,
-  _estado: EstadoProduto,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoProduto> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "loja");
   const campos = lerCampos(formData);
   if (!campos.nome) return { erro: "Informe o nome do produto." };
 
@@ -62,10 +61,10 @@ export async function criarProduto(
 export async function atualizarProduto(
   slug: string,
   produtoId: string,
-  _estado: EstadoProduto,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoProduto> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "loja");
   const campos = lerCampos(formData);
   if (!campos.nome) return { erro: "Informe o nome do produto." };
 
@@ -87,7 +86,7 @@ export async function alternarAtivoProduto(
   produtoId: string,
   ativo: boolean
 ): Promise<void> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "loja");
   const supabase = createClient();
   const { error } = await supabase
     .from("produtos")
@@ -107,7 +106,7 @@ export async function registrarVendaProduto(
   produtoId: string,
   quantidade: number
 ): Promise<{ ok?: boolean; erro?: string }> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "loja");
   const qtd = Math.max(1, Math.floor(Number(quantidade) || 1));
   const supabase = createClient();
 
@@ -156,7 +155,7 @@ export async function excluirProduto(
   slug: string,
   produtoId: string
 ): Promise<void> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "loja");
   const supabase = createClient();
   const { error } = await supabase
     .from("produtos")

@@ -1,14 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireSecao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth"
+import type { EstadoAcao } from "@/lib/types";
 import { LIMITE_MEMBROS_EQUIPE } from "@/lib/permissoes";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { Papel } from "@/lib/types";
 
 const PAPEIS_VALIDOS: Papel[] = ["dono", "gerente", "recepcao", "instrutor"];
-
-export type EstadoMembro = { erro?: string; ok?: boolean; savedAt?: number };
 
 /**
  * Cria um novo usuário da equipe direto pelo app: cria o login no Supabase
@@ -17,9 +16,9 @@ export type EstadoMembro = { erro?: string; ok?: boolean; savedAt?: number };
  */
 export async function criarMembroEquipe(
   slug: string,
-  _estado: EstadoMembro,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoMembro> {
+): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "equipe");
   if (sessao.papel !== "dono") {
     return { erro: "Apenas o dono pode adicionar membros à equipe." };

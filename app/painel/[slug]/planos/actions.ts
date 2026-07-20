@@ -1,10 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { requireSessao } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import type { EstadoAcao } from "@/lib/types";
 
-export type EstadoPlano = { erro?: string; ok?: boolean; savedAt?: number };
+import { revalidatePath } from "next/cache";
+import { requireSecao } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 function lerCampos(formData: FormData) {
   return {
@@ -19,10 +19,10 @@ function lerCampos(formData: FormData) {
 
 export async function criarPlano(
   slug: string,
-  _estado: EstadoPlano,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoPlano> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "configuracoes");
   const campos = lerCampos(formData);
   if (!campos.nome) return { erro: "Informe o nome do plano." };
 
@@ -39,10 +39,10 @@ export async function criarPlano(
 export async function atualizarPlano(
   slug: string,
   planoId: string,
-  _estado: EstadoPlano,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoPlano> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "configuracoes");
   const campos = lerCampos(formData);
   if (!campos.nome) return { erro: "Informe o nome do plano." };
 
@@ -59,7 +59,7 @@ export async function atualizarPlano(
 }
 
 export async function excluirPlano(slug: string, planoId: string): Promise<void> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "configuracoes");
   const supabase = createClient();
   const { error } = await supabase
     .from("planos")

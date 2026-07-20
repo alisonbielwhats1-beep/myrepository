@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Check, MessageSquare, Star, UserRound } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { Check, Loader2, MessageSquare, Star, UserRound } from "lucide-react";
 import { CATEGORIAS_FEEDBACK, Feedback } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import ConfirmButton from "@/components/ui/ConfirmButton";
@@ -23,6 +23,8 @@ export default function FeedbackPainel({
   feedbacks: Feedback[];
 }) {
   const [filtro, setFiltro] = useState<"todos" | "nao_lidos">("todos");
+  const [lendoPending, startLendoTransition] = useTransition();
+  const [lendoId, setLendoId] = useState<string | null>(null);
 
   const media = useMemo(() => {
     if (feedbacks.length === 0) return 0;
@@ -148,10 +150,20 @@ export default function FeedbackPainel({
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => marcarFeedbackLido(slug, f.id, !f.lido)}
-                    className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-400 transition hover:bg-ink-700 hover:text-white"
+                    disabled={lendoPending && lendoId === f.id}
+                    onClick={() => {
+                      setLendoId(f.id);
+                      startLendoTransition(async () => {
+                        await marcarFeedbackLido(slug, f.id, !f.lido);
+                      });
+                    }}
+                    className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-400 transition hover:bg-ink-700 hover:text-white disabled:opacity-50"
                   >
-                    <Check className="h-3.5 w-3.5" />
+                    {lendoPending && lendoId === f.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5" />
+                    )}
                     {f.lido ? "Marcar não lido" : "Marcar lido"}
                   </button>
                   <ConfirmButton

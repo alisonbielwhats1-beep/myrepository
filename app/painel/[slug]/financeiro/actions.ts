@@ -1,11 +1,12 @@
 "use server";
 
+import type { EstadoAcao } from "@/lib/types";
+
 import { revalidatePath } from "next/cache";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { CategoriaDespesa, StatusPagamento, TipoReceita } from "@/lib/types";
 
-export type EstadoAcaoFinanceiro = { erro?: string; ok?: boolean; savedAt?: number };
 
 /**
  * Gera a folha salarial (despesas de 'Salários') de um mês. `competencia` é
@@ -15,7 +16,7 @@ export async function gerarFolha(
   slug: string,
   competencia: string
 ): Promise<{ erro?: string; criadas?: number }> {
-  await requireSessao(slug);
+  await requireSecao(slug, "financeiro");
   const supabase = createClient();
   const comp = /^\d{4}-\d{2}-\d{2}$/.test(competencia)
     ? competencia
@@ -39,7 +40,7 @@ export async function gerarMensalidades(
   slug: string,
   competencia: string
 ): Promise<{ erro?: string; criadas?: number }> {
-  await requireSessao(slug);
+  await requireSecao(slug, "financeiro");
   const supabase = createClient();
   const comp = /^\d{4}-\d{2}-\d{2}$/.test(competencia)
     ? competencia
@@ -72,10 +73,10 @@ function lerReceita(formData: FormData) {
 
 export async function criarReceita(
   slug: string,
-  _estado: EstadoAcaoFinanceiro,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoAcaoFinanceiro> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "financeiro");
   const campos = lerReceita(formData);
   if (!campos.descricao || !campos.data) {
     return { erro: "Informe descrição e data." };
@@ -96,10 +97,10 @@ export async function criarReceita(
 export async function atualizarReceita(
   slug: string,
   receitaId: string,
-  _estado: EstadoAcaoFinanceiro,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoAcaoFinanceiro> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "financeiro");
   const campos = lerReceita(formData);
   if (!campos.descricao || !campos.data) {
     return { erro: "Informe descrição e data." };
@@ -120,7 +121,7 @@ export async function atualizarReceita(
 }
 
 export async function excluirReceita(slug: string, receitaId: string): Promise<void> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "financeiro");
   const supabase = createClient();
   const { error } = await supabase
     .from("receitas")
@@ -148,10 +149,10 @@ function lerDespesa(formData: FormData) {
 
 export async function criarDespesa(
   slug: string,
-  _estado: EstadoAcaoFinanceiro,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoAcaoFinanceiro> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "financeiro");
   const campos = lerDespesa(formData);
   if (!campos.descricao || !campos.data) {
     return { erro: "Informe descrição e data." };
@@ -172,10 +173,10 @@ export async function criarDespesa(
 export async function atualizarDespesa(
   slug: string,
   despesaId: string,
-  _estado: EstadoAcaoFinanceiro,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoAcaoFinanceiro> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "financeiro");
   const campos = lerDespesa(formData);
   if (!campos.descricao || !campos.data) {
     return { erro: "Informe descrição e data." };
@@ -196,7 +197,7 @@ export async function atualizarDespesa(
 }
 
 export async function excluirDespesa(slug: string, despesaId: string): Promise<void> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "financeiro");
   const supabase = createClient();
   const { error } = await supabase
     .from("despesas")

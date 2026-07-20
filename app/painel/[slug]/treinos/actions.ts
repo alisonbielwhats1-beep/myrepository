@@ -1,18 +1,18 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { requireSessao } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import type { EstadoAcao } from "@/lib/types";
 
-export type EstadoTreino = { erro?: string; ok?: boolean; savedAt?: number };
+import { revalidatePath } from "next/cache";
+import { requireSecao } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 /** Cria um treino da biblioteca (modelo, sem aluno), com seus exercícios. */
 export async function criarTreinoBiblioteca(
   slug: string,
-  _estado: EstadoTreino,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoTreino> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "treinos");
   const supabase = createClient();
 
   const nomeTreino = String(formData.get("nome_treino") ?? "").trim();
@@ -87,7 +87,7 @@ export async function excluirTreinoBiblioteca(
   slug: string,
   treinoId: string
 ): Promise<void> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "treinos");
   const supabase = createClient();
   const { error } = await supabase
     .from("treinos")
@@ -104,7 +104,7 @@ export async function definirPublicoTreino(
   treinoId: string,
   publico: boolean
 ): Promise<void> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "treinos");
   const supabase = createClient();
   const { error } = await supabase
     .from("treinos")

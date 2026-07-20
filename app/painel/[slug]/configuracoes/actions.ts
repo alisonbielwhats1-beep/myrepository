@@ -1,17 +1,17 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { requireSessao } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import type { EstadoAcao } from "@/lib/types";
 
-export type EstadoConfig = { erro?: string; ok?: boolean; savedAt?: number };
+import { revalidatePath } from "next/cache";
+import { requireSecao } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 export async function atualizarAcademia(
   slug: string,
-  _estado: EstadoConfig,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoConfig> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "configuracoes");
   const supabase = createClient();
 
   const nomeFantasia = String(formData.get("nome_fantasia") ?? "").trim();

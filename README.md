@@ -106,18 +106,38 @@ Depois, acesse `/login` com o e-mail e senha criados.
 
 ### Modelo de dados (resumo)
 
-| Tabela              | Descrição                                                |
-|---------------------|-----------------------------------------------------------|
-| `academias`         | Tenant raiz (multi-tenant por `slug_url`).                 |
-| `perfis_admin`      | Vincula um login (Supabase Auth) à academia que administra.|
-| `alunos`            | Alunos vinculados a uma academia.                          |
-| `planos`            | Planos de assinatura.                                      |
-| `treinos`           | Fichas de treino de cada aluno.                             |
-| `exercicios_treino` | Exercícios (séries, reps, carga, foto **e vídeo**).         |
-| `acessos_catraca`   | Log de entradas (origem, repasse, liberação).               |
-| `funcionarios`      | Equipe da academia.                                         |
-| `receitas`          | Mensalidades, matrículas, produtos, outras receitas.         |
-| `despesas`          | Despesas por categoria, com status pago/pendente.            |
+| Tabela                | Descrição                                                        |
+|-----------------------|------------------------------------------------------------------|
+| `academias`           | Tenant raiz (multi-tenant por `slug_url`).                       |
+| `perfis_admin`        | Login de admin vinculado à academia + papel de acesso.           |
+| `alunos`              | Alunos com plano, status, anamnese e contato de emergência.      |
+| `planos`              | Planos de assinatura (valor, recorrência, cobrança automática).  |
+| `treinos`             | Fichas de treino por aluno (ou biblioteca de modelos).           |
+| `exercicios_treino`   | Exercícios (séries, reps, carga, foto e vídeo).                 |
+| `catalogo_exercicios` | Banco global de exercícios com grupo muscular padrão.            |
+| `progresso_aluno`     | Medidas corporais e fotos ao longo do tempo.                     |
+| `historico_planos`    | Cada troca ou renovação de plano do aluno.                       |
+| `acessos_catraca`     | Log de entradas (origem, repasse, liberação).                    |
+| `funcionarios`        | Equipe da academia com salário e dia de pagamento.               |
+| `receitas`            | Mensalidades, matrículas, vendas e outras receitas.              |
+| `despesas`            | Despesas por categoria, com competência e status.                |
+| `produtos`            | Catálogo da loja (suplementos, acessórios, estoque).             |
+| `feedbacks`           | Avaliações dos alunos (nota 1–5, categoria, comentário).         |
+
+### Papéis de acesso (controle de equipe)
+
+Cada membro da equipe (`perfis_admin.papel`) enxerga apenas as seções designadas:
+
+| Papel       | Seções acessíveis                                               |
+|-------------|------------------------------------------------------------------|
+| `dono`      | Tudo, incluindo **Financeiro** e **Configurações**               |
+| `gerente`   | Dashboard, Recepção, Alunos, Treinos, Funcionários, Loja, Retenção, Relatórios, Feedback |
+| `recepcao`  | Dashboard, Recepção, Alunos, Treinos, Loja                       |
+| `instrutor` | Dashboard, Recepção, Alunos, Treinos                             |
+
+> **Financeiro** (receitas, despesas, DRE, projeção) é exclusivo do `dono`.  
+> Para criar membros de equipe, acesse **Configurações → Equipe** (limite: 5 membros).  
+> O controle é duplo: o menu lateral esconde as seções proibidas **e** as Server Actions rejeitam chamadas diretas de papéis sem permissão.
 
 ### Mídia dos exercícios
 Cada exercício tem `imagem_demonstracao_url` e `video_demonstracao_url`

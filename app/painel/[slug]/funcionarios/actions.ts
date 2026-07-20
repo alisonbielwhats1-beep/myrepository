@@ -1,11 +1,12 @@
 "use server";
 
+import type { EstadoAcao } from "@/lib/types";
+
 import { revalidatePath } from "next/cache";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { StatusFuncionario } from "@/lib/types";
 
-export type EstadoAcaoFuncionario = { erro?: string; ok?: boolean; savedAt?: number };
 
 function lerCampos(formData: FormData) {
   const dia = Number(formData.get("dia_pagamento") ?? 0);
@@ -33,10 +34,10 @@ async function gerarFolhaMesAtual(
 
 export async function criarFuncionario(
   slug: string,
-  _estado: EstadoAcaoFuncionario,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoAcaoFuncionario> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "funcionarios");
   const campos = lerCampos(formData);
   if (!campos.nome || !campos.cargo) {
     return { erro: "Informe ao menos nome e cargo." };
@@ -63,10 +64,10 @@ export async function criarFuncionario(
 export async function atualizarFuncionario(
   slug: string,
   funcionarioId: string,
-  _estado: EstadoAcaoFuncionario,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoAcaoFuncionario> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "funcionarios");
   const campos = lerCampos(formData);
   if (!campos.nome || !campos.cargo) {
     return { erro: "Informe ao menos nome e cargo." };
@@ -95,7 +96,7 @@ export async function excluirFuncionario(
   slug: string,
   funcionarioId: string
 ): Promise<void> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "funcionarios");
   const supabase = createClient();
 
   const { error } = await supabase

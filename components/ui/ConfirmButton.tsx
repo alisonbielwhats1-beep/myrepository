@@ -1,14 +1,9 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/**
- * Botão "Excluir" com confirmação nativa antes de disparar uma Server Action.
- * Usado nas listas (alunos, funcionários, receitas, despesas) para que toda
- * exclusão exija confirmação explícita do usuário.
- */
 export default function ConfirmButton({
   action,
   confirmText = "Tem certeza que deseja excluir?",
@@ -23,13 +18,31 @@ export default function ConfirmButton({
   variant?: "icon" | "row";
 }) {
   const [pending, startTransition] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
 
   const onClick = () => {
     if (!window.confirm(confirmText)) return;
-    startTransition(() => {
-      action();
+    setErro(null);
+    startTransition(async () => {
+      try {
+        await action();
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : "Falha ao excluir.");
+      }
     });
   };
+
+  const conteudo = (
+    <>
+      {pending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Trash2 className="h-4 w-4" />
+      )}
+      {variant === "row" && (label ?? "Excluir")}
+      {erro && <span className="ml-1 text-xs text-red-400">{erro}</span>}
+    </>
+  );
 
   if (variant === "row") {
     return (
@@ -42,33 +55,31 @@ export default function ConfirmButton({
           className
         )}
       >
-        {pending ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Trash2 className="h-4 w-4" />
-        )}
-        {label ?? "Excluir"}
+        {conteudo}
       </button>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={pending}
-      aria-label={label ?? "Excluir"}
-      title={label ?? "Excluir"}
-      className={cn(
-        "grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50",
-        className
-      )}
-    >
-      {pending ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <Trash2 className="h-4 w-4" />
-      )}
-    </button>
+    <div className="flex flex-col items-center">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={pending}
+        aria-label={label ?? "Excluir"}
+        title={label ?? "Excluir"}
+        className={cn(
+          "grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50",
+          className
+        )}
+      >
+        {pending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Trash2 className="h-4 w-4" />
+        )}
+      </button>
+      {erro && <span className="mt-1 text-xs text-red-400">{erro}</span>}
+    </div>
   );
 }

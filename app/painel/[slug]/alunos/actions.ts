@@ -1,11 +1,12 @@
 "use server";
 
+import type { EstadoAcao } from "@/lib/types";
+
 import { revalidatePath } from "next/cache";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { StatusMatricula } from "@/lib/types";
 
-export type EstadoAcaoAluno = { erro?: string; ok?: boolean; savedAt?: number };
 
 function proximaMatricula(totalAtual: number): string {
   return `AL-${String(totalAtual + 1).padStart(4, "0")}`;
@@ -49,10 +50,10 @@ async function registrarHistoricoPlano(
 
 export async function criarAluno(
   slug: string,
-  _estado: EstadoAcaoAluno,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoAcaoAluno> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
   const nome = String(formData.get("nome") ?? "").trim();
@@ -95,10 +96,10 @@ export async function criarAluno(
 export async function atualizarAluno(
   slug: string,
   alunoId: string,
-  _estado: EstadoAcaoAluno,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoAcaoAluno> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
   const nome = String(formData.get("nome") ?? "").trim();
@@ -146,7 +147,7 @@ export async function renovarPlano(
   slug: string,
   alunoId: string
 ): Promise<{ erro?: string; ok?: boolean }> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
   const { data: aluno } = await supabase
@@ -163,7 +164,7 @@ export async function renovarPlano(
 }
 
 export async function excluirAluno(slug: string, alunoId: string): Promise<void> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
   const { error } = await supabase
@@ -181,10 +182,10 @@ export async function excluirAluno(slug: string, alunoId: string): Promise<void>
 export async function criarTreino(
   slug: string,
   alunoId: string,
-  _estado: EstadoAcaoAluno,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoAcaoAluno> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
   const nomeTreino = String(formData.get("nome_treino") ?? "").trim();
@@ -255,7 +256,7 @@ export async function criarTreino(
 }
 
 export async function excluirTreino(slug: string, treinoId: string): Promise<void> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
   const { error } = await supabase
@@ -275,10 +276,10 @@ export async function excluirTreino(slug: string, treinoId: string): Promise<voi
 export async function registrarProgresso(
   slug: string,
   alunoId: string,
-  _estado: EstadoAcaoAluno,
+  _estado: EstadoAcao,
   formData: FormData
-): Promise<EstadoAcaoAluno> {
-  const sessao = await requireSessao(slug);
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
   const num = (nome: string) => {
@@ -311,7 +312,7 @@ export async function excluirProgresso(
   slug: string,
   registroId: string
 ): Promise<void> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
   const { error } = await supabase

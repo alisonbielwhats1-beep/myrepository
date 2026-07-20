@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireSessao } from "@/lib/auth";
+import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export async function marcarFeedbackLido(
@@ -9,7 +9,7 @@ export async function marcarFeedbackLido(
   feedbackId: string,
   lido: boolean
 ): Promise<void> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "feedback");
   const supabase = createClient();
   const { error } = await supabase
     .from("feedbacks")
@@ -24,7 +24,7 @@ export async function excluirFeedback(
   slug: string,
   feedbackId: string
 ): Promise<void> {
-  const sessao = await requireSessao(slug);
+  const sessao = await requireSecao(slug, "feedback");
   const supabase = createClient();
   const { error } = await supabase
     .from("feedbacks")
