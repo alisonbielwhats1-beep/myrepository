@@ -16,10 +16,12 @@ import {
   PontoHora,
   PontoOrigem,
 } from "@/components/painel/DashboardCharts";
+import UpgradeGuard from "@/components/ui/UpgradeGuard";
 import { requireSecao } from "@/lib/auth";
 import { getAcessos, getAlunos, getReceitas } from "@/lib/data";
 import { OrigemAcesso } from "@/lib/types";
 import { formatBRL } from "@/lib/utils";
+import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
 
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -29,6 +31,19 @@ export default async function RelatoriosPage({
   params: { slug: string };
 }) {
   const sessao = await requireSecao(params.slug, "relatorios");
+
+  if (!planoPodeAcessar(sessao.academia.plano_saas, "relatorios")) {
+    return (
+      <UpgradeGuard
+        recurso="relatorios"
+        planoAtual={sessao.academia.plano_saas}
+        planoNecessario={planoMinimo("relatorios")}
+        slug={params.slug}
+        titulo="Relatórios / BI disponível no Profissional"
+        descricao="Análise de faturamento, horários de pico, origem dos alunos e mais."
+      />
+    );
+  }
 
   const seteDiasAtras = new Date(Date.now() - 6 * 86400_000)
     .toISOString()

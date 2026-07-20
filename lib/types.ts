@@ -1,5 +1,7 @@
 // Tipos de domínio do GestAcad — espelham as tabelas do Supabase (schema.sql).
 
+export type PlanoSaas = "basico" | "profissional" | "premium";
+
 export type StatusMatricula = "ativa" | "inativa" | "trancada" | "pendente";
 export type OrigemAcesso = "Direto" | "Gympass" | "TotalPass";
 export type StatusLiberacao = "liberado" | "negado" | "pendente";
@@ -100,6 +102,7 @@ export interface Academia {
   cor_primaria: string | null;
   telefone: string | null;
   whatsapp: string | null;
+  plano_saas: PlanoSaas;
   criado_em: string;
   atualizado_em: string;
 }

@@ -9,6 +9,7 @@ import {
 import StatTile from "@/components/painel/StatTile";
 import { GraficoFinanceiroMensal } from "@/components/painel/DashboardCharts";
 import DREResumo from "@/components/painel/financeiro/DREResumo";
+import UpgradeGuard from "@/components/ui/UpgradeGuard";
 import { requireSessao } from "@/lib/auth";
 import { getDespesas, getReceitas } from "@/lib/data";
 import {
@@ -18,6 +19,7 @@ import {
   ultimosMeses,
 } from "@/lib/financeiro";
 import { formatBRL } from "@/lib/utils";
+import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,19 @@ export default async function FinanceiroOverviewPage({
   params: { slug: string };
 }) {
   const sessao = await requireSessao(params.slug);
+
+  if (!planoPodeAcessar(sessao.academia.plano_saas, "financeiro")) {
+    return (
+      <UpgradeGuard
+        recurso="financeiro"
+        planoAtual={sessao.academia.plano_saas}
+        planoNecessario={planoMinimo("financeiro")}
+        slug={params.slug}
+        titulo="Financeiro disponível no Profissional"
+        descricao="Controle receitas, despesas, DRE e fluxo de caixa da sua academia."
+      />
+    );
+  }
   const desde = `${ultimosMeses(6)[0].chave}-01`;
 
   const [receitas, despesas] = await Promise.all([

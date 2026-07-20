@@ -2,9 +2,11 @@ import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import ConfiguracoesAcademia from "@/components/painel/ConfiguracoesAcademia";
 import GestaoPlanos from "@/components/painel/GestaoPlanos";
 import IntegracoesCard from "@/components/painel/configuracoes/IntegracoesCard";
+import PlanoSaasCard from "@/components/painel/configuracoes/PlanoSaasCard";
 import { requireSecao } from "@/lib/auth";
 import { getPlanos, getSecretsWebhook } from "@/lib/data";
 import { headers } from "next/headers";
+import { planoPodeAcessar } from "@/lib/planos";
 
 export const dynamic = "force-dynamic";
 
@@ -34,11 +36,13 @@ export default async function ConfiguracoesPage({
         </p>
       </div>
 
+      <PlanoSaasCard slug={params.slug} planoAtual={sessao.academia.plano_saas} />
+
       <ConfiguracoesAcademia slug={params.slug} academia={sessao.academia} />
 
       <GestaoPlanos slug={params.slug} planos={planos} />
 
-      {secrets && (
+      {secrets && planoPodeAcessar(sessao.academia.plano_saas, "integracoes") && (
         <IntegracoesCard
           slug={params.slug}
           baseUrl={baseUrl}

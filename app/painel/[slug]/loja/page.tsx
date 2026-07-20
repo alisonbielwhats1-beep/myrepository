@@ -4,9 +4,11 @@ import GestaoLoja from "@/components/painel/GestaoLoja";
 import RelatorioVendas from "@/components/painel/loja/RelatorioVendas";
 import HistoricoVendas from "@/components/painel/loja/HistoricoVendas";
 import MigracaoPendente from "@/components/painel/MigracaoPendente";
+import UpgradeGuard from "@/components/ui/UpgradeGuard";
 import { requireSecao } from "@/lib/auth";
 import { getProdutos, getRelatorioVendas, getVendasRecentes } from "@/lib/data";
 import { Produto } from "@/lib/types";
+import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,20 @@ export default async function LojaPage({
   params: { slug: string };
 }) {
   const sessao = await requireSecao(params.slug, "loja");
+
+  if (!planoPodeAcessar(sessao.academia.plano_saas, "loja")) {
+    return (
+      <UpgradeGuard
+        recurso="loja"
+        planoAtual={sessao.academia.plano_saas}
+        planoNecessario={planoMinimo("loja")}
+        slug={params.slug}
+        titulo="Loja disponível no Profissional"
+        descricao="Venda suplementos, acessórios e vestuário diretamente pelo painel."
+      />
+    );
+  }
+
   const desde = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
 
   let produtos: Produto[] = [];

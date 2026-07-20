@@ -51,12 +51,19 @@ export const getSessao = cache(async (): Promise<SessaoAcademia | null> => {
 
   if (!perfil || !perfil.academia) return null;
 
+  const academia = perfil.academia as unknown as Academia;
+  // Defensive fallback: if migration 013 hasn't run yet, treat as 'profissional'
+  // so existing customers aren't locked out of their features.
+  if (!academia.plano_saas) {
+    (academia as unknown as Record<string, unknown>).plano_saas = "profissional";
+  }
+
   return {
     userId: perfil.id,
     nome: perfil.nome,
     email: perfil.email,
     papel: (perfil.papel as SessaoAcademia["papel"]) ?? "dono",
-    academia: perfil.academia as unknown as Academia,
+    academia,
   };
 });
 

@@ -9,6 +9,7 @@ import {
   Dumbbell,
   HeartPulse,
   LayoutDashboard,
+  Lock,
   LogOut,
   Menu,
   MessageSquare,
@@ -23,8 +24,9 @@ import {
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import { sairAction } from "@/lib/actions/auth";
-import { Papel } from "@/lib/types";
+import { Papel, PlanoSaas } from "@/lib/types";
 import { podeAcessar, Secao } from "@/lib/permissoes";
+import { planoPodeAcessar, labelPlano } from "@/lib/planos";
 import { cn } from "@/lib/utils";
 
 export default function Sidebar({
@@ -33,12 +35,14 @@ export default function Sidebar({
   adminNome,
   adminEmail,
   papel,
+  planoSaas,
 }: {
   slug: string;
   academiaNome: string;
   adminNome: string;
   adminEmail: string;
   papel: Papel;
+  planoSaas: PlanoSaas;
 }) {
   const pathname = usePathname();
   const [aberto, setAberto] = useState(false);
@@ -49,22 +53,24 @@ export default function Sidebar({
     label: string;
     icon: typeof LayoutDashboard;
     secao: Secao;
+    recurso: string;
     exact?: boolean;
   }[] = [
-    { href: base, label: "Dashboard", icon: LayoutDashboard, secao: "dashboard", exact: true },
-    { href: `${base}/recepcao`, label: "Recepção / Catraca", icon: ScanLine, secao: "recepcao" },
-    { href: `${base}/alunos`, label: "Alunos", icon: Users, secao: "alunos" },
-    { href: `${base}/treinos`, label: "Treinos", icon: Dumbbell, secao: "treinos" },
-    { href: `${base}/funcionarios`, label: "Funcionários", icon: UserRound, secao: "funcionarios" },
-    { href: `${base}/loja`, label: "Loja", icon: ShoppingBag, secao: "loja" },
-    { href: `${base}/financeiro`, label: "Financeiro", icon: DollarSign, secao: "financeiro" },
-    { href: `${base}/retencao`, label: "Retenção", icon: HeartPulse, secao: "retencao" },
-    { href: `${base}/feedback`, label: "Feedback", icon: MessageSquare, secao: "feedback" },
-    { href: `${base}/dashboard`, label: "Relatórios / BI", icon: BarChart3, secao: "relatorios" },
-    { href: `${base}/equipe`, label: "Equipe", icon: ShieldCheck, secao: "equipe" },
-    { href: `${base}/configuracoes`, label: "Configurações", icon: Settings, secao: "configuracoes" },
+    { href: base, label: "Dashboard", icon: LayoutDashboard, secao: "dashboard", recurso: "dashboard", exact: true },
+    { href: `${base}/recepcao`, label: "Recepção / Catraca", icon: ScanLine, secao: "recepcao", recurso: "recepcao" },
+    { href: `${base}/alunos`, label: "Alunos", icon: Users, secao: "alunos", recurso: "alunos" },
+    { href: `${base}/treinos`, label: "Treinos", icon: Dumbbell, secao: "treinos", recurso: "treinos" },
+    { href: `${base}/funcionarios`, label: "Funcionários", icon: UserRound, secao: "funcionarios", recurso: "funcionarios" },
+    { href: `${base}/loja`, label: "Loja", icon: ShoppingBag, secao: "loja", recurso: "loja" },
+    { href: `${base}/financeiro`, label: "Financeiro", icon: DollarSign, secao: "financeiro", recurso: "financeiro" },
+    { href: `${base}/retencao`, label: "Retenção", icon: HeartPulse, secao: "retencao", recurso: "retencao" },
+    { href: `${base}/feedback`, label: "Feedback", icon: MessageSquare, secao: "feedback", recurso: "feedback" },
+    { href: `${base}/dashboard`, label: "Relatórios / BI", icon: BarChart3, secao: "relatorios", recurso: "relatorios" },
+    { href: `${base}/equipe`, label: "Equipe", icon: ShieldCheck, secao: "equipe", recurso: "equipe" },
+    { href: `${base}/configuracoes`, label: "Configurações", icon: Settings, secao: "configuracoes", recurso: "configuracoes" },
   ];
 
+  // Filter by role first, then show all remaining items (locked ones included for PLG).
   const itens = todos.filter((i) => podeAcessar(papel, i.secao));
 
   const conteudo = (
@@ -75,18 +81,33 @@ export default function Sidebar({
         </Link>
       </div>
 
-      <div className="mx-4 mb-4 rounded-xl border border-ink-700 bg-ink-800/60 px-3 py-2.5">
+      <div className="mx-4 mb-2 rounded-xl border border-ink-700 bg-ink-800/60 px-3 py-2.5">
         <p className="truncate text-sm font-semibold text-white">
           {academiaNome}
         </p>
         <p className="truncate text-xs text-slate-500">{adminNome}</p>
       </div>
 
+      {/* Plan chip */}
+      <div className="mx-4 mb-3">
+        <span className={cn(
+          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+          planoSaas === "basico"
+            ? "border-slate-600 bg-slate-800/60 text-slate-400"
+            : planoSaas === "profissional"
+            ? "border-volt-500/40 bg-volt-500/10 text-volt-400"
+            : "border-amber-500/40 bg-amber-500/10 text-amber-400"
+        )}>
+          {labelPlano(planoSaas)}
+        </span>
+      </div>
+
       <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 pb-2">
         {itens.map((item) => {
-          const ativo = item.exact
+          const bloqueado = !planoPodeAcessar(planoSaas, item.recurso);
+          const ativo = !bloqueado && (item.exact
             ? pathname === item.href
-            : pathname.startsWith(item.href);
+            : pathname.startsWith(item.href));
           return (
             <Link
               key={item.href}
@@ -97,11 +118,21 @@ export default function Sidebar({
                 "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
                 ativo
                   ? "bg-volt-300 text-ink-950 shadow-glow"
+                  : bloqueado
+                  ? "text-slate-600 hover:bg-ink-700/40 hover:text-slate-500"
                   : "text-slate-300 hover:bg-ink-700/70 hover:text-white"
               )}
             >
-              <item.icon className="h-4 w-4 flex-none" strokeWidth={ativo ? 2.5 : 2} />
-              {item.label}
+              <item.icon
+                className={cn("h-4 w-4 flex-none", bloqueado && "opacity-50")}
+                strokeWidth={ativo ? 2.5 : 2}
+              />
+              <span className={cn("flex-1", bloqueado && "opacity-60")}>
+                {item.label}
+              </span>
+              {bloqueado && (
+                <Lock className="h-3 w-3 flex-none text-slate-600" />
+              )}
             </Link>
           );
         })}

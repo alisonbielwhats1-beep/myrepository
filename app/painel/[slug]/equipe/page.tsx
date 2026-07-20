@@ -1,9 +1,11 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import GestaoEquipe from "@/components/painel/GestaoEquipe";
 import MigracaoPendente from "@/components/painel/MigracaoPendente";
+import UpgradeGuard from "@/components/ui/UpgradeGuard";
 import { requireSecao } from "@/lib/auth";
 import { getPerfisEquipe } from "@/lib/data";
 import { PAPEIS } from "@/lib/types";
+import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,19 @@ export default async function EquipePage({
   params: { slug: string };
 }) {
   const sessao = await requireSecao(params.slug, "equipe");
+
+  if (!planoPodeAcessar(sessao.academia.plano_saas, "equipe")) {
+    return (
+      <UpgradeGuard
+        recurso="equipe"
+        planoAtual={sessao.academia.plano_saas}
+        planoNecessario={planoMinimo("equipe")}
+        slug={params.slug}
+        titulo="Múltiplos usuários disponível no Profissional"
+        descricao="Adicione recepcionistas e instrutores com acesso controlado ao painel."
+      />
+    );
+  }
 
   let perfis: Awaited<ReturnType<typeof getPerfisEquipe>> = [];
   try {

@@ -8,8 +8,10 @@ import {
 } from "lucide-react";
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import StatTile from "@/components/painel/StatTile";
+import UpgradeGuard from "@/components/ui/UpgradeGuard";
 import { requireSecao } from "@/lib/auth";
 import { getAcessos, getAlunos } from "@/lib/data";
+import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,19 @@ export default async function RetencaoPage({
   params: { slug: string };
 }) {
   const sessao = await requireSecao(params.slug, "retencao");
+
+  if (!planoPodeAcessar(sessao.academia.plano_saas, "retencao")) {
+    return (
+      <UpgradeGuard
+        recurso="retencao"
+        planoAtual={sessao.academia.plano_saas}
+        planoNecessario={planoMinimo("retencao")}
+        slug={params.slug}
+        titulo="Retenção disponível no Profissional"
+        descricao="Veja quem está sumindo, aniversariantes do mês e ranking de frequência."
+      />
+    );
+  }
 
   const [alunos, acessos] = await Promise.all([
     getAlunos(sessao.academia.id),

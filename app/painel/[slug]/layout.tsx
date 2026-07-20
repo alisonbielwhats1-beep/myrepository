@@ -24,6 +24,7 @@ export default async function PainelLayout({
         adminNome={sessao.nome}
         adminEmail={sessao.email}
         papel={sessao.papel}
+        planoSaas={sessao.academia.plano_saas}
       />
       <main className="min-w-0 flex-1 px-4 py-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-4">

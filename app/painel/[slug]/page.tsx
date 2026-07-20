@@ -4,12 +4,15 @@ import {
   ArrowUpRight,
   CalendarClock,
   DollarSign,
+  HeartPulse,
+  Lock,
   Scale,
   TrendingUp,
   UserPlus,
   UserRound,
   Users,
   UserX,
+  Zap,
 } from "lucide-react";
 import StatTile from "@/components/painel/StatTile";
 import DashboardRangeFilter from "@/components/painel/DashboardRangeFilter";
@@ -32,6 +35,7 @@ import {
 import { agruparFinanceiro, ultimosMeses } from "@/lib/financeiro";
 import { resolverJanelaDashboard } from "@/lib/periodo";
 import { formatBRL } from "@/lib/utils";
+import { planoPodeAcessar } from "@/lib/planos";
 
 export default async function DashboardOverviewPage({
   params,
@@ -291,6 +295,45 @@ export default async function DashboardOverviewPage({
           </div>
         )}
       </div>
+
+      {/* PLG: teaser de recursos bloqueados para plano Básico */}
+      {!planoPodeAcessar(sessao.academia.plano_saas, "financeiro") && (
+        <div className="surface rounded-2xl border border-volt-500/20 p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-volt-400" />
+              <h2 className="font-semibold text-white">Libere mais recursos</h2>
+            </div>
+            <Link
+              href={`/painel/${params.slug}/configuracoes#plano`}
+              className="btn-volt text-xs"
+            >
+              Ver planos
+            </Link>
+          </div>
+          <p className="mt-1 text-sm text-slate-400">
+            Upgrade para o Profissional (R$ 59,90/mês) e desbloqueie:
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            {[
+              { icon: DollarSign, label: "Financeiro", desc: "Receitas, despesas e DRE" },
+              { icon: HeartPulse, label: "Retenção", desc: `${sumidos.length} alunos sumidos esta semana` },
+              { icon: UserRound, label: "Equipe", desc: "Adicione recepcionistas e instrutores" },
+            ].map(({ icon: Icon, label, desc }) => (
+              <div key={label} className="flex items-start gap-3 rounded-xl border border-ink-600 bg-ink-800/50 p-3">
+                <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-ink-600 bg-ink-700">
+                  <Icon className="h-4 w-4 text-slate-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-white">{label}</p>
+                  <p className="text-xs text-slate-500">{desc}</p>
+                </div>
+                <Lock className="h-3.5 w-3.5 flex-none text-slate-600 mt-0.5" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
