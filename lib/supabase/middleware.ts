@@ -52,7 +52,12 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (isLogin && user) {
-    return NextResponse.redirect(new URL("/painel", request.url));
+    const adminEmails = (process.env.ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase());
+    const email = user.email?.toLowerCase() ?? "";
+    const dest = adminEmails.includes(email) ? "/admin" : "/painel";
+    return NextResponse.redirect(new URL(dest, request.url));
   }
 
   return response;
