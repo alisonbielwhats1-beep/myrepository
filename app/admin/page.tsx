@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { PlanoSaas } from "@/lib/types";
-import { PLANOS_SAAS, labelPlano } from "@/lib/planos";
+import { PLANOS_SAAS } from "@/lib/planos";
 import { cn } from "@/lib/utils";
 import PlanoSelect from "./PlanoSelect";
 
@@ -27,17 +26,14 @@ async function getAcademias() {
   return data ?? [];
 }
 
-export default async function AdminPage() {
-  // Proteção: só emails listados em ADMIN_EMAILS
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const adminEmails = (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase());
-
-  if (!adminEmails.includes(user.email?.toLowerCase() ?? "")) {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: { s?: string };
+}) {
+  // Proteção por token secreto na URL: /admin?s=SEU_TOKEN
+  const token = process.env.ADMIN_SECRET ?? "";
+  if (!token || searchParams.s !== token) {
     redirect("/painel");
   }
 
@@ -127,7 +123,7 @@ export default async function AdminPage() {
                         {new Date(a.criado_em).toLocaleDateString("pt-BR")}
                       </td>
                       <td className="px-5 py-3">
-                        <PlanoSelect academiaId={a.id} planoAtual={plano} />
+                        <PlanoSelect academiaId={a.id} planoAtual={plano} token={searchParams.s!} />
                       </td>
                     </tr>
                   );

@@ -8,16 +8,18 @@ import { alterarPlano } from "./actions";
 export default function PlanoSelect({
   academiaId,
   planoAtual,
+  token,
 }: {
   academiaId: string;
   planoAtual: PlanoSaas;
+  token: string;
 }) {
   const [pending, start] = useTransition();
 
   function onChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const novoPlano = e.target.value as PlanoSaas;
     start(async () => {
-      await alterarPlano(academiaId, novoPlano);
+      await alterarPlano(academiaId, novoPlano, token);
     });
   }
 
