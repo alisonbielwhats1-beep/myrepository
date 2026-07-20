@@ -539,3 +539,21 @@ export async function getAlunosSumidos(
     .filter((a) => !comAcessoRecente.has(a.id))
     .map((a) => ({ alunoId: a.id, nome: a.nome, ultimoAcesso: null }));
 }
+
+export interface SecretsWebhook {
+  gympass_webhook_secret: string;
+  totalpass_webhook_secret: string;
+}
+
+/** Retorna os segredos de webhook da academia (visíveis só no servidor). */
+export async function getSecretsWebhook(
+  academiaId: string
+): Promise<SecretsWebhook | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("academias")
+    .select("gympass_webhook_secret, totalpass_webhook_secret")
+    .eq("id", academiaId)
+    .maybeSingle();
+  return data ?? null;
+}

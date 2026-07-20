@@ -1,8 +1,10 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import ConfiguracoesAcademia from "@/components/painel/ConfiguracoesAcademia";
 import GestaoPlanos from "@/components/painel/GestaoPlanos";
+import IntegracoesCard from "@/components/painel/configuracoes/IntegracoesCard";
 import { requireSecao } from "@/lib/auth";
-import { getPlanos } from "@/lib/data";
+import { getPlanos, getSecretsWebhook } from "@/lib/data";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,15 @@ export default async function ConfiguracoesPage({
   params: { slug: string };
 }) {
   const sessao = await requireSecao(params.slug, "configuracoes");
-  const planos = await getPlanos(sessao.academia.id);
+  const [planos, secrets] = await Promise.all([
+    getPlanos(sessao.academia.id),
+    getSecretsWebhook(sessao.academia.id),
+  ]);
+
+  const headersList = headers();
+  const host = headersList.get("host") ?? "gestacad.com.br";
+  const proto = host.startsWith("localhost") ? "http" : "https";
+  const baseUrl = `${proto}://${host}`;
 
   return (
     <div className="space-y-6">
@@ -27,6 +37,15 @@ export default async function ConfiguracoesPage({
       <ConfiguracoesAcademia slug={params.slug} academia={sessao.academia} />
 
       <GestaoPlanos slug={params.slug} planos={planos} />
+
+      {secrets && (
+        <IntegracoesCard
+          slug={params.slug}
+          baseUrl={baseUrl}
+          gympassSecret={secrets.gympass_webhook_secret}
+          totalpassSecret={secrets.totalpass_webhook_secret}
+        />
+      )}
     </div>
   );
 }
