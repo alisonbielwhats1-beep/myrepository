@@ -85,7 +85,7 @@ export default function DREResumo({ dre, periodo }: { dre: DRE; periodo: string 
           <span
             className={cnLucro(dre.lucro)}
           >
-            {formatBRL(dre.lucro)}
+            {formatBRL(dre.lucro, { compacto: true })}
           </span>
           <span className="text-xs text-slate-500">
             margem {dre.margem.toFixed(0)}%

@@ -26,7 +26,7 @@ export default function RelatorioVendas({
         <div>
           <p className="label-muted">Faturado</p>
           <p className="mt-1 text-xl font-bold tabular-nums text-volt-300 [overflow-wrap:anywhere] sm:text-2xl">
-            {formatBRL(total)}
+            {formatBRL(total, { compacto: true })}
           </p>
         </div>
         <div>

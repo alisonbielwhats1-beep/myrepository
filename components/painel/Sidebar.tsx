@@ -82,7 +82,7 @@ export default function Sidebar({
         <p className="truncate text-xs text-slate-500">{adminNome}</p>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3">
+      <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 pb-2">
         {itens.map((item) => {
           const ativo = item.exact
             ? pathname === item.href
@@ -94,13 +94,13 @@ export default function Sidebar({
               onClick={() => setAberto(false)}
               aria-current={ativo ? "page" : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
+                "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
                 ativo
                   ? "bg-volt-300 text-ink-950 shadow-glow"
                   : "text-slate-300 hover:bg-ink-700/70 hover:text-white"
               )}
             >
-              <item.icon className="h-4.5 w-4.5" strokeWidth={ativo ? 2.5 : 2} />
+              <item.icon className="h-4 w-4 flex-none" strokeWidth={ativo ? 2.5 : 2} />
               {item.label}
             </Link>
           );

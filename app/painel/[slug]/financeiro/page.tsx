@@ -47,28 +47,28 @@ export default async function FinanceiroOverviewPage({
         <StatTile
           icon={ArrowUpCircle}
           label="Receita do mês"
-          value={formatBRL(kpis.receitaMes)}
+          value={formatBRL(kpis.receitaMes, { compacto: true })}
           hint="Pagas neste mês"
           accent="volt"
         />
         <StatTile
           icon={ArrowDownCircle}
           label="Despesa do mês"
-          value={formatBRL(kpis.despesaMes)}
+          value={formatBRL(kpis.despesaMes, { compacto: true })}
           hint="Pagas neste mês"
           accent="magenta"
         />
         <StatTile
           icon={Scale}
           label="Lucro do mês"
-          value={formatBRL(kpis.lucroMes)}
+          value={formatBRL(kpis.lucroMes, { compacto: true })}
           hint="Receita - despesa"
           accent={kpis.lucroMes >= 0 ? "volt" : "magenta"}
         />
         <StatTile
           icon={Wallet}
           label="Fluxo de caixa"
-          value={formatBRL(kpis.fluxoCaixa)}
+          value={formatBRL(kpis.fluxoCaixa, { compacto: true })}
           hint="Acumulado (pagos)"
           accent="cyan"
         />
@@ -79,21 +79,21 @@ export default async function FinanceiroOverviewPage({
         <StatTile
           icon={ArrowUpCircle}
           label="A receber"
-          value={formatBRL(kpis.receitasPendentes)}
+          value={formatBRL(kpis.receitasPendentes, { compacto: true })}
           hint="pendências futuras"
           accent="volt"
         />
         <StatTile
           icon={ArrowDownCircle}
           label="A pagar"
-          value={formatBRL(kpis.despesasPendentes)}
+          value={formatBRL(kpis.despesasPendentes, { compacto: true })}
           hint="pendências futuras"
           accent="magenta"
         />
         <StatTile
           icon={TrendingUp}
           label="Saldo projetado"
-          value={formatBRL(saldoProjetado)}
+          value={formatBRL(saldoProjetado, { compacto: true })}
           hint="caixa + a receber - a pagar"
           accent={saldoProjetado >= 0 ? "cyan" : "magenta"}
         />

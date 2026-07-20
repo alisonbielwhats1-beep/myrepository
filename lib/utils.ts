@@ -1,9 +1,18 @@
 import { OrigemAcesso, StatusMatricula } from "./types";
 
-/** Formata um número como moeda brasileira (BRL). */
-export function formatBRL(value: number | null | undefined): string {
+/** Formata um número como moeda brasileira (BRL).
+ *  compacto=true → sem casas decimais (para KPIs e totais de dashboard). */
+export function formatBRL(
+  value: number | null | undefined,
+  { compacto = false }: { compacto?: boolean } = {}
+): string {
   const v = typeof value === "number" ? value : 0;
-  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  return v.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: compacto ? 0 : 2,
+    maximumFractionDigits: compacto ? 0 : 2,
+  });
 }
 
 /** Retorna a hora no formato HH:mm a partir de um ISO string. */

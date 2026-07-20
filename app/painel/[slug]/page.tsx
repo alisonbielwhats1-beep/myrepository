@@ -180,7 +180,7 @@ export default async function DashboardOverviewPage({
           <StatTile
             icon={Scale}
             label="Lucro no período"
-            value={formatBRL(lucroPeriodo)}
+            value={formatBRL(lucroPeriodo, { compacto: true })}
             hint={hintPeriodo}
             accent={lucroPeriodo >= 0 ? "volt" : "magenta"}
           />
@@ -201,14 +201,14 @@ export default async function DashboardOverviewPage({
           <StatTile
             icon={DollarSign}
             label="Receita no período"
-            value={formatBRL(receitaPeriodo)}
+            value={formatBRL(receitaPeriodo, { compacto: true })}
             hint="recebido"
             accent="volt"
           />
           <StatTile
             icon={TrendingUp}
             label="Despesa no período"
-            value={formatBRL(despesaPeriodo)}
+            value={formatBRL(despesaPeriodo, { compacto: true })}
             hint="pago"
             accent="magenta"
           />
