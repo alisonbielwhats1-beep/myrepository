@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { QRCodeCanvas } from "qrcode.react";
 import { Check, Copy, Download, QrCode, Share2, X } from "lucide-react";
 import { Treino } from "@/lib/types";
@@ -24,9 +25,11 @@ export default function CompartilharTreino({
       >
         <Share2 className="h-4 w-4" /> Compartilhar
       </button>
-      {aberto && (
-        <Dialog slug={slug} treino={treino} onClose={() => setAberto(false)} />
-      )}
+      {aberto &&
+        createPortal(
+          <Dialog slug={slug} treino={treino} onClose={() => setAberto(false)} />,
+          document.body
+        )}
     </>
   );
 }
