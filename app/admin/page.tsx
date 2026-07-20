@@ -1,59 +1,52 @@
 import { redirect } from "next/navigation";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { PlanoSaas } from "@/lib/types";
 import { PLANOS_SAAS } from "@/lib/planos";
-import { cn } from "@/lib/utils";
 import PlanoSelect from "./PlanoSelect";
 
 export const dynamic = "force-dynamic";
 
-async function getAcademias() {
-  const supabase = createServiceRoleClient();
-  const { data, error } = await supabase
+export default async function AdminPage() {
+  // Só emails listados em ADMIN_EMAILS conseguem entrar
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const adminEmails = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase());
+
+  if (!adminEmails.includes(user.email?.toLowerCase() ?? "")) {
+    redirect("/painel");
+  }
+
+  // Busca todas as academias ignorando RLS
+  const admin = createServiceRoleClient();
+  const { data: academiasDados } = await admin
     .from("academias")
     .select(`
-      id,
-      nome_fantasia,
-      slug_url,
-      plano_saas,
-      criado_em,
+      id, nome_fantasia, slug_url, plano_saas, criado_em,
       alunos:alunos(count),
       perfis:perfis_admin(count)
     `)
     .order("criado_em", { ascending: false });
 
-  if (error) throw new Error(error.message);
-  return data ?? [];
-}
-
-export default async function AdminPage({
-  searchParams,
-}: {
-  searchParams: { s?: string };
-}) {
-  // Proteção por token secreto na URL: /admin?s=SEU_TOKEN
-  const token = process.env.ADMIN_SECRET ?? "";
-  if (!token || searchParams.s !== token) {
-    redirect("/painel");
-  }
-
-  const academias = await getAcademias();
-
-  const totalPorPlano = PLANOS_SAAS.map((p) => ({
-    ...p,
-    total: academias.filter((a) => (a.plano_saas ?? "profissional") === p.value).length,
-  }));
+  const academias = academiasDados ?? [];
 
   const mrr = academias.reduce((acc, a) => {
     const plano = PLANOS_SAAS.find((p) => p.value === (a.plano_saas ?? "profissional"));
     return acc + (plano?.preco ?? 0);
   }, 0);
 
+  const totalPorPlano = PLANOS_SAAS.map((p) => ({
+    ...p,
+    total: academias.filter((a) => (a.plano_saas ?? "profissional") === p.value).length,
+  }));
+
   return (
     <div className="min-h-screen bg-ink-950 p-6 text-white">
       <div className="mx-auto max-w-5xl space-y-6">
 
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white">Admin GestAcad</h1>
@@ -64,7 +57,6 @@ export default async function AdminPage({
           </span>
         </div>
 
-        {/* KPIs */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div className="surface rounded-2xl p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Academias</p>
@@ -84,7 +76,6 @@ export default async function AdminPage({
           ))}
         </div>
 
-        {/* Tabela de academias */}
         <div className="surface overflow-hidden rounded-2xl">
           <div className="border-b border-ink-700 px-5 py-4">
             <h2 className="font-semibold text-white">Todas as academias</h2>
@@ -123,7 +114,7 @@ export default async function AdminPage({
                         {new Date(a.criado_em).toLocaleDateString("pt-BR")}
                       </td>
                       <td className="px-5 py-3">
-                        <PlanoSelect academiaId={a.id} planoAtual={plano} token={searchParams.s!} />
+                        <PlanoSelect academiaId={a.id} planoAtual={plano} />
                       </td>
                     </tr>
                   );
@@ -134,7 +125,7 @@ export default async function AdminPage({
         </div>
 
         <p className="text-center text-xs text-slate-600">
-          Alterações no plano têm efeito imediato — o cliente verá na próxima vez que abrir o painel.
+          Alterações no plano têm efeito imediato.
         </p>
       </div>
     </div>
