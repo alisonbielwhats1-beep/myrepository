@@ -41,9 +41,10 @@ export async function POST(
   }
 
   // 2. Validar segredo via Bearer token
+  // Rejeita se o secret não estiver configurado (string vazia = inseguro)
   const authHeader = req.headers.get("authorization") ?? "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  if (token !== academia.totalpass_webhook_secret) {
+  if (!academia.totalpass_webhook_secret || token !== academia.totalpass_webhook_secret) {
     return NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
   }
 
@@ -71,7 +72,7 @@ export async function POST(
       .from("alunos")
       .select("id, status_matricula")
       .eq("academia_id", academia.id)
-      .like("cpf", `%${cpf}%`)
+      .eq("cpf", cpf)
       .maybeSingle();
 
     if (aluno) {

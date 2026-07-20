@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { StatusFuncionario } from "@/lib/types";
+import { validarUrl } from "@/lib/validacoes";
 
 
 function lerCampos(formData: FormData) {
@@ -16,7 +17,7 @@ function lerCampos(formData: FormData) {
     telefone: String(formData.get("telefone") ?? "").trim() || null,
     email: String(formData.get("email") ?? "").trim() || null,
     cpf: String(formData.get("cpf") ?? "").trim() || null,
-    foto_url: String(formData.get("foto_url") ?? "").trim() || null,
+    foto_url: validarUrl(String(formData.get("foto_url") ?? "")),
     data_admissao: String(formData.get("data_admissao") ?? "").trim() || null,
     salario: Number(formData.get("salario") ?? 0) || 0,
     dia_pagamento: dia >= 1 && dia <= 31 ? dia : null,

@@ -86,9 +86,8 @@ export async function criarReceita(
 ): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "financeiro");
   const campos = lerReceita(formData);
-  if (!campos.data) {
-    return { erro: "Informe a data." };
-  }
+  if (!campos.data) return { erro: "Informe a data." };
+  if (campos.valor <= 0) return { erro: "O valor deve ser maior que zero." };
 
   const supabase = createClient();
   const { error } = await supabase
@@ -110,9 +109,8 @@ export async function atualizarReceita(
 ): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "financeiro");
   const campos = lerReceita(formData);
-  if (!campos.data) {
-    return { erro: "Informe a data." };
-  }
+  if (!campos.data) return { erro: "Informe a data." };
+  if (campos.valor <= 0) return { erro: "O valor deve ser maior que zero." };
 
   const supabase = createClient();
   const { error } = await supabase
@@ -164,9 +162,8 @@ export async function criarDespesa(
 ): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "financeiro");
   const campos = lerDespesa(formData);
-  if (!campos.data) {
-    return { erro: "Informe a data." };
-  }
+  if (!campos.data) return { erro: "Informe a data." };
+  if (campos.valor <= 0) return { erro: "O valor deve ser maior que zero." };
 
   const supabase = createClient();
   const { error } = await supabase
@@ -188,9 +185,8 @@ export async function atualizarDespesa(
 ): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "financeiro");
   const campos = lerDespesa(formData);
-  if (!campos.data) {
-    return { erro: "Informe a data." };
-  }
+  if (!campos.data) return { erro: "Informe a data." };
+  if (campos.valor <= 0) return { erro: "O valor deve ser maior que zero." };
 
   const supabase = createClient();
   const { error } = await supabase

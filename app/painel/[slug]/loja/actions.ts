@@ -39,6 +39,7 @@ export async function criarProduto(
   const sessao = await requireSecao(slug, "loja");
   const campos = lerCampos(formData);
   if (!campos.nome) return { erro: "Informe o nome do produto." };
+  if (campos.preco < 0) return { erro: "O preço não pode ser negativo." };
 
   const supabase = createClient();
   const { count } = await supabase
@@ -159,7 +160,7 @@ export async function estornarVenda(
   slug: string,
   receitaId: string
 ): Promise<void> {
-  const sessao = await requireSecao(slug, "configuracoes");
+  const sessao = await requireSecao(slug, "loja");
   const supabase = createClient();
 
   const { data: receita, error: e1 } = await supabase

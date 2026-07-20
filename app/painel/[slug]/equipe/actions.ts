@@ -30,7 +30,8 @@ export async function criarMembroEquipe(
   const papel = String(formData.get("papel") ?? "recepcao") as Papel;
 
   if (!nome || !email) return { erro: "Informe nome e e-mail." };
-  if (senha.length < 6) return { erro: "A senha precisa ter pelo menos 6 caracteres." };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { erro: "E-mail inválido." };
+  if (senha.length < 8) return { erro: "A senha precisa ter pelo menos 8 caracteres." };
   if (!PAPEIS_VALIDOS.includes(papel)) return { erro: "Papel inválido." };
 
   const supabase = createClient();

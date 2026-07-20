@@ -6,11 +6,8 @@ import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { StatusMatricula } from "@/lib/types";
+import { validarUrl } from "@/lib/validacoes";
 
-
-function proximaMatricula(totalAtual: number): string {
-  return `AL-${String(totalAtual + 1).padStart(4, "0")}`;
-}
 
 /** Campos de anamnese/saúde — nunca expostos na ficha pública do aluno. */
 function lerCamposSaude(formData: FormData) {
@@ -59,12 +56,14 @@ export async function criarAluno(
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) return { erro: "Informe o nome do aluno." };
 
-  const { count } = await supabase
-    .from("alunos")
-    .select("id", { count: "exact", head: true })
-    .eq("academia_id", sessao.academia.id);
-
   const planoId = String(formData.get("plano_id") ?? "").trim() || null;
+
+  // Gera código de matrícula de forma atômica (sem race condition)
+  const { data: codigoData } = await supabase.rpc("nextval_matricula", {
+    p_academia_id: sessao.academia.id,
+  });
+  const matriculaCodigo = (codigoData as string | null) ?? `AL-${Date.now()}`;
+
   const { data: novo, error } = await supabase
     .from("alunos")
     .insert({
@@ -73,10 +72,10 @@ export async function criarAluno(
       cpf: String(formData.get("cpf") ?? "").trim() || null,
       email: String(formData.get("email") ?? "").trim() || null,
       telefone: String(formData.get("telefone") ?? "").trim() || null,
-      foto_perfil_url: String(formData.get("foto_perfil_url") ?? "").trim() || null,
+      foto_perfil_url: validarUrl(String(formData.get("foto_perfil_url") ?? "")),
       status_matricula: (formData.get("status") as StatusMatricula) || "ativa",
       plano_id: planoId,
-      matricula_codigo: proximaMatricula(count ?? 0),
+      matricula_codigo: matriculaCodigo,
       ...lerCamposSaude(formData),
     })
     .select("id")
@@ -122,8 +121,7 @@ export async function atualizarAluno(
       cpf: String(formData.get("cpf") ?? "").trim() || null,
       email: String(formData.get("email") ?? "").trim() || null,
       telefone: String(formData.get("telefone") ?? "").trim() || null,
-      foto_perfil_url:
-        String(formData.get("foto_perfil_url") ?? "").trim() || null,
+      foto_perfil_url: validarUrl(String(formData.get("foto_perfil_url") ?? "")),
       status_matricula: (formData.get("status") as StatusMatricula) || "ativa",
       plano_id: planoId,
       ...lerCamposSaude(formData),
@@ -239,8 +237,8 @@ export async function criarTreino(
         series: Number(ex.series) || 0,
         repeticoes: ex.repeticoes || "0",
         carga_kg: Number(ex.carga_kg) || 0,
-        imagem_demonstracao_url: ex.imagem_demonstracao_url?.trim() || null,
-        video_demonstracao_url: ex.video_demonstracao_url?.trim() || null,
+        imagem_demonstracao_url: validarUrl(ex.imagem_demonstracao_url),
+        video_demonstracao_url: validarUrl(ex.video_demonstracao_url),
         ordem: idx + 1,
       }))
     );
@@ -298,7 +296,7 @@ export async function registrarProgresso(
     quadril_cm: num("quadril_cm"),
     braco_cm: num("braco_cm"),
     coxa_cm: num("coxa_cm"),
-    foto_url: String(formData.get("foto_url") ?? "").trim() || null,
+    foto_url: validarUrl(String(formData.get("foto_url") ?? "")),
     observacoes: String(formData.get("observacoes") ?? "").trim() || null,
   });
 

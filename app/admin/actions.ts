@@ -45,8 +45,18 @@ export async function criarAcademia(
   if (!nome || !slug || !email || !senha) {
     return { erro: "Preencha todos os campos obrigatórios." };
   }
-  if (senha.length < 6) {
-    return { erro: "A senha deve ter pelo menos 6 caracteres." };
+  if (!/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/.test(slug)) {
+    return {
+      erro:
+        "O slug deve ter entre 3 e 50 caracteres, usar apenas letras minúsculas, números e hífen, e não pode começar ou terminar com hífen.",
+    };
+  }
+  if (senha.length < 8) {
+    return { erro: "A senha deve ter pelo menos 8 caracteres." };
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { erro: "E-mail inválido." };
   }
 
   const supabase = createServiceRoleClient();

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { randomUUID } from "crypto";
+import { validarUrl } from "@/lib/validacoes";
 
 export async function atualizarAcademia(
   slug: string,
@@ -25,7 +26,7 @@ export async function atualizarAcademia(
       endereco: String(formData.get("endereco") ?? "").trim() || null,
       telefone: String(formData.get("telefone") ?? "").trim() || null,
       whatsapp: String(formData.get("whatsapp") ?? "").trim() || null,
-      logo_url: String(formData.get("logo_url") ?? "").trim() || null,
+      logo_url: validarUrl(String(formData.get("logo_url") ?? "")),
       cor_primaria: String(formData.get("cor_primaria") ?? "").trim() || "#adff42",
     })
     .eq("id", sessao.academia.id);

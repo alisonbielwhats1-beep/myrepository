@@ -76,6 +76,23 @@ export async function getAluno(
   return (data as Aluno) ?? null;
 }
 
+/** Retorna apenas os campos de saúde/anamnese — deve ser chamado apenas
+ *  por Server Actions/Components que já verificaram papel >= gerente. */
+export async function getAlunoSaude(
+  academiaId: string,
+  alunoId: string
+): Promise<Pick<Aluno, "id" | "objetivo" | "condicoes_medicas" | "contato_emergencia_nome" | "contato_emergencia_telefone"> | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("alunos")
+    .select("id, objetivo, condicoes_medicas, contato_emergencia_nome, contato_emergencia_telefone")
+    .eq("id", alunoId)
+    .eq("academia_id", academiaId)
+    .maybeSingle();
+  if (error) throw new Error(`Falha ao carregar dados de saúde: ${error.message}`);
+  return data ?? null;
+}
+
 export async function getPlanos(academiaId: string): Promise<Plano[]> {
   const supabase = createClient();
   const { data, error } = await supabase
