@@ -11,7 +11,7 @@ export default function PainelErro({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[GymFlow] Erro no painel:", error);
+    console.error("[AcadFlow] Erro no painel:", error);
   }, [error]);
 
   return (

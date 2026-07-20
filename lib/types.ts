@@ -1,4 +1,4 @@
-// Tipos de domínio do GymFlow — espelham as tabelas do Supabase (schema.sql).
+// Tipos de domínio do AcadFlow — espelham as tabelas do Supabase (schema.sql).
 
 export type StatusMatricula = "ativa" | "inativa" | "trancada" | "pendente";
 export type OrigemAcesso = "Direto" | "Gympass" | "TotalPass";

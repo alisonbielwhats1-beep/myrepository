@@ -1,5 +1,5 @@
 -- =============================================================================
--- GymFlow — Esquema completo do banco de dados (Supabase / PostgreSQL)
+-- AcadFlow — Esquema completo do banco de dados (Supabase / PostgreSQL)
 -- SaaS Multi-tenant para gestão de academias: autenticação de administradores,
 -- alunos, planos, treinos, exercícios, catraca, financeiro e funcionários.
 --

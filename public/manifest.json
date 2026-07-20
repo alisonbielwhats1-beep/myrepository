@@ -1,6 +1,6 @@
 {
-  "name": "GymFlow — Gestão de Academias",
-  "short_name": "GymFlow",
+  "name": "AcadFlow — Gestão de Academias",
+  "short_name": "AcadFlow",
   "description": "Treinos, catraca e inteligência de negócio para a sua academia.",
   "start_url": "/",
   "display": "standalone",

@@ -5,7 +5,7 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Escolha = "system" | "light" | "dark";
-const CHAVE = "gymflow-theme";
+const CHAVE = "acadflow-theme";
 
 function aplicar(escolha: Escolha) {
   const el = document.documentElement;

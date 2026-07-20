@@ -10,14 +10,14 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "GymFlow — Gestão de Academias",
+  title: "AcadFlow — Gestão de Academias",
   description:
     "SaaS multi-tenant (PWA) para academias: treinos, catraca e inteligência de negócio.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "GymFlow",
+    title: "AcadFlow",
   },
 };
 
@@ -33,7 +33,7 @@ export const viewport: Viewport = {
 };
 
 // Aplica o tema salvo ANTES da primeira pintura (evita "piscar" de tema).
-const NO_FLASH_SCRIPT = `(function(){try{var t=localStorage.getItem('gymflow-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`;
+const NO_FLASH_SCRIPT = `(function(){try{var t=localStorage.getItem('acadflow-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`;
 
 export default function RootLayout({
   children,

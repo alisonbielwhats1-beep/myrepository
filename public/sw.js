@@ -1,5 +1,5 @@
-// Service Worker do GymFlow — cache básico "app shell" para suporte offline.
-const CACHE = "gymflow-v1";
+// Service Worker do AcadFlow — cache básico "app shell" para suporte offline.
+const CACHE = "acadflow-v1";
 const APP_SHELL = ["/", "/manifest.json"];
 
 self.addEventListener("install", (event) => {
