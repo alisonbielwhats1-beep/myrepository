@@ -5,7 +5,13 @@ import type { EstadoAcao } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { CategoriaDespesa, StatusPagamento, TipoReceita } from "@/lib/types";
+import {
+  CATEGORIAS_DESPESA,
+  CategoriaDespesa,
+  TIPOS_RECEITA,
+  StatusPagamento,
+  TipoReceita,
+} from "@/lib/types";
 
 
 /**
@@ -60,9 +66,11 @@ export async function gerarMensalidades(
 // Receitas
 // ---------------------------------------------------------------------------
 function lerReceita(formData: FormData) {
+  const tipo = (formData.get("tipo") as TipoReceita) || "outra";
+  const descricaoRaw = String(formData.get("descricao") ?? "").trim();
   return {
-    tipo: (formData.get("tipo") as TipoReceita) || "outra",
-    descricao: String(formData.get("descricao") ?? "").trim() || null,
+    tipo,
+    descricao: descricaoRaw || TIPOS_RECEITA.find((t) => t.value === tipo)?.label || tipo,
     valor: Number(formData.get("valor") ?? 0) || 0,
     data: String(formData.get("data") ?? "").trim(),
     status: (formData.get("status") as StatusPagamento) || "pendente",
@@ -137,9 +145,11 @@ export async function excluirReceita(slug: string, receitaId: string): Promise<v
 // Despesas
 // ---------------------------------------------------------------------------
 function lerDespesa(formData: FormData) {
+  const categoria = (formData.get("categoria") as CategoriaDespesa) || "outros";
+  const descricaoRaw = String(formData.get("descricao") ?? "").trim();
   return {
-    descricao: String(formData.get("descricao") ?? "").trim() || null,
-    categoria: (formData.get("categoria") as CategoriaDespesa) || "outros",
+    descricao: descricaoRaw || CATEGORIAS_DESPESA.find((c) => c.value === categoria)?.label || categoria,
+    categoria,
     valor: Number(formData.get("valor") ?? 0) || 0,
     data: String(formData.get("data") ?? "").trim(),
     status: (formData.get("status") as StatusPagamento) || "pendente",
