@@ -2,11 +2,14 @@
   "name": "GestAcad — Gestão de Academias",
   "short_name": "GestAcad",
   "description": "Treinos, catraca e inteligência de negócio para a sua academia.",
+  "id": "https://gestacad.com.br/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#07080d",
   "theme_color": "#07080d",
+  "lang": "pt-BR",
   "categories": ["health", "fitness", "sports"],
   "icons": [
     {

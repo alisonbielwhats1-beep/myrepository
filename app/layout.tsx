@@ -10,6 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://gestacad.com.br"),
   title: "GestAcad — Gestão de Academias",
   description:
     "SaaS multi-tenant (PWA) para academias: treinos, catraca e inteligência de negócio.",
@@ -18,6 +19,19 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "GestAcad",
+  },
+  openGraph: {
+    title: "GestAcad — Gestão de Academias",
+    description: "SaaS multi-tenant (PWA) para academias: treinos, catraca e inteligência de negócio.",
+    url: "https://gestacad.com.br",
+    siteName: "GestAcad",
+    locale: "pt_BR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GestAcad — Gestão de Academias",
+    description: "SaaS multi-tenant (PWA) para academias: treinos, catraca e inteligência de negócio.",
   },
 };
 
