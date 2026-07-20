@@ -27,6 +27,14 @@ export async function entrarAction(
     return { erro: "E-mail ou senha inválidos." };
   }
 
+  const adminEmails = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase());
+
+  if (adminEmails.includes(data.user.email?.toLowerCase() ?? "")) {
+    redirect("/admin");
+  }
+
   const { data: perfil } = await supabase
     .from("perfis_admin")
     .select("academia:academias(slug_url)")
