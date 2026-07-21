@@ -39,8 +39,10 @@ jobs:
           STAMP=$(date +%Y-%m-%d)
           # Usa pg_dump 17 via Docker — dispensa instalar cliente e evita
           # incompatibilidade de versão com qualquer versão do Postgres do Supabase.
-          docker run --rm -e PGURL="$SUPABASE_DB_URL" -v "$PWD":/out postgres:17 \
-            pg_dump "$PGURL" --no-owner --no-privileges --format=custom \
+          # A URL é expandida aqui no host (onde a variável existe) e passada
+          # como argumento direto ao pg_dump dentro do container.
+          docker run --rm -v "$PWD":/out postgres:17 \
+            pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges --format=custom \
             --file "/out/backup-$STAMP.dump"
           echo "Backup gerado:"
           ls -lh "backup-$STAMP.dump"
