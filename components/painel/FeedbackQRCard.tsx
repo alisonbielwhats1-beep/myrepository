@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Check, Copy, Printer, QrCode } from "lucide-react";
+import { origemPublica } from "@/lib/site-url";
 
 /**
  * Cartão com QR Code que leva à página pública de avaliação da academia.
@@ -14,7 +15,7 @@ export default function FeedbackQRCard({ slug }: { slug: string }) {
 
   const url =
     typeof window !== "undefined"
-      ? `${window.location.origin}/aluno/${slug}/feedback`
+      ? `${origemPublica()}/aluno/${slug}/feedback`
       : "";
 
   const copiar = async () => {

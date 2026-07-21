@@ -25,6 +25,7 @@ import {
   Treino,
 } from "@/lib/types";
 import { badgeStatusMatricula, cn } from "@/lib/utils";
+import { origemPublica } from "@/lib/site-url";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
 import ExercicioBuilder from "@/components/painel/ExercicioBuilder";
@@ -273,7 +274,7 @@ function LinhaAluno({
 
   const copiarLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const link = `${window.location.origin}/aluno/${slug}/${aluno.id}`;
+    const link = `${origemPublica()}/aluno/${slug}/${aluno.id}`;
     await navigator.clipboard.writeText(link);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 1600);

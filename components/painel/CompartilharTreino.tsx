@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { QRCodeCanvas } from "qrcode.react";
 import { Check, Copy, Download, QrCode, Share2, X } from "lucide-react";
 import { Treino } from "@/lib/types";
+import { origemPublica } from "@/lib/site-url";
 import { definirPublicoTreino } from "@/app/painel/[slug]/treinos/actions";
 
 export default function CompartilharTreino({
@@ -49,7 +50,7 @@ function Dialog({
 
   const url =
     typeof window !== "undefined"
-      ? `${window.location.origin}/treino/${treino.share_token}`
+      ? `${origemPublica()}/treino/${treino.share_token}`
       : "";
 
   const alternarPublico = () => {

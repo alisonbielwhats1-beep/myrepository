@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, Copy, Dumbbell } from "lucide-react";
+import { origemPublica } from "@/lib/site-url";
 
 function CampoCopiavel({ label, valor }: { label: string; valor: string }) {
   const [copiado, setCopiado] = useState(false);
@@ -59,7 +60,7 @@ function BlocoParceiro({
   const [origem, setOrigem] = useState("");
 
   useEffect(() => {
-    setOrigem(window.location.origin);
+    setOrigem(origemPublica());
   }, []);
 
   const url = `${origem || "https://SEU-DOMINIO"}/api/webhook/${rota}/${slug}`;

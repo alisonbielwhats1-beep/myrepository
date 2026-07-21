@@ -57,6 +57,13 @@ as $$
       when 'Abdominal Supra'                      then 'Crunches'
       when 'Prancha Isométrica'                   then 'Plank'
       when 'Panturrilha em Pé'                    then 'Standing_Calf_Raises'
+      when 'Crucifixo Invertido (Posterior)'      then 'Reverse_Flyes'
+      when 'Abdominal Bicicleta'                  then 'Air_Bike'
+      when 'Mountain Climber'                     then 'Mountain_Climbers'
+      when 'Agachamento com Salto'                then 'Bodyweight_Squat'
+      when 'Polichinelo (Jumping Jack)'           then 'Star_Jump'
+      when 'Elíptico / Transport'                 then 'Elliptical_Trainer'
+      when 'Bicicleta Ergométrica'                then 'Recumbent_Bike'
       else null
     end as folder
   ) m;
