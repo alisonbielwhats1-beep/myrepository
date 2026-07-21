@@ -19,6 +19,13 @@ export async function atualizarAcademia(
   const nomeFantasia = String(formData.get("nome_fantasia") ?? "").trim();
   if (!nomeFantasia) return { erro: "Informe o nome da academia." };
 
+  // Meta de faturamento: aceita formato "1.234,56" ou "1234.56"; nunca negativa.
+  const metaRaw = String(formData.get("meta_faturamento_mensal") ?? "").trim();
+  const metaNum = metaRaw
+    ? Number(metaRaw.replace(/\./g, "").replace(",", "."))
+    : 0;
+  const meta = Number.isFinite(metaNum) && metaNum > 0 ? metaNum : 0;
+
   const { error } = await supabase
     .from("academias")
     .update({
@@ -28,6 +35,7 @@ export async function atualizarAcademia(
       whatsapp: String(formData.get("whatsapp") ?? "").trim() || null,
       logo_url: validarUrl(String(formData.get("logo_url") ?? "")),
       cor_primaria: String(formData.get("cor_primaria") ?? "").trim() || "#adff42",
+      meta_faturamento_mensal: meta,
     })
     .eq("id", sessao.academia.id);
 

@@ -85,7 +85,23 @@ export default function ConfiguracoesAcademia({
               className="inp"
             />
           </Field>
+          <Field label="Meta de faturamento mensal (R$)">
+            <input
+              name="meta_faturamento_mensal"
+              inputMode="decimal"
+              defaultValue={
+                academia.meta_faturamento_mensal
+                  ? String(academia.meta_faturamento_mensal)
+                  : ""
+              }
+              placeholder="Ex: 15000"
+              className="inp"
+            />
+          </Field>
         </div>
+        <p className="-mt-1 text-xs text-slate-500">
+          A meta aparece no Dashboard como barra de progresso (recebido no mês vs. meta).
+        </p>
 
         <FormActions salvarLabel="Salvar dados" />
       </form>

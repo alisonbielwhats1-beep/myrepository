@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
 import { AlertCircle, Loader2, LogIn, Lock, Mail } from "lucide-react";
 import { entrarAction, EstadoLogin } from "@/lib/actions/auth";
@@ -49,6 +50,14 @@ export default function LoginForm() {
             placeholder="••••••••"
             className="inp pl-9"
           />
+        </div>
+        <div className="mt-1.5 text-right">
+          <Link
+            href="/recuperar-senha"
+            className="text-xs text-slate-400 hover:text-volt-300"
+          >
+            Esqueceu a senha?
+          </Link>
         </div>
       </label>
 

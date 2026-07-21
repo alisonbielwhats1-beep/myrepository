@@ -7,6 +7,7 @@ import {
   HeartPulse,
   Lock,
   Scale,
+  Target,
   TrendingUp,
   UserPlus,
   UserRound,
@@ -114,6 +115,59 @@ export default async function DashboardOverviewPage({
   const lucroPeriodo = receitaPeriodo - despesaPeriodo;
   const novosAlunos = alunos.filter((a) => noPeriodo(a.criado_em.slice(0, 10))).length;
 
+  // ---- Período anterior (mesma duração, imediatamente antes) para o comparativo ----
+  const umDia = 86400_000;
+  const spanDias =
+    Math.round(
+      (new Date(janela.ate + "T00:00:00").getTime() -
+        new Date(janela.desde + "T00:00:00").getTime()) /
+        umDia
+    ) + 1;
+  const antAte = new Date(new Date(janela.desde + "T00:00:00").getTime() - umDia)
+    .toISOString()
+    .slice(0, 10);
+  const antDesde = new Date(
+    new Date(antAte + "T00:00:00").getTime() - (spanDias - 1) * umDia
+  )
+    .toISOString()
+    .slice(0, 10);
+  const noAnterior = (data: string) => data >= antDesde && data <= antAte;
+  const somaPagos = (arr: { status: string; valor: number | string }[]) =>
+    arr.filter((x) => x.status === "pago").reduce((a, x) => a + Number(x.valor), 0);
+  const receitaAnt = verFinanceiro
+    ? somaPagos(receitas.filter((r) => noAnterior(r.data)))
+    : 0;
+  const despesaAnt = verFinanceiro
+    ? somaPagos(despesas.filter((d) => noAnterior(d.data)))
+    : 0;
+  const lucroAnt = receitaAnt - despesaAnt;
+  const novosAlunosAnt = alunos.filter((a) => noAnterior(a.criado_em.slice(0, 10))).length;
+
+  // Variação % entre atual e anterior (evita divisão por zero).
+  const variacao = (atual: number, anterior: number): number =>
+    anterior === 0 ? (atual === 0 ? 0 : 100) : ((atual - anterior) / Math.abs(anterior)) * 100;
+
+  const financeiroHref = `/painel/${params.slug}/financeiro`;
+
+  // ---- Meta de faturamento do mês (recebido vs meta) + projeção ----
+  const metaMensal = Number(sessao.academia.meta_faturamento_mensal ?? 0);
+  const mesAtualChave = new Date().toISOString().slice(0, 7);
+  const noMesAtual = (data: string) => data.slice(0, 7) === mesAtualChave;
+  const recebidoMes = verFinanceiro
+    ? receitas
+        .filter((r) => r.status === "pago" && noMesAtual(r.data))
+        .reduce((a, r) => a + Number(r.valor), 0)
+    : 0;
+  // Projeção do mês = já recebido + o que ainda está pendente para este mês.
+  const projecaoMes = verFinanceiro
+    ? receitas
+        .filter((r) => noMesAtual(r.data))
+        .reduce((a, r) => a + Number(r.valor), 0)
+    : 0;
+  const pctMeta = metaMensal > 0 ? Math.min(100, (recebidoMes / metaMensal) * 100) : 0;
+  const pctProjecao = metaMensal > 0 ? Math.min(100, (projecaoMes / metaMensal) * 100) : 0;
+  const mostrarMeta = verFinanceiro && metaMensal > 0;
+
   const dadosFinanceiro = verFinanceiro
     ? agruparFinanceiro(receitas, despesas, janela.desde, janela.ate)
     : [];
@@ -187,6 +241,8 @@ export default async function DashboardOverviewPage({
             value={formatBRL(lucroPeriodo, { compacto: true })}
             hint={hintPeriodo}
             accent={lucroPeriodo >= 0 ? "volt" : "magenta"}
+            href={financeiroHref}
+            delta={{ pct: variacao(lucroPeriodo, lucroAnt) }}
           />
         ) : (
           <StatTile
@@ -195,6 +251,7 @@ export default async function DashboardOverviewPage({
             value={String(novosAlunos)}
             hint={hintPeriodo}
             accent="cyan"
+            delta={{ pct: variacao(novosAlunos, novosAlunosAnt) }}
           />
         )}
       </div>
@@ -208,6 +265,8 @@ export default async function DashboardOverviewPage({
             value={formatBRL(receitaPeriodo, { compacto: true })}
             hint="recebido"
             accent="volt"
+            href={financeiroHref}
+            delta={{ pct: variacao(receitaPeriodo, receitaAnt) }}
           />
           <StatTile
             icon={TrendingUp}
@@ -215,6 +274,8 @@ export default async function DashboardOverviewPage({
             value={formatBRL(despesaPeriodo, { compacto: true })}
             hint="pago"
             accent="magenta"
+            href={financeiroHref}
+            delta={{ pct: variacao(despesaPeriodo, despesaAnt), positivoBom: false }}
           />
           <StatTile
             icon={UserPlus}
@@ -230,6 +291,50 @@ export default async function DashboardOverviewPage({
             hint="sem acesso há 14+ dias"
             accent={sumidos.length > 0 ? "magenta" : "slate"}
           />
+        </div>
+      )}
+
+      {/* Meta de faturamento do mês */}
+      {mostrarMeta && (
+        <div className="surface rounded-2xl p-5">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-volt-300" />
+              <h2 className="font-semibold text-white">Meta de faturamento do mês</h2>
+            </div>
+            <p className="text-sm text-slate-400">
+              <span className="font-semibold text-white">{formatBRL(recebidoMes)}</span>
+              {" "}de {formatBRL(metaMensal)}{" "}
+              <span className="text-slate-500">({Math.round(pctMeta)}%)</span>
+            </p>
+          </div>
+
+          {/* Barra: recebido (sólido) + projeção (translúcido) */}
+          <div className="relative mt-3 h-3 w-full overflow-hidden rounded-full bg-ink-700">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-volt-500/30"
+              style={{ width: `${pctProjecao}%` }}
+            />
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-volt-400"
+              style={{ width: `${pctMeta}%` }}
+            />
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs">
+            <span className="flex items-center gap-1.5 text-slate-400">
+              <span className="inline-block h-2 w-2 rounded-full bg-volt-400" /> Recebido
+              <span className="ml-3 inline-block h-2 w-2 rounded-full bg-volt-500/40" /> Projeção
+              (recebido + a receber): {formatBRL(projecaoMes)}
+            </span>
+            {recebidoMes >= metaMensal ? (
+              <span className="font-semibold text-volt-300">🎉 Meta atingida!</span>
+            ) : (
+              <span className="text-slate-500">
+                Faltam {formatBRL(metaMensal - recebidoMes)}
+              </span>
+            )}
+          </div>
         </div>
       )}
 

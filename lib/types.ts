@@ -103,6 +103,7 @@ export interface Academia {
   telefone: string | null;
   whatsapp: string | null;
   plano_saas: PlanoSaas;
+  meta_faturamento_mensal: number | null;
   criado_em: string;
   atualizado_em: string;
 }

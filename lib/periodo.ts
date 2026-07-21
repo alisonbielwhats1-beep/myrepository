@@ -110,9 +110,10 @@ export function resolverPeriodo(searchParams: {
 // Janela do Dashboard (filtro: semana atual / último mês / 6 meses / 12 meses)
 // ---------------------------------------------------------------------------
 
-export type RangeDashboard = "semana" | "mes" | "6meses" | "12meses";
+export type RangeDashboard = "hoje" | "semana" | "mes" | "6meses" | "12meses";
 
 export const RANGES_DASHBOARD: { valor: RangeDashboard; label: string }[] = [
+  { valor: "hoje", label: "Hoje" },
   { valor: "semana", label: "Semana" },
   { valor: "mes", label: "Mês" },
   { valor: "6meses", label: "6 meses" },
@@ -158,13 +159,15 @@ export function resolverJanelaDashboard(sp?: {
   }
 
   const r: RangeDashboard = (
-    ["semana", "mes", "6meses", "12meses"] as const
+    ["hoje", "semana", "mes", "6meses", "12meses"] as const
   ).includes(sp?.range as RangeDashboard)
     ? (sp!.range as RangeDashboard)
     : "6meses";
 
   let inicio: Date;
-  if (r === "semana") {
+  if (r === "hoje") {
+    inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  } else if (r === "semana") {
     inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - 6);
   } else if (r === "mes") {
     inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - 29);

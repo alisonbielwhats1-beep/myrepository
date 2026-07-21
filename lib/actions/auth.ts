@@ -88,3 +88,77 @@ export async function sairAction() {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+// ---------------------------------------------------------------------------
+// Recuperação de senha
+// ---------------------------------------------------------------------------
+
+export type EstadoReset = { erro?: string; ok?: boolean };
+
+/** URL base do site (para o link do e-mail de recuperação). */
+function urlBase(): string {
+  const env = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (env) return env.replace(/\/+$/, "");
+  const h = headers();
+  const host = h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  return `${proto}://${host}`;
+}
+
+/**
+ * Envia o e-mail com o link de redefinição de senha. Por segurança, retorna
+ * sucesso mesmo se o e-mail não existir (não revela quais e-mails têm conta).
+ */
+export async function solicitarResetSenha(
+  _estado: EstadoReset,
+  formData: FormData
+): Promise<EstadoReset> {
+  const email = String(formData.get("email") ?? "").trim();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { erro: "Informe um e-mail válido." };
+  }
+
+  const supabase = createClient();
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${urlBase()}/auth/callback?next=/redefinir-senha`,
+  });
+
+  return { ok: true };
+}
+
+/**
+ * Redefine a senha do usuário na sessão de recuperação (após clicar no link do
+ * e-mail, que estabelece uma sessão temporária via /auth/callback).
+ */
+export async function redefinirSenhaAction(
+  _estado: EstadoReset,
+  formData: FormData
+): Promise<EstadoReset> {
+  const senha = String(formData.get("senha") ?? "");
+  const confirmar = String(formData.get("confirmar") ?? "");
+
+  if (senha.length < 8) {
+    return { erro: "A senha deve ter pelo menos 8 caracteres." };
+  }
+  if (senha !== confirmar) {
+    return { erro: "As senhas não coincidem." };
+  }
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return {
+      erro: "Link de recuperação inválido ou expirado. Solicite um novo.",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: senha });
+  if (error) {
+    return { erro: `Não foi possível redefinir a senha: ${error.message}` };
+  }
+
+  return { ok: true };
+}
