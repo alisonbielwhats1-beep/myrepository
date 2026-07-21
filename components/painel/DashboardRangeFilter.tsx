@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { CalendarRange } from "lucide-react";
 import { RANGES_DASHBOARD, RangeDashboard } from "@/lib/periodo";
@@ -20,22 +20,29 @@ export default function DashboardRangeFilter({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [pending, startTransition] = useTransition();
 
   const [mostrarIntervalo, setMostrarIntervalo] = useState(custom);
   const [de, setDe] = useState(desde);
   const [ateLocal, setAte] = useState(ate);
 
   const irPreset = (valor: RangeDashboard) => {
-    router.push(`${pathname}?range=${valor}`);
+    startTransition(() => router.push(`${pathname}?range=${valor}`));
   };
 
   const aplicarIntervalo = () => {
     if (!de || !ateLocal) return;
-    router.push(`${pathname}?de=${de}&ate=${ateLocal}`);
+    startTransition(() => router.push(`${pathname}?de=${de}&ate=${ateLocal}`));
   };
 
   return (
-    <div className="flex flex-col gap-2 sm:items-end">
+    <div
+      className={cn(
+        "flex flex-col gap-2 transition-opacity sm:items-end",
+        pending && "pointer-events-none opacity-60"
+      )}
+      aria-busy={pending}
+    >
       <div className="inline-flex flex-wrap gap-1 rounded-xl border border-ink-600 bg-ink-800 p-1">
         {RANGES_DASHBOARD.map((r) => (
           <button

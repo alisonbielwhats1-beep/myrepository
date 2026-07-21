@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -15,16 +16,23 @@ export default function PeriodoFilter({ periodo }: { periodo: Periodo }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
+  const [pending, startTransition] = useTransition();
 
   const ir = (patch: { gran?: Granularidade; ref?: string }) => {
     const p = new URLSearchParams(params.toString());
     if (patch.gran) p.set("gran", patch.gran);
     if (patch.ref) p.set("ref", patch.ref);
-    router.push(`${pathname}?${p.toString()}`);
+    startTransition(() => router.push(`${pathname}?${p.toString()}`));
   };
 
   return (
-    <div className="no-print flex flex-wrap items-center justify-between gap-3">
+    <div
+      className={cn(
+        "no-print flex flex-wrap items-center justify-between gap-3 transition-opacity",
+        pending && "pointer-events-none opacity-60"
+      )}
+      aria-busy={pending}
+    >
       {/* Granularidade */}
       <div className="inline-flex gap-1 rounded-xl border border-ink-600 bg-ink-800 p-1">
         {GRANULARIDADES.map((g) => (
