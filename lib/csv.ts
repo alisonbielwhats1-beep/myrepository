@@ -1,8 +1,12 @@
 "use client";
 
-/** Escapa um valor para uma célula CSV (RFC 4180). */
+/** Escapa um valor para uma célula CSV (RFC 4180) + previne injeção de fórmula.
+ *  Excel/Sheets interpretam células que começam com = + - @ (ou tab/CR) como
+ *  fórmula — um comentário de feedback como `=HYPERLINK(...)` viraria código ao
+ *  abrir o export. Prefixamos com apóstrofo para forçar texto. */
 function celula(valor: unknown): string {
-  const s = valor == null ? "" : String(valor);
+  let s = valor == null ? "" : String(valor);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   if (/[",;\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }

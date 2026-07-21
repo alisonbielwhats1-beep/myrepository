@@ -1,9 +1,19 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getFichaAlunoPublica } from "@/lib/data";
 
 export type EstadoFeedback = { erro?: string; ok?: boolean; savedAt?: number };
+
+/** IP real do cliente (último hop confiável / x-real-ip), p/ rate-limit. */
+function ipCliente(): string {
+  const h = headers();
+  const real = h.get("x-real-ip")?.trim();
+  if (real) return real;
+  const partes = (h.get("x-forwarded-for") ?? "").split(",").map((p) => p.trim()).filter(Boolean);
+  return partes[partes.length - 1] || "desconhecido";
+}
 
 /**
  * Registra a opinião do aluno (sem login) via RPC pública `registrar_feedback`,
@@ -28,6 +38,17 @@ export async function enviarFeedback(
   }
 
   const supabase = createClient();
+
+  // Anti-spam: no máx. 5 envios a cada 5 min por IP+aluno.
+  const { data: liberado } = await supabase.rpc("acao_permitida", {
+    p_chave: `fb:${alunoId}:${ipCliente()}`,
+    p_max: 5,
+    p_janela_seg: 300,
+  });
+  if (liberado === false) {
+    return { erro: "Muitos envios em pouco tempo. Tente novamente em alguns minutos." };
+  }
+
   const { error } = await supabase.rpc("registrar_feedback", {
     p_aluno_id: alunoId,
     p_nota: nota,

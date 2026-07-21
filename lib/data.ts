@@ -528,9 +528,10 @@ export async function getAlunosSumidos(
   const supabase = createClient();
   const corte = new Date(Date.now() - dias * 86400_000).toISOString();
 
-  // Carrega apenas os alunos_ids com acesso APÓS o corte — muito menor
-  // do que buscar toda a tabela e filtrar no cliente.
-  const [{ data: alunos, error: e1 }, { data: acessosRecentes, error: e2 }] =
+  // Busca alunos ativos e os acessos da academia (mais recentes primeiro). Com
+  // uma varredura só conseguimos tanto quem veio depois do corte quanto a DATA
+  // do último acesso de quem sumiu — antes isso vinha fixo como "nunca veio".
+  const [{ data: alunos, error: e1 }, { data: acessos, error: e2 }] =
     await Promise.all([
       supabase
         .from("alunos")
@@ -539,22 +540,35 @@ export async function getAlunosSumidos(
         .eq("status_matricula", "ativa"),
       supabase
         .from("acessos_catraca")
-        .select("aluno_id")
+        .select("aluno_id, data_hora_entrada")
         .eq("academia_id", academiaId)
-        .gte("data_hora_entrada", corte)
-        .not("aluno_id", "is", null),
+        .not("aluno_id", "is", null)
+        .order("data_hora_entrada", { ascending: false })
+        .limit(20000),
     ]);
 
   if (e1) throw new Error(`Falha ao carregar alunos: ${e1.message}`);
   if (e2) throw new Error(`Falha ao carregar acessos: ${e2.message}`);
 
-  const comAcessoRecente = new Set(
-    (acessosRecentes ?? []).map((a) => a.aluno_id as string)
-  );
+  // Como os acessos vêm em ordem decrescente, o primeiro que aparece de cada
+  // aluno é o mais recente.
+  const ultimoPorAluno = new Map<string, string>();
+  for (const a of (acessos as { aluno_id: string; data_hora_entrada: string }[]) ?? []) {
+    if (!ultimoPorAluno.has(a.aluno_id)) {
+      ultimoPorAluno.set(a.aluno_id, a.data_hora_entrada);
+    }
+  }
 
   return ((alunos as { id: string; nome: string }[]) ?? [])
-    .filter((a) => !comAcessoRecente.has(a.id))
-    .map((a) => ({ alunoId: a.id, nome: a.nome, ultimoAcesso: null }));
+    .filter((a) => {
+      const ultimo = ultimoPorAluno.get(a.id);
+      return !ultimo || ultimo < corte; // sumido = nunca veio ou último acesso antes do corte
+    })
+    .map((a) => ({
+      alunoId: a.id,
+      nome: a.nome,
+      ultimoAcesso: ultimoPorAluno.get(a.id) ?? null,
+    }));
 }
 
 export interface SecretsWebhook {

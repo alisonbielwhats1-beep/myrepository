@@ -63,6 +63,14 @@ export async function POST(
     null;
   const cpf = normalizarCpf(rawCpf);
 
+  // 4b. Id do evento (idempotência / anti-replay).
+  const eventoId =
+    (body?.id as string | undefined) ??
+    (body?.event_id as string | undefined) ??
+    (body?.check_in_id as string | undefined) ??
+    (body?.checkin_id as string | undefined) ??
+    null;
+
   // 5. Buscar aluno pelo CPF
   let alunoId: string | null = null;
   let liberado = true;
@@ -88,6 +96,7 @@ export async function POST(
     origem: "TotalPass",
     valor_repasse: REPASSE_TOTALPASS,
     status_liberacao: liberado ? "liberado" : "negado",
+    evento_externo_id: eventoId,
     observacao: !alunoId
       ? "CPF não encontrado no cadastro"
       : !liberado
@@ -96,6 +105,10 @@ export async function POST(
   });
 
   if (error) {
+    // 23505 = reenvio do mesmo check-in. Idempotente: responde 200 sem duplicar.
+    if (error.code === "23505") {
+      return NextResponse.json({ ok: true, duplicado: true }, { status: 200 });
+    }
     console.error("[webhook/totalpass] erro ao inserir acesso:", error.message);
     return NextResponse.json({ erro: "Falha interna." }, { status: 500 });
   }

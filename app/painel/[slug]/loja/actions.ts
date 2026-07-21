@@ -68,6 +68,7 @@ export async function atualizarProduto(
   const sessao = await requireSecao(slug, "loja");
   const campos = lerCampos(formData);
   if (!campos.nome) return { erro: "Informe o nome do produto." };
+  if (campos.preco < 0) return { erro: "O preço não pode ser negativo." };
 
   const supabase = createClient();
   const { error } = await supabase
@@ -119,18 +120,15 @@ export async function registrarVendaProduto(
     .maybeSingle();
   if (e1 || !produto) return { erro: "Produto não encontrado." };
 
-  if (produto.estoque != null && produto.estoque < qtd) {
-    return { erro: `Estoque insuficiente (restam ${produto.estoque}).` };
-  }
-
-  // Baixa de estoque (se controlado).
-  if (produto.estoque != null) {
-    const { error: eUpd } = await supabase
-      .from("produtos")
-      .update({ estoque: Math.max(0, produto.estoque - qtd) })
-      .eq("id", produtoId)
-      .eq("academia_id", sessao.academia.id);
-    if (eUpd) return { erro: `Falha ao baixar estoque: ${eUpd.message}` };
+  // Baixa de estoque ATÔMICA no banco (checa e subtrai num único UPDATE),
+  // evitando corrida entre duas vendas simultâneas (oversell).
+  const { data: baixou, error: eBaixa } = await supabase.rpc(
+    "baixar_estoque_venda",
+    { p_produto_id: produtoId, p_qtd: qtd }
+  );
+  if (eBaixa) return { erro: `Falha ao baixar estoque: ${eBaixa.message}` };
+  if (baixou === false) {
+    return { erro: "Estoque insuficiente para essa quantidade." };
   }
 
   // Lança a receita da venda (vinculada ao produto, para o relatório da loja).

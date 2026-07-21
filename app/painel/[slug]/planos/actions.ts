@@ -61,6 +61,21 @@ export async function atualizarPlano(
 export async function excluirPlano(slug: string, planoId: string): Promise<void> {
   const sessao = await requireSecao(slug, "configuracoes");
   const supabase = createClient();
+
+  // Bloqueia excluir um plano que ainda tem alunos: sem isso o FK zerava o
+  // plano de todos eles silenciosamente e a mensalidade parava de ser gerada.
+  const { count } = await supabase
+    .from("alunos")
+    .select("id", { count: "exact", head: true })
+    .eq("academia_id", sessao.academia.id)
+    .eq("plano_id", planoId);
+
+  if ((count ?? 0) > 0) {
+    throw new Error(
+      `Este plano tem ${count} aluno(s) vinculado(s). Migre-os para outro plano ou desative o plano em vez de excluir.`
+    );
+  }
+
   const { error } = await supabase
     .from("planos")
     .delete()

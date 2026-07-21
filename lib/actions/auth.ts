@@ -6,10 +6,20 @@ import { createClient } from "@/lib/supabase/server";
 
 export type EstadoLogin = { erro?: string };
 
-/** IP do cliente para o rate limit (Vercel popula x-forwarded-for). */
+/**
+ * IP real do cliente para o rate limit. NÃO usar o primeiro item de
+ * `x-forwarded-for`: esse valor é o mais à esquerda e pode ser forjado pelo
+ * cliente (basta mandar o header), permitindo burlar o bloqueio a cada
+ * tentativa. Preferimos `x-real-ip` (preenchido pela plataforma/Vercel) e,
+ * como fallback, o ÚLTIMO hop do XFF (adicionado pelo proxy confiável).
+ */
 function ipDoCliente(): string {
-  const fwd = headers().get("x-forwarded-for") ?? "";
-  return fwd.split(",")[0]?.trim() || "desconhecido";
+  const h = headers();
+  const real = h.get("x-real-ip")?.trim();
+  if (real) return real;
+  const fwd = h.get("x-forwarded-for") ?? "";
+  const partes = fwd.split(",").map((p) => p.trim()).filter(Boolean);
+  return partes[partes.length - 1] || "desconhecido";
 }
 
 /** Autentica o administrador e redireciona para o painel da sua academia. */

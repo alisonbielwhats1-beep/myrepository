@@ -6,7 +6,23 @@ import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { StatusMatricula } from "@/lib/types";
-import { validarUrl } from "@/lib/validacoes";
+import { normalizarCpf, validarUrl } from "@/lib/validacoes";
+
+/**
+ * Lê e normaliza o CPF do formulário. Retorna:
+ *  - { cpf } com os 11 dígitos limpos quando válido;
+ *  - { cpf: null } quando o campo veio vazio (CPF é opcional);
+ *  - { erro } quando foi preenchido mas não tem 11 dígitos.
+ * Guardar sempre só os dígitos é o que faz o match do webhook Gympass/TotalPass
+ * (que também normaliza) funcionar.
+ */
+function lerCpf(formData: FormData): { cpf: string | null } | { erro: string } {
+  const raw = String(formData.get("cpf") ?? "").trim();
+  if (!raw) return { cpf: null };
+  const cpf = normalizarCpf(raw);
+  if (!cpf) return { erro: "CPF inválido: informe os 11 dígitos." };
+  return { cpf };
+}
 
 
 /** Campos de anamnese/saúde — nunca expostos na ficha pública do aluno. */
@@ -56,6 +72,9 @@ export async function criarAluno(
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) return { erro: "Informe o nome do aluno." };
 
+  const cpf = lerCpf(formData);
+  if ("erro" in cpf) return { erro: cpf.erro };
+
   const planoId = String(formData.get("plano_id") ?? "").trim() || null;
 
   // Gera código de matrícula de forma atômica (sem race condition)
@@ -69,7 +88,7 @@ export async function criarAluno(
     .insert({
       academia_id: sessao.academia.id,
       nome,
-      cpf: String(formData.get("cpf") ?? "").trim() || null,
+      cpf: cpf.cpf,
       email: String(formData.get("email") ?? "").trim() || null,
       telefone: String(formData.get("telefone") ?? "").trim() || null,
       foto_perfil_url: validarUrl(String(formData.get("foto_perfil_url") ?? "")),
@@ -89,7 +108,7 @@ export async function criarAluno(
 
   revalidatePath(`/painel/${slug}/alunos`);
   revalidatePath(`/painel/${slug}`);
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), id: novo?.id };
 }
 
 export async function atualizarAluno(
@@ -103,6 +122,9 @@ export async function atualizarAluno(
 
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) return { erro: "Informe o nome do aluno." };
+
+  const cpf = lerCpf(formData);
+  if ("erro" in cpf) return { erro: cpf.erro };
 
   const planoId = String(formData.get("plano_id") ?? "").trim() || null;
 
@@ -118,7 +140,7 @@ export async function atualizarAluno(
     .from("alunos")
     .update({
       nome,
-      cpf: String(formData.get("cpf") ?? "").trim() || null,
+      cpf: cpf.cpf,
       email: String(formData.get("email") ?? "").trim() || null,
       telefone: String(formData.get("telefone") ?? "").trim() || null,
       foto_perfil_url: validarUrl(String(formData.get("foto_perfil_url") ?? "")),
@@ -137,7 +159,7 @@ export async function atualizarAluno(
 
   revalidatePath(`/painel/${slug}/alunos`);
   revalidatePath(`/painel/${slug}`);
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), id: alunoId };
 }
 
 /** Renova o plano atual do aluno (nova entrada no histórico com início hoje). */

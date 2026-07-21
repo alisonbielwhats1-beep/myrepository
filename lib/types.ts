@@ -351,8 +351,9 @@ export interface Feedback {
   aluno?: Pick<Aluno, "id" | "nome"> | null;
 }
 
-/** Retorno padrão de Server Actions: erro, sucesso e timestamp para forçar re-render. */
-export type EstadoAcao = { erro?: string; ok?: boolean; savedAt?: number };
+/** Retorno padrão de Server Actions: erro, sucesso e timestamp para forçar re-render.
+ *  `id` traz o registro criado/atualizado, para o cliente selecioná-lo após salvar. */
+export type EstadoAcao = { erro?: string; ok?: boolean; savedAt?: number; id?: string };
 
 export type Papel = "dono" | "gerente" | "recepcao" | "instrutor";
 

@@ -35,9 +35,10 @@ export const getSessao = cache(async (): Promise<SessaoAcademia | null> => {
   ).data;
 
   // A coluna "papel" só existe depois da migration 008. Se a consulta acima
-  // falhar por causa disso, tenta de novo sem ela (assume "dono") em vez de
-  // tratar o usuário como deslogado — sem isso, o painel inteiro ficaria
-  // inacessível para todo mundo até a migração ser aplicada.
+  // falhar por causa disso, tenta de novo sem ela — mas assume o MENOR
+  // privilégio ("instrutor"), nunca o maior. Fallback nunca deve conceder
+  // acesso: se a migração não rodou, é melhor um dono ver menos e reclamar do
+  // que recepção/instrutor herdarem acesso total ao financeiro.
   if (!perfil) {
     const semPapel = await supabase
       .from("perfis_admin")
@@ -45,7 +46,7 @@ export const getSessao = cache(async (): Promise<SessaoAcademia | null> => {
       .eq("id", user.id)
       .maybeSingle();
     if (semPapel.data) {
-      perfil = { ...semPapel.data, papel: "dono" };
+      perfil = { ...semPapel.data, papel: "instrutor" };
     }
   }
 

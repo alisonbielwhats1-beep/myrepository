@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useFormState } from "react-dom";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   Check,
@@ -114,7 +115,12 @@ export default function GestaoAlunos({
                       planos={planos}
                       alunoExistente={a}
                       onCancelar={() => setEditandoId(null)}
-                      onSalvo={() => setEditandoId(null)}
+                      onSalvo={(id) => {
+                        setEditandoId(null);
+                        // Seleciona o aluno recém-editado para que o alerta de
+                        // condições médicas (e a ficha) reflita o que foi salvo.
+                        if (id) setSelecionadoId(id);
+                      }}
                     />
                   </li>
                 ) : (
@@ -372,6 +378,7 @@ function FormularioAluno({
   onCancelar?: () => void;
   onSalvo: (id: string) => void;
 }) {
+  const router = useRouter();
   const acao = alunoExistente
     ? atualizarAluno.bind(null, slug, alunoExistente.id)
     : criarAluno.bind(null, slug);
@@ -379,7 +386,12 @@ function FormularioAluno({
   const [fotoUrl, setFotoUrl] = useState(alunoExistente?.foto_perfil_url ?? "");
 
   useEffect(() => {
-    if (estado.ok) onSalvo(alunoExistente?.id ?? "");
+    if (estado.ok) {
+      // Recarrega os dados do servidor para que a lista (e o alerta de
+      // condições médicas) já reflita o que foi salvo, e seleciona o aluno.
+      router.refresh();
+      onSalvo(estado.id ?? alunoExistente?.id ?? "");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado.savedAt]);
 

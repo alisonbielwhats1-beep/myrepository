@@ -54,7 +54,7 @@ export default async function DashboardOverviewPage({
 
   const [alunos, funcionarios, receitas, despesas, sumidos] = await Promise.all([
     getAlunos(sessao.academia.id),
-    getFuncionarios(sessao.academia.id),
+    verFinanceiro ? getFuncionarios(sessao.academia.id) : Promise.resolve([]),
     verFinanceiro ? getReceitas(sessao.academia.id) : Promise.resolve([]),
     verFinanceiro ? getDespesas(sessao.academia.id) : Promise.resolve([]),
     getAlunosSumidos(sessao.academia.id, 14),
@@ -232,13 +232,15 @@ export default async function DashboardOverviewPage({
             accent={sumidos.length > 0 ? "magenta" : "slate"}
           />
         )}
-        <StatTile
-          icon={UserRound}
-          label="Funcionários"
-          value={String(funcionariosAtivos)}
-          hint={`${funcionarios.length} cadastrados`}
-          accent="cyan"
-        />
+        {verFinanceiro && (
+          <StatTile
+            icon={UserRound}
+            label="Funcionários"
+            value={String(funcionariosAtivos)}
+            hint={`${funcionarios.length} cadastrados`}
+            accent="cyan"
+          />
+        )}
         {verFinanceiro ? (
           <StatTile
             icon={Scale}
