@@ -36,6 +36,7 @@ const RECURSOS: Record<PlanoSaas, string[]> = {
     "loja",
     "feedback",
     "relatorios",
+    "integracoes",
   ],
   premium: [
     "dashboard",

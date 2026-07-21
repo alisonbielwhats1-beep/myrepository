@@ -16,6 +16,7 @@ export type Secao =
   | "relatorios"
   | "retencao"
   | "configuracoes"
+  | "integracoes"
   | "equipe";
 
 // Financeiro (receitas, despesas, DRE, planos, projeção de caixa) é

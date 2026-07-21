@@ -27,7 +27,8 @@ export default async function AdminPage() {
     .select(`
       id, nome_fantasia, slug_url, plano_saas, criado_em,
       alunos:alunos(count),
-      perfis:perfis_admin(count)
+      perfis:perfis_admin(count),
+      donos:perfis_admin(id, email, papel, criado_em)
     `)
     .order("criado_em", { ascending: false });
 

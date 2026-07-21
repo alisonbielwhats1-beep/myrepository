@@ -5,7 +5,10 @@ import { Search } from "lucide-react";
 import { PlanoSaas } from "@/lib/types";
 import PlanoSelect from "./PlanoSelect";
 import RemoverAcademiaBtn from "./RemoverAcademiaBtn";
+import EditarAcademiaBtn from "./EditarAcademiaBtn";
 import CopiarLinkBtn from "./CopiarLinkBtn";
+
+type Dono = { id: string; email: string; papel: string; criado_em: string };
 
 type AcademiaRow = {
   id: string;
@@ -15,7 +18,19 @@ type AcademiaRow = {
   criado_em: string;
   alunos: unknown;
   perfis: unknown;
+  donos?: unknown;
 };
+
+/** Escolhe o login "principal" da academia: papel 'dono' e mais antigo. */
+function emailDoDono(donos: unknown): string {
+  const lista = (donos as Dono[] | null) ?? [];
+  if (lista.length === 0) return "";
+  const ordenada = [...lista].sort((a, b) => {
+    if (a.papel !== b.papel) return a.papel === "dono" ? -1 : b.papel === "dono" ? 1 : 0;
+    return (a.criado_em ?? "").localeCompare(b.criado_em ?? "");
+  });
+  return ordenada[0]?.email ?? "";
+}
 
 export default function AcademiaLista({ academias }: { academias: AcademiaRow[] }) {
   const [busca, setBusca] = useState("");
@@ -100,6 +115,11 @@ export default function AcademiaLista({ academias }: { academias: AcademiaRow[] 
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-1">
                       <CopiarLinkBtn slug={a.slug_url} />
+                      <EditarAcademiaBtn
+                        academiaId={a.id}
+                        nome={a.nome_fantasia}
+                        emailAtual={emailDoDono(a.donos)}
+                      />
                       <RemoverAcademiaBtn
                         academiaId={a.id}
                         nome={a.nome_fantasia}

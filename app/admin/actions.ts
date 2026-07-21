@@ -105,8 +105,88 @@ export async function criarAcademia(
     return { erro: `Erro ao vincular perfil: ${erroPerfil.message}` };
   }
 
+  // Popula a biblioteca de treinos-modelo padrão (migration 018). Se a função
+  // ainda não existir no banco, não bloqueia a criação da academia.
+  const { error: erroSeed } = await supabase.rpc("seed_treinos_padrao", {
+    p_academia_id: academia.id,
+  });
+  if (erroSeed) {
+    console.error("[criarAcademia] falha ao popular treinos padrão:", erroSeed.message);
+  }
+
   revalidatePath("/admin");
   return { slug };
+}
+
+/**
+ * Edita o login (e-mail e/ou senha) do dono de uma academia. Atualiza tanto o
+ * Supabase Auth quanto o e-mail espelhado em perfis_admin.
+ */
+export async function editarLoginAcademia(
+  academiaId: string,
+  formData: FormData
+): Promise<{ erro?: string; ok?: boolean }> {
+  await requireAdmin();
+
+  const email = String(formData.get("email") ?? "").trim();
+  const senha = String(formData.get("senha") ?? "").trim();
+
+  if (!email) {
+    return { erro: "Informe o e-mail." };
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { erro: "E-mail inválido." };
+  }
+  if (senha && senha.length < 8) {
+    return { erro: "A senha deve ter pelo menos 8 caracteres." };
+  }
+
+  const supabase = createServiceRoleClient();
+
+  // Localiza o login do dono desta academia (o mais antigo, papel 'dono').
+  const { data: perfil, error: erroPerfil } = await supabase
+    .from("perfis_admin")
+    .select("id, papel")
+    .eq("academia_id", academiaId)
+    .order("papel", { ascending: true }) // 'dono' vem antes de 'gerente' etc.
+    .order("criado_em", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (erroPerfil || !perfil) {
+    return { erro: "Login desta academia não encontrado." };
+  }
+
+  // Atualiza o Auth (e-mail sempre; senha só se foi informada).
+  const patch: { email: string; password?: string } = { email };
+  if (senha) patch.password = senha;
+
+  const { error: erroAuth } = await supabase.auth.admin.updateUserById(
+    perfil.id,
+    patch
+  );
+  if (erroAuth) {
+    const msg = erroAuth.message;
+    return {
+      erro:
+        msg.includes("already been registered") || msg.includes("duplicate")
+          ? "Esse e-mail já está em uso por outro login."
+          : `Erro ao atualizar login: ${msg}`,
+    };
+  }
+
+  // Espelha o novo e-mail em perfis_admin.
+  const { error: erroUpdate } = await supabase
+    .from("perfis_admin")
+    .update({ email })
+    .eq("id", perfil.id);
+  if (erroUpdate) {
+    return { erro: `Login atualizado, mas falhou ao espelhar e-mail: ${erroUpdate.message}` };
+  }
+
+  revalidatePath("/admin");
+  return { ok: true };
 }
 
 export async function removerAcademia(

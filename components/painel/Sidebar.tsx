@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   MessageSquare,
+  Plug,
   ScanLine,
   Settings,
   ShieldCheck,
@@ -67,6 +68,7 @@ export default function Sidebar({
     { href: `${base}/feedback`, label: "Feedback", icon: MessageSquare, secao: "feedback", recurso: "feedback" },
     { href: `${base}/dashboard`, label: "Relatórios / BI", icon: BarChart3, secao: "relatorios", recurso: "relatorios" },
     { href: `${base}/equipe`, label: "Equipe", icon: ShieldCheck, secao: "equipe", recurso: "equipe" },
+    { href: `${base}/integracoes`, label: "Integrações", icon: Plug, secao: "integracoes", recurso: "integracoes" },
     { href: `${base}/configuracoes`, label: "Configurações", icon: Settings, secao: "configuracoes", recurso: "configuracoes" },
   ];
 
