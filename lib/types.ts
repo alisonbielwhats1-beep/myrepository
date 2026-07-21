@@ -293,7 +293,7 @@ export interface Receita {
   observacoes: string | null;
   criado_em: string;
   atualizado_em: string;
-  aluno?: Pick<Aluno, "id" | "nome"> | null;
+  aluno?: Pick<Aluno, "id" | "nome" | "telefone"> | null;
 }
 
 export interface Despesa {

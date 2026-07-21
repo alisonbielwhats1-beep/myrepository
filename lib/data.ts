@@ -187,7 +187,7 @@ export async function getReceitas(
   const supabase = createClient();
   let query = supabase
     .from("receitas")
-    .select("*, aluno:alunos(id, nome)")
+    .select("*, aluno:alunos(id, nome, telefone)")
     .eq("academia_id", academiaId)
     .order("data", { ascending: false });
   if (desde) query = query.gte("data", desde);

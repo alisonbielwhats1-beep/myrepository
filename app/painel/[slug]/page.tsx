@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import StatTile from "@/components/painel/StatTile";
 import DashboardRangeFilter from "@/components/painel/DashboardRangeFilter";
+import BotaoCobrancaWhats from "@/components/painel/BotaoCobrancaWhats";
 import {
   GraficoEvolucaoAlunos,
   GraficoFinanceiroMensal,
@@ -83,12 +84,16 @@ export default async function DashboardOverviewPage({
       if (atual) {
         atual.valorTotal += Number(r.valor);
         atual.diasAtraso = Math.max(atual.diasAtraso, diasAtraso);
+        // Mantém a data de vencimento mais antiga.
+        if (!atual.vencimento || r.data < atual.vencimento) atual.vencimento = r.data;
       } else {
         inadimplentesMap.set(r.aluno_id, {
           alunoId: r.aluno_id,
           nome: r.aluno?.nome ?? nomePorAlunoId.get(r.aluno_id) ?? "Aluno",
           valorTotal: Number(r.valor),
           diasAtraso,
+          telefone: r.aluno?.telefone ?? null,
+          vencimento: r.data,
         });
       }
     }
@@ -339,7 +344,12 @@ export default async function DashboardOverviewPage({
       )}
 
       {/* Alertas */}
-      <AlertasPainel slug={params.slug} inadimplentes={inadimplentes} sumidos={sumidos} />
+      <AlertasPainel
+        slug={params.slug}
+        inadimplentes={inadimplentes}
+        sumidos={sumidos}
+        academiaNome={sessao.academia.nome_fantasia}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-6">
@@ -373,7 +383,7 @@ export default async function DashboardOverviewPage({
             ) : (
               <ul className="divide-y divide-ink-700/70">
                 {proximosVencimentos.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between py-3">
+                  <li key={r.id} className="flex items-center justify-between gap-2 py-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-white">
                         {r.aluno?.nome ?? r.descricao}
@@ -383,9 +393,22 @@ export default async function DashboardOverviewPage({
                         {new Date(r.data + "T00:00:00").toLocaleDateString("pt-BR")}
                       </p>
                     </div>
-                    <span className="font-semibold text-amber-300">
-                      {formatBRL(r.valor)}
-                    </span>
+                    <div className="flex flex-none items-center gap-2">
+                      <span className="font-semibold text-amber-300">
+                        {formatBRL(r.valor)}
+                      </span>
+                      {r.aluno && (
+                        <BotaoCobrancaWhats
+                          nome={r.aluno.nome}
+                          telefone={r.aluno.telefone}
+                          academia={sessao.academia.nome_fantasia}
+                          valor={formatBRL(r.valor)}
+                          data={new Date(r.data + "T00:00:00").toLocaleDateString("pt-BR")}
+                          vencida={false}
+                          compacto
+                        />
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>

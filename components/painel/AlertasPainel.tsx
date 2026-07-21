@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { AlertTriangle, ArrowUpRight, UserX } from "lucide-react";
 import { formatBRL } from "@/lib/utils";
+import BotaoCobrancaWhats from "@/components/painel/BotaoCobrancaWhats";
 
 export interface AlertaInadimplente {
   alunoId: string;
   nome: string;
   valorTotal: number;
   diasAtraso: number;
+  telefone?: string | null;
+  vencimento?: string; // ISO da mensalidade vencida mais antiga
 }
 
 export interface AlertaSumido {
@@ -20,10 +23,12 @@ export default function AlertasPainel({
   slug,
   inadimplentes,
   sumidos,
+  academiaNome,
 }: {
   slug: string;
   inadimplentes: AlertaInadimplente[];
   sumidos: AlertaSumido[];
+  academiaNome?: string;
 }) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -43,16 +48,31 @@ export default function AlertasPainel({
         ) : (
           <ul className="divide-y divide-ink-700/70">
             {inadimplentes.slice(0, 8).map((a) => (
-              <li key={a.alunoId} className="flex items-center justify-between py-3">
+              <li key={a.alunoId} className="flex items-center justify-between gap-2 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-white">{a.nome}</p>
                   <p className="text-xs text-magenta-400">
                     {a.diasAtraso} {a.diasAtraso === 1 ? "dia" : "dias"} de atraso
                   </p>
                 </div>
-                <span className="font-semibold text-white">
-                  {formatBRL(a.valorTotal)}
-                </span>
+                <div className="flex flex-none items-center gap-2">
+                  <span className="font-semibold text-white">
+                    {formatBRL(a.valorTotal)}
+                  </span>
+                  <BotaoCobrancaWhats
+                    nome={a.nome}
+                    telefone={a.telefone}
+                    academia={academiaNome ?? "sua academia"}
+                    valor={formatBRL(a.valorTotal)}
+                    data={
+                      a.vencimento
+                        ? new Date(a.vencimento + "T00:00:00").toLocaleDateString("pt-BR")
+                        : ""
+                    }
+                    vencida
+                    compacto
+                  />
+                </div>
               </li>
             ))}
           </ul>
