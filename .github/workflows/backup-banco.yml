@@ -1,0 +1,54 @@
+name: Backup diário do banco (Supabase)
+
+# Backup automático e gratuito do banco Postgres do Supabase.
+# Roda todo dia de madrugada, gera um dump comprimido e guarda como artefato
+# no próprio GitHub (retenção de 30 dias). Enquanto você estiver no plano Free
+# do Supabase — que não tem backup — este workflow é a sua rede de segurança.
+#
+# CONFIGURAÇÃO (uma vez só):
+#   1. No Supabase: Project Settings -> Database -> Connection string -> aba
+#      "Session pooler" (essa funciona sobre IPv4, que o GitHub Actions exige).
+#      Copie a URI completa (começa com postgresql://postgres...:...@...pooler...:5432/postgres).
+#   2. No GitHub: Settings -> Secrets and variables -> Actions -> New repository secret
+#      Nome:  SUPABASE_DB_URL
+#      Valor: cole a URI copiada (troque [YOUR-PASSWORD] pela senha real do banco).
+#   3. Pronto. Roda sozinho todo dia. Para testar agora, vá em Actions ->
+#      "Backup diário do banco (Supabase)" -> Run workflow.
+#
+# COMO RESTAURAR um backup:
+#   - Baixe o artefato .dump da execução desejada (aba Actions).
+#   - pg_restore --clean --no-owner --no-privileges -d "SUA_CONNECTION_STRING" backup-AAAA-MM-DD.dump
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC = 03:00 no horário de Brasília
+  workflow_dispatch: {} # permite disparar manualmente pela aba Actions
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gerar dump do banco
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::Secret SUPABASE_DB_URL não configurado. Veja as instruções no topo do arquivo do workflow."
+            exit 1
+          fi
+          STAMP=$(date +%Y-%m-%d)
+          # Usa pg_dump 17 via Docker — dispensa instalar cliente e evita
+          # incompatibilidade de versão com qualquer versão do Postgres do Supabase.
+          docker run --rm -e PGURL="$SUPABASE_DB_URL" -v "$PWD":/out postgres:17 \
+            pg_dump "$PGURL" --no-owner --no-privileges --format=custom \
+            --file "/out/backup-$STAMP.dump"
+          echo "Backup gerado:"
+          ls -lh "backup-$STAMP.dump"
+
+      - name: Guardar backup como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup-*.dump
+          retention-days: 30
+          if-no-files-found: error
