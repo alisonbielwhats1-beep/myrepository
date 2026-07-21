@@ -8,10 +8,12 @@ import {
   Layers,
   Plus,
   Repeat,
+  Search,
   Share2,
   Target,
   Timer,
   Weight,
+  X,
 } from "lucide-react";
 import { CatalogoExercicio, Treino } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -44,17 +46,47 @@ export default function GestaoTreinos({
 }) {
   const treinos = treinosIniciais;
   const [mostrarForm, setMostrarForm] = useState(treinos.length === 0);
+  const [busca, setBusca] = useState("");
+  const [modalidadeFiltro, setModalidadeFiltro] = useState<string>("");
 
-  // Agrupa por modalidade.
+  // Lista de modalidades existentes (para os botões de filtro rápido).
+  const modalidades = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of treinos) set.add(t.modalidade?.trim() || "Sem modalidade");
+    return Array.from(set).sort();
+  }, [treinos]);
+
+  // Aplica busca por texto (nome/objetivo/modalidade) + filtro de modalidade.
+  const filtrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    return treinos.filter((t) => {
+      const mod = t.modalidade?.trim() || "Sem modalidade";
+      if (modalidadeFiltro && mod !== modalidadeFiltro) return false;
+      if (!termo) return true;
+      const alvo = [
+        t.nome_treino,
+        t.objetivo ?? "",
+        mod,
+        ...(t.exercicios ?? []).map((e) => e.nome_exercicio),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return alvo.includes(termo);
+    });
+  }, [treinos, busca, modalidadeFiltro]);
+
+  // Agrupa os treinos filtrados por modalidade.
   const grupos = useMemo(() => {
     const map = new Map<string, Treino[]>();
-    for (const t of treinos) {
+    for (const t of filtrados) {
       const k = t.modalidade?.trim() || "Sem modalidade";
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(t);
     }
     return Array.from(map.entries());
-  }, [treinos]);
+  }, [filtrados]);
+
+  const temFiltro = busca.trim() !== "" || modalidadeFiltro !== "";
 
   return (
     <div className="space-y-6">
@@ -74,10 +106,74 @@ export default function GestaoTreinos({
         />
       )}
 
+      {/* Busca + filtro por modalidade */}
+      {treinos.length > 0 && (
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar treino por nome, objetivo ou exercício..."
+              className="inp pl-9"
+            />
+            {busca && (
+              <button
+                onClick={() => setBusca("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                aria-label="Limpar busca"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setModalidadeFiltro("")}
+              className={cn(
+                "rounded-lg border px-3 py-1 text-xs font-medium transition",
+                modalidadeFiltro === ""
+                  ? "border-volt-500/40 bg-volt-500/10 text-volt-300"
+                  : "border-ink-600 bg-ink-800 text-slate-400 hover:text-slate-200"
+              )}
+            >
+              Todas
+            </button>
+            {modalidades.map((m) => (
+              <button
+                key={m}
+                onClick={() => setModalidadeFiltro(m)}
+                className={cn(
+                  "rounded-lg border px-3 py-1 text-xs font-medium transition",
+                  modalidadeFiltro === m
+                    ? "border-volt-500/40 bg-volt-500/10 text-volt-300"
+                    : "border-ink-600 bg-ink-800 text-slate-400 hover:text-slate-200"
+                )}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {treinos.length === 0 && !mostrarForm ? (
         <div className="surface rounded-2xl p-8 text-center text-slate-400">
           Nenhum treino na biblioteca ainda. Crie o primeiro (ex: “Treino A -
           Peito e Tríceps”) e compartilhe por QR.
+        </div>
+      ) : filtrados.length === 0 && temFiltro ? (
+        <div className="surface rounded-2xl p-8 text-center text-slate-400">
+          Nenhum treino encontrado para o filtro atual.
+          <button
+            onClick={() => {
+              setBusca("");
+              setModalidadeFiltro("");
+            }}
+            className="ml-1 text-volt-300 underline-offset-2 hover:underline"
+          >
+            Limpar filtros
+          </button>
         </div>
       ) : (
         <div className="space-y-8">

@@ -7,11 +7,13 @@ import {
   Bar,
   BarChart,
   Cell,
+  ComposedChart,
   Legend,
   Line,
   LineChart,
   Pie,
   PieChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -60,6 +62,9 @@ export type PontoFinanceiroMensal = {
   mes: string;
   receita: number;
   despesa: number;
+  /** Saldo previsto do período: (receitas previstas) - (despesas previstas),
+   *  incluindo o que ainda está pendente (a receber / a pagar). */
+  projetado?: number;
 };
 export type PontoEvolucaoAlunos = { mes: string; alunos: number };
 export type PontoPeso = { data: string; peso: number };
@@ -201,9 +206,10 @@ export function GraficoFinanceiroMensal({
   dados: PontoFinanceiroMensal[];
 }) {
   const volt = useCorTema("--volt-300", "#adff42");
+  const temProjetado = dados.some((d) => d.projetado !== undefined);
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={dados} margin={{ left: -8, right: 8, top: 8 }}>
+      <ComposedChart data={dados} margin={{ left: -8, right: 8, top: 8 }}>
         <XAxis
           dataKey="mes"
           tick={{ fill: "#64748b", fontSize: 11 }}
@@ -225,9 +231,21 @@ export function GraficoFinanceiroMensal({
           iconType="circle"
           wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }}
         />
+        <ReferenceLine y={0} stroke="#334155" />
         <Bar dataKey="receita" name="Receita" radius={[6, 6, 0, 0]} fill={volt} />
         <Bar dataKey="despesa" name="Despesa" radius={[6, 6, 0, 0]} fill="#f81cc0" />
-      </BarChart>
+        {temProjetado && (
+          <Line
+            type="monotone"
+            dataKey="projetado"
+            name="Saldo projetado"
+            stroke="#22d3ee"
+            strokeWidth={2.5}
+            dot={{ r: 3, fill: "#22d3ee" }}
+            strokeDasharray="5 4"
+          />
+        )}
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

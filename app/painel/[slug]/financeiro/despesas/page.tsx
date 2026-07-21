@@ -11,7 +11,7 @@ export default async function DespesasPage({
   searchParams,
 }: {
   params: { slug: string };
-  searchParams: { gran?: string; ref?: string };
+  searchParams: { gran?: string; ref?: string; de?: string; ate?: string };
 }) {
   const sessao = await requireSessao(params.slug);
   const periodo = resolverPeriodo(searchParams);

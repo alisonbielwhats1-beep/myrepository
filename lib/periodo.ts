@@ -11,11 +11,12 @@ export const GRANULARIDADES: { valor: Granularidade; label: string }[] = [
 ];
 
 export interface Periodo {
-  gran: Granularidade;
+  gran: Granularidade | "custom";
   ref: string; // data de referência YYYY-MM-DD
   inicio: string;
   fim: string;
   label: string;
+  custom: boolean;
 }
 
 function pad(n: number): string {
@@ -42,7 +43,33 @@ const NOMES_MES = [
 export function resolverPeriodo(searchParams: {
   gran?: string;
   ref?: string;
+  de?: string;
+  ate?: string;
 }): Periodo {
+  // Intervalo personalizado (de/até) tem prioridade sobre a granularidade.
+  const deOk =
+    searchParams.de && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.de)
+      ? searchParams.de
+      : null;
+  const ateOk =
+    searchParams.ate && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.ate)
+      ? searchParams.ate
+      : null;
+  if (deOk || ateOk) {
+    let inicio = deOk ?? ateOk!;
+    let fim = ateOk ?? deOk!;
+    if (inicio > fim) [inicio, fim] = [fim, inicio];
+    const fmt = (s: string) => new Date(s + "T00:00:00").toLocaleDateString("pt-BR");
+    return {
+      gran: "custom",
+      ref: inicio,
+      inicio,
+      fim,
+      label: `${fmt(inicio)} – ${fmt(fim)}`,
+      custom: true,
+    };
+  }
+
   const gran: Granularidade = (["dia", "semana", "mes", "ano"] as const).includes(
     searchParams.gran as Granularidade
   )
@@ -76,7 +103,7 @@ export function resolverPeriodo(searchParams: {
     label = `${NOMES_MES[ref.getMonth()]} de ${ref.getFullYear()}`;
   }
 
-  return { gran, ref: iso(ref), inicio: iso(inicio), fim: iso(fim), label };
+  return { gran, ref: iso(ref), inicio: iso(inicio), fim: iso(fim), label, custom: false };
 }
 
 // ---------------------------------------------------------------------------

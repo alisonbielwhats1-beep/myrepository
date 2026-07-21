@@ -39,22 +39,33 @@ export function agruparPorMes(
   const janela = ultimosMeses(meses);
   const receitaPorMes = new Map<string, number>();
   const despesaPorMes = new Map<string, number>();
+  // "Previsto" = todos os lançamentos do mês (pagos + pendentes), usado para a
+  // linha de saldo projetado — inclui o que ainda está a receber / a pagar.
+  const receitaPrevistaPorMes = new Map<string, number>();
+  const despesaPrevistaPorMes = new Map<string, number>();
 
   for (const r of receitas) {
-    if (r.status !== "pago") continue;
     const k = chaveMes(r.data);
+    receitaPrevistaPorMes.set(k, (receitaPrevistaPorMes.get(k) ?? 0) + Number(r.valor));
+    if (r.status !== "pago") continue;
     receitaPorMes.set(k, (receitaPorMes.get(k) ?? 0) + Number(r.valor));
   }
   for (const d of despesas) {
-    if (d.status !== "pago") continue;
     const k = chaveMes(d.data);
+    despesaPrevistaPorMes.set(k, (despesaPrevistaPorMes.get(k) ?? 0) + Number(d.valor));
+    if (d.status !== "pago") continue;
     despesaPorMes.set(k, (despesaPorMes.get(k) ?? 0) + Number(d.valor));
   }
 
+  const arred = (n: number) => Math.round(n * 100) / 100;
+
   return janela.map(({ chave, label }) => ({
     mes: label,
-    receita: Math.round((receitaPorMes.get(chave) ?? 0) * 100) / 100,
-    despesa: Math.round((despesaPorMes.get(chave) ?? 0) * 100) / 100,
+    receita: arred(receitaPorMes.get(chave) ?? 0),
+    despesa: arred(despesaPorMes.get(chave) ?? 0),
+    projetado: arred(
+      (receitaPrevistaPorMes.get(chave) ?? 0) - (despesaPrevistaPorMes.get(chave) ?? 0)
+    ),
   }));
 }
 
@@ -77,15 +88,23 @@ export function agruparFinanceiro(
 
   const receitaPago = new Map<string, number>();
   const despesaPago = new Map<string, number>();
+  // "Previsto" = pagos + pendentes, base da linha de saldo projetado.
+  const receitaPrev = new Map<string, number>();
+  const despesaPrev = new Map<string, number>();
+  const arred = (n: number) => Math.round(n * 100) / 100;
 
   if (spanDias <= 62) {
     // Granularidade diária.
     for (const r of receitas) {
-      if (r.status !== "pago" || r.data < desde || r.data > ate) continue;
+      if (r.data < desde || r.data > ate) continue;
+      receitaPrev.set(r.data, (receitaPrev.get(r.data) ?? 0) + Number(r.valor));
+      if (r.status !== "pago") continue;
       receitaPago.set(r.data, (receitaPago.get(r.data) ?? 0) + Number(r.valor));
     }
     for (const d of despesas) {
-      if (d.status !== "pago" || d.data < desde || d.data > ate) continue;
+      if (d.data < desde || d.data > ate) continue;
+      despesaPrev.set(d.data, (despesaPrev.get(d.data) ?? 0) + Number(d.valor));
+      if (d.status !== "pago") continue;
       despesaPago.set(d.data, (despesaPago.get(d.data) ?? 0) + Number(d.valor));
     }
     const out: PontoFinanceiroMensal[] = [];
@@ -94,8 +113,9 @@ export function agruparFinanceiro(
       const chave = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
       out.push({
         mes: `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}`,
-        receita: Math.round((receitaPago.get(chave) ?? 0) * 100) / 100,
-        despesa: Math.round((despesaPago.get(chave) ?? 0) * 100) / 100,
+        receita: arred(receitaPago.get(chave) ?? 0),
+        despesa: arred(despesaPago.get(chave) ?? 0),
+        projetado: arred((receitaPrev.get(chave) ?? 0) - (despesaPrev.get(chave) ?? 0)),
       });
     }
     return out;
@@ -103,13 +123,17 @@ export function agruparFinanceiro(
 
   // Granularidade mensal.
   for (const r of receitas) {
-    if (r.status !== "pago" || r.data < desde || r.data > ate) continue;
+    if (r.data < desde || r.data > ate) continue;
     const k = chaveMes(r.data);
+    receitaPrev.set(k, (receitaPrev.get(k) ?? 0) + Number(r.valor));
+    if (r.status !== "pago") continue;
     receitaPago.set(k, (receitaPago.get(k) ?? 0) + Number(r.valor));
   }
   for (const d of despesas) {
-    if (d.status !== "pago" || d.data < desde || d.data > ate) continue;
+    if (d.data < desde || d.data > ate) continue;
     const k = chaveMes(d.data);
+    despesaPrev.set(k, (despesaPrev.get(k) ?? 0) + Number(d.valor));
+    if (d.status !== "pago") continue;
     despesaPago.set(k, (despesaPago.get(k) ?? 0) + Number(d.valor));
   }
   const out: PontoFinanceiroMensal[] = [];
@@ -119,8 +143,9 @@ export function agruparFinanceiro(
     const k = `${cursor.getFullYear()}-${pad(cursor.getMonth() + 1)}`;
     out.push({
       mes: NOMES_MES[cursor.getMonth()],
-      receita: Math.round((receitaPago.get(k) ?? 0) * 100) / 100,
-      despesa: Math.round((despesaPago.get(k) ?? 0) * 100) / 100,
+      receita: arred(receitaPago.get(k) ?? 0),
+      despesa: arred(despesaPago.get(k) ?? 0),
+      projetado: arred((receitaPrev.get(k) ?? 0) - (despesaPrev.get(k) ?? 0)),
     });
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
   }
