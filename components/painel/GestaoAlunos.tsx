@@ -314,7 +314,19 @@ function LinhaAluno({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-white">{aluno.nome}</p>
+          <p className="flex items-center gap-1.5 text-sm font-medium text-white">
+            <span className="truncate">{aluno.nome}</span>
+            {aluno.condicoes_medicas && (
+              <span
+                title={`Condições médicas: ${aluno.condicoes_medicas}`}
+                aria-label="Aluno com condições médicas registradas"
+                className="inline-flex flex-none items-center gap-0.5 rounded-full border border-magenta-500/40 bg-magenta-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-magenta-300"
+              >
+                <HeartPulse className="h-3 w-3" />
+                Saúde
+              </span>
+            )}
+          </p>
           <p className="truncate text-xs text-slate-500">
             {aluno.matricula_codigo}
           </p>
