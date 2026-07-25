@@ -63,7 +63,7 @@ export const getSessao = cache(async (): Promise<SessaoAcademia | null> => {
     userId: perfil.id,
     nome: perfil.nome,
     email: perfil.email,
-    papel: (perfil.papel as SessaoAcademia["papel"]) ?? "dono",
+    papel: (perfil.papel as SessaoAcademia["papel"]) ?? "instrutor",
     academia,
   };
 });
