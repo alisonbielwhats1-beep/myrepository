@@ -70,3 +70,13 @@ export function badgeStatusMatricula(status: StatusMatricula): string {
 export function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
+
+/**
+ * Mascara um segredo de webhook para exibição segura no frontend.
+ * Mostra apenas os últimos 4 caracteres: ••••••••XXXX
+ * Retorna string vazia se o segredo não estiver configurado.
+ */
+export function mascarar(secret: string | null | undefined): string {
+  if (!secret) return "";
+  return "••••••••" + secret.slice(-4).toUpperCase();
+}

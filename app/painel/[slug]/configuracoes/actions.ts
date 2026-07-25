@@ -5,7 +5,6 @@ import type { EstadoAcao } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { randomUUID } from "crypto";
 import { validarUrl } from "@/lib/validacoes";
 
 export async function atualizarAcademia(
@@ -47,28 +46,3 @@ export async function atualizarAcademia(
   return { ok: true, savedAt: Date.now() };
 }
 
-/** Gera um novo segredo para o webhook de uma plataforma parceira. */
-export async function rotarSecretWebhook(
-  slug: string,
-  plataforma: "gympass" | "totalpass"
-): Promise<EstadoAcao> {
-  const sessao = await requireSecao(slug, "configuracoes");
-  const supabase = createClient();
-
-  const campo =
-    plataforma === "gympass"
-      ? "gympass_webhook_secret"
-      : "totalpass_webhook_secret";
-
-  const novoSecret = randomUUID();
-
-  const { error } = await supabase
-    .from("academias")
-    .update({ [campo]: novoSecret })
-    .eq("id", sessao.academia.id);
-
-  if (error) return { erro: `Falha ao rotacionar: ${error.message}` };
-
-  revalidatePath(`/painel/${slug}/configuracoes`);
-  return { ok: true, savedAt: Date.now() };
-}

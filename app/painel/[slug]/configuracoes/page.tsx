@@ -5,8 +5,10 @@ import IntegracoesCard from "@/components/painel/configuracoes/IntegracoesCard";
 import PlanoSaasCard from "@/components/painel/configuracoes/PlanoSaasCard";
 import { requireSecao } from "@/lib/auth";
 import { getPlanos, getSecretsWebhook } from "@/lib/data";
+import { mascarar } from "@/lib/utils";
 import { headers } from "next/headers";
 import { planoPodeAcessar } from "@/lib/planos";
+import type { StatusIntegracao } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -46,8 +48,10 @@ export default async function ConfiguracoesPage({
         <IntegracoesCard
           slug={params.slug}
           baseUrl={baseUrl}
-          gympassSecret={secrets.gympass_webhook_secret}
-          totalpassSecret={secrets.totalpass_webhook_secret}
+          gympassSecretMascarado={mascarar(secrets.gympass_webhook_secret)}
+          gympassStatus={(secrets.gympass_status as StatusIntegracao) ?? "nao_configurada"}
+          totalpassSecretMascarado={mascarar(secrets.totalpass_webhook_secret)}
+          totalpassStatus={(secrets.totalpass_status as StatusIntegracao) ?? "nao_configurada"}
         />
       )}
     </div>

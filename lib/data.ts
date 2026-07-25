@@ -574,16 +574,20 @@ export async function getAlunosSumidos(
 export interface SecretsWebhook {
   gympass_webhook_secret: string;
   totalpass_webhook_secret: string;
+  gympass_status: string;
+  totalpass_status: string;
 }
 
-/** Retorna os segredos de webhook da academia (visíveis só no servidor). */
+/** Retorna os segredos e status de integração da academia (visíveis só no servidor). */
 export async function getSecretsWebhook(
   academiaId: string
 ): Promise<SecretsWebhook | null> {
   const supabase = createClient();
   const { data } = await supabase
     .from("academias")
-    .select("gympass_webhook_secret, totalpass_webhook_secret")
+    .select(
+      "gympass_webhook_secret, totalpass_webhook_secret, gympass_status, totalpass_status"
+    )
     .eq("id", academiaId)
     .maybeSingle();
   return data ?? null;

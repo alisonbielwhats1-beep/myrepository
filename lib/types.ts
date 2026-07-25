@@ -8,6 +8,25 @@ export type StatusLiberacao = "liberado" | "negado" | "pendente";
 export type StatusFuncionario = "ativo" | "inativo";
 export type TipoReceita = "mensalidade" | "matricula" | "venda_produto" | "outra";
 export type StatusPagamento = "pago" | "pendente";
+
+export type StatusIntegracao =
+  | "nao_configurada"
+  | "aguardando_configuracao"
+  | "aguardando_homologacao"
+  | "em_testes"
+  | "ativa"
+  | "com_erro"
+  | "desativada";
+
+export const LABELS_STATUS_INTEGRACAO: Record<StatusIntegracao, string> = {
+  nao_configurada: "Não configurada",
+  aguardando_configuracao: "Aguardando configuração",
+  aguardando_homologacao: "Aguardando homologação",
+  em_testes: "Em testes",
+  ativa: "Ativa",
+  com_erro: "Com erro",
+  desativada: "Desativada",
+};
 export type CategoriaDespesa =
   | "energia_eletrica"
   | "agua"

@@ -2,6 +2,8 @@ import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import Integracoes from "@/components/painel/Integracoes";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { mascarar } from "@/lib/utils";
+import type { StatusIntegracao } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +17,13 @@ export default async function IntegracoesPage({
 
   const { data } = await supabase
     .from("academias")
-    .select("gympass_webhook_secret, totalpass_webhook_secret")
+    .select(
+      "gympass_webhook_secret, totalpass_webhook_secret, gympass_status, totalpass_status"
+    )
     .eq("id", sessao.academia.id)
     .maybeSingle();
 
+  // O segredo completo nunca chega ao client — apenas o sufixo mascarado.
   return (
     <div className="space-y-6">
       <Breadcrumbs slug={params.slug} items={[{ label: "Integrações" }]} />
@@ -32,8 +37,10 @@ export default async function IntegracoesPage({
 
       <Integracoes
         slug={params.slug}
-        gympassSecret={data?.gympass_webhook_secret ?? "—"}
-        totalpassSecret={data?.totalpass_webhook_secret ?? "—"}
+        gympassSecretMascarado={mascarar(data?.gympass_webhook_secret)}
+        gympassStatus={(data?.gympass_status as StatusIntegracao) ?? "nao_configurada"}
+        totalpassSecretMascarado={mascarar(data?.totalpass_webhook_secret)}
+        totalpassStatus={(data?.totalpass_status as StatusIntegracao) ?? "nao_configurada"}
       />
     </div>
   );
