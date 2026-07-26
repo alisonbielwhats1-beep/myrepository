@@ -8,17 +8,47 @@ import { createClient } from "@/lib/supabase/server";
 import { StatusMatricula } from "@/lib/types";
 import { normalizarCpf, validarUrl } from "@/lib/validacoes";
 
+// ---------------------------------------------------------------------------
+// Helpers de data no fuso America/Sao_Paulo
+// ---------------------------------------------------------------------------
+
+function spHoje(): { ano: number; mes: number; dia: number } {
+  const partes = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const v = (t: string) => parseInt(partes.find((p) => p.type === t)!.value, 10);
+  return { ano: v("year"), mes: v("month"), dia: v("day") };
+}
+
+function spHojeISO(): string {
+  const { ano, mes, dia } = spHoje();
+  return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}
+
+function spCompetencia(): string {
+  const { ano, mes } = spHoje();
+  return `${ano}-${String(mes).padStart(2, "0")}-01`;
+}
+
+// ---------------------------------------------------------------------------
+// Geração de cobranças — três funções separadas por contexto
+// ---------------------------------------------------------------------------
+
 /**
- * Gera a mensalidade do mês corrente para o aluno, se ainda não existir.
- * Usa o índice único uidx_mensalidade_aluno_comp para idempotência —
- * em caso de duplicidade o banco ignora silenciosamente (onConflict ignore).
+ * Gera a cobrança inicial de um ciclo (criar aluno ou reativar sem ciclo vigente).
+ * Sempre tenta inserir uma cobrança para a competência fornecida.
+ * Idempotente via índice único uidx_mensalidade_aluno_comp.
  */
-async function gerarMensalidadeAtual(
+async function gerarCobrancaInicial(
   supabase: ReturnType<typeof createClient>,
   academiaId: string,
   alunoId: string,
   planoId: string,
-  diaVencimento: number
+  diaVencimento: number,
+  competencia: string // YYYY-MM-01 no fuso SP
 ): Promise<void> {
   const { data: plano } = await supabase
     .from("planos")
@@ -29,10 +59,10 @@ async function gerarMensalidadeAtual(
 
   if (!plano || !plano.cobranca_recorrente || plano.valor_mensal <= 0) return;
 
-  const hoje = new Date();
-  const competencia = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-01`;
+  const ano = parseInt(competencia.slice(0, 4), 10);
+  const mes = parseInt(competencia.slice(5, 7), 10);
   const diaVenc = Math.min(diaVencimento, 28);
-  const vencimento = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(diaVenc).padStart(2, "0")}`;
+  const vencimento = `${ano}-${String(mes).padStart(2, "0")}-${String(diaVenc).padStart(2, "0")}`;
 
   await supabase.from("receitas").upsert(
     {
@@ -50,7 +80,65 @@ async function gerarMensalidadeAtual(
 }
 
 /**
- * Cancela mensalidades pendentes futuras (competência > mês atual) do aluno.
+ * Retorna true se o aluno ainda está dentro de um ciclo vigente,
+ * calculado a partir do data_inicio mais recente em historico_planos.
+ * Ciclo vigente = meses decorridos desde data_inicio < recorrencia_meses.
+ */
+async function cicloVigente(
+  supabase: ReturnType<typeof createClient>,
+  academiaId: string,
+  alunoId: string
+): Promise<boolean> {
+  const { data: hist } = await supabase
+    .from("historico_planos")
+    .select("data_inicio, recorrencia_meses")
+    .eq("aluno_id", alunoId)
+    .eq("academia_id", academiaId)
+    .order("data_inicio", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!hist) return false;
+
+  const { ano: anoHoje, mes: mesHoje } = spHoje();
+  const mesesHoje = anoHoje * 12 + mesHoje;
+
+  const [anoI, mesI] = hist.data_inicio.split("-").map(Number);
+  const mesesInicio = anoI * 12 + mesI;
+
+  const mesesDecorridos = mesesHoje - mesesInicio;
+  return mesesDecorridos >= 0 && mesesDecorridos < hist.recorrencia_meses;
+}
+
+/**
+ * Fecha o registro mais recente em historico_planos que ainda não tem data_fim.
+ * Chamado antes de abrir um novo ciclo (renovar ou reativar com novo plano).
+ */
+async function fecharHistoricoVigente(
+  supabase: ReturnType<typeof createClient>,
+  academiaId: string,
+  alunoId: string
+): Promise<void> {
+  const { data: ultimo } = await supabase
+    .from("historico_planos")
+    .select("id, data_fim")
+    .eq("aluno_id", alunoId)
+    .eq("academia_id", academiaId)
+    .order("data_inicio", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!ultimo || ultimo.data_fim) return;
+
+  await supabase
+    .from("historico_planos")
+    .update({ data_fim: spHojeISO() })
+    .eq("id", ultimo.id)
+    .eq("academia_id", academiaId);
+}
+
+/**
+ * Cancela mensalidades pendentes futuras (competência > mês atual em SP).
  * Chamado ao trancar ou cancelar — não apaga dívidas passadas.
  */
 async function cancelarMensalidadesFuturas(
@@ -58,8 +146,7 @@ async function cancelarMensalidadesFuturas(
   academiaId: string,
   alunoId: string
 ): Promise<void> {
-  const hoje = new Date();
-  const competenciaAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-01`;
+  const competenciaAtual = spCompetencia();
   await supabase
     .from("receitas")
     .delete()
@@ -99,12 +186,16 @@ function lerCamposSaude(formData: FormData) {
   };
 }
 
-/** Registra no histórico o plano que o aluno passou a ter (troca/renovação). */
+/**
+ * Registra no histórico o plano que o aluno passou a ter.
+ * dataInicio: data em SP (YYYY-MM-DD). Padrão: hoje em SP.
+ */
 async function registrarHistoricoPlano(
   supabase: ReturnType<typeof createClient>,
   academiaId: string,
   alunoId: string,
-  planoId: string
+  planoId: string,
+  dataInicio?: string
 ): Promise<void> {
   const { data: plano } = await supabase
     .from("planos")
@@ -120,6 +211,7 @@ async function registrarHistoricoPlano(
     plano_nome: plano.nome,
     valor: plano.valor_mensal,
     recorrencia_meses: plano.recorrencia_meses,
+    data_inicio: dataInicio ?? spHojeISO(),
   });
 }
 
@@ -178,9 +270,12 @@ export async function criarAluno(
   if (error) return { erro: `Falha ao cadastrar aluno: ${error.message}` };
 
   if (planoId && novo) {
-    await registrarHistoricoPlano(supabase, sessao.academia.id, novo.id, planoId);
+    const competencia = spCompetencia();
+    // data_inicio do ciclo inicial = hoje em SP.
+    await registrarHistoricoPlano(supabase, sessao.academia.id, novo.id, planoId, spHojeISO());
     if (statusInicial === "ativa") {
-      await gerarMensalidadeAtual(supabase, sessao.academia.id, novo.id, planoId, diaVencimento);
+      // Primeira cobrança do ciclo — sempre gera exatamente uma.
+      await gerarCobrancaInicial(supabase, sessao.academia.id, novo.id, planoId, diaVencimento, competencia);
     }
   }
 
@@ -245,15 +340,26 @@ export async function atualizarAluno(
 
   const statusAnterior = atual?.status_matricula ?? "ativa";
   const trocouPlano = planoId && planoId !== (atual?.plano_id ?? null);
+  const reativando = novoStatus === "ativa" && statusAnterior !== "ativa";
 
-  if (trocouPlano) {
-    await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId);
+  if (reativando && trocouPlano && planoId) {
+    // Reativação com troca de plano: fecha ciclo anterior, abre novo e gera cobrança.
+    await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId);
+    await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId, spHojeISO());
+    await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, planoId, diaVencimento, spCompetencia());
+  } else if (reativando && planoId) {
+    // Reativação com mesmo plano: só gera cobrança se ciclo encerrado.
+    const vigente = await cicloVigente(supabase, sessao.academia.id, alunoId);
+    if (!vigente) {
+      await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, planoId, diaVencimento, spCompetencia());
+    }
+  } else if (trocouPlano && planoId) {
+    // Troca de plano sem reativação: registra histórico, sem gerar cobrança.
+    await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId);
+    await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId, spHojeISO());
   }
-
-  // Reativando (de qualquer status não-ativo para ativo): gera mensalidade do mês corrente.
-  if (novoStatus === "ativa" && statusAnterior !== "ativa" && planoId) {
-    await gerarMensalidadeAtual(supabase, sessao.academia.id, alunoId, planoId, diaVencimento);
-  }
+  // Edição de dados comuns (nome, email, dia_vencimento etc.) sem troca de status/plano:
+  // nenhuma cobrança gerada.
 
   // Trancando ou cancelando: cancela mensalidades futuras pendentes.
   if (
@@ -268,7 +374,12 @@ export async function atualizarAluno(
   return { ok: true, savedAt: Date.now(), id: alunoId };
 }
 
-/** Renova o plano atual do aluno: registra histórico e gera mensalidade do mês. */
+/**
+ * Renova o plano do aluno: fecha o ciclo vigente, cria novo histórico e
+ * gera exatamente uma cobrança para o novo ciclo.
+ * Idempotente: se já existe historico com data_inicio no mês corrente,
+ * não cria duplicata (unique index protege a receita).
+ */
 export async function renovarPlano(
   slug: string,
   alunoId: string
@@ -284,10 +395,28 @@ export async function renovarPlano(
     .maybeSingle();
   if (!aluno?.plano_id) return { erro: "O aluno não tem um plano definido." };
 
-  const diaVencimento = aluno.dia_vencimento ?? Math.min(new Date().getDate(), 28);
+  const competencia = spCompetencia(); // YYYY-MM-01 em SP
+  const diaVencimento = aluno.dia_vencimento ?? 1;
 
-  await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, aluno.plano_id);
-  await gerarMensalidadeAtual(supabase, sessao.academia.id, alunoId, aluno.plano_id, diaVencimento);
+  // Idempotência: verifica se já existe histórico criado neste mês.
+  const { data: jaRenovado } = await supabase
+    .from("historico_planos")
+    .select("id")
+    .eq("aluno_id", alunoId)
+    .eq("academia_id", sessao.academia.id)
+    .gte("data_inicio", competencia)
+    .limit(1)
+    .maybeSingle();
+
+  if (!jaRenovado) {
+    // Fecha somente o histórico vigente mais recente (sem data_fim).
+    await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId);
+    // Cria novo registro para o ciclo que inicia hoje em SP.
+    await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, aluno.plano_id, spHojeISO());
+  }
+
+  // Gera a cobrança do novo ciclo (idempotente via unique index).
+  await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, aluno.plano_id, diaVencimento, competencia);
 
   revalidatePath(`/painel/${slug}/alunos`);
   return { ok: true };
