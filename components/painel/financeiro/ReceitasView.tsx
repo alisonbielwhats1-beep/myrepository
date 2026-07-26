@@ -15,9 +15,9 @@ import {
   atualizarReceita,
   criarReceita,
   excluirReceita,
-  gerarMensalidades,
   previewCobrancasMensais,
   registrarPagamentoRetroativo,
+  sincronizarCobrancas,
   type PreviaCobrancas,
 } from "@/app/painel/[slug]/financeiro/actions";
 
@@ -103,7 +103,7 @@ export default function ReceitasView({
 
   const confirmarGeracao = () => {
     startMens(async () => {
-      const r = await gerarMensalidades(slug, competenciaAlvo);
+      const r = await sincronizarCobrancas(slug);
       setConfirmando(false);
       if (r.erro) {
         setMensMsg(r.erro);
@@ -111,9 +111,7 @@ export default function ReceitasView({
       }
       const partes = [`${r.criadas ?? 0} cobrança(s) criada(s)`];
       if (r.jaExistiam) partes.push(`${r.jaExistiam} já existia(m)`);
-      if (r.naoElegiveis) {
-        partes.push(`${r.naoElegiveis} fora do ciclo do plano nesta competência`);
-      }
+      partes.push(`${r.alunosElegiveis ?? 0} aluno(s) elegível(is)`);
       setMensMsg(`${partes.join(" · ")}.`);
     });
   };
@@ -248,9 +246,9 @@ export default function ReceitasView({
               ) : (
                 <CalendarClock className="h-4 w-4" />
               )}
-              Gerar cobranças mensais
+              Sincronizar cobranças
             </button>
-            <Ajuda texto="Cria as cobranças pendentes da competência selecionada para os alunos que possuem plano ativo. Cobranças que já existem não serão duplicadas." />
+            <Ajuda texto="Cria as cobranças pendentes que vencem nos próximos 7 dias, para os alunos com plano ativo e cobrança recorrente. Roda sozinho uma vez por dia; este botão apenas antecipa. Cobranças já existentes não são duplicadas e nada é cobrado automaticamente." />
           </span>
         </div>
         <ExportBar
@@ -282,27 +280,18 @@ export default function ReceitasView({
       {confirmando && (
         <div className="no-print surface rounded-2xl border border-volt-500/30 p-5">
           <h3 className="font-semibold text-white">
-            Gerar cobranças de {nomeCompetencia} para os alunos com plano ativo?
+            Sincronizar cobranças dos alunos com plano ativo?
           </h3>
           <ul className="mt-3 space-y-1 text-xs text-slate-400">
             <li>
-              Competência: <b className="text-slate-200">{nomeCompetencia}</b>
+              Cria as cobranças que vencem{" "}
+              <b className="text-slate-200">nos próximos 7 dias</b>.
             </li>
             {previa ? (
-              <>
-                <li>
-                  Alunos com plano de cobrança recorrente:{" "}
-                  <b className="text-slate-200">{previa.comPlanoAtivo}</b>
-                </li>
-                <li>
-                  Já têm cobrança nesta competência:{" "}
-                  <b className="text-slate-200">{previa.jaLancados}</b>
-                </li>
-                <li className="text-slate-500">
-                  Planos trimestrais, semestrais e anuais só geram cobrança no mês em
-                  que o ciclo fecha, então o número final pode ser menor.
-                </li>
-              </>
+              <li>
+                Alunos com plano de cobrança recorrente:{" "}
+                <b className="text-slate-200">{previa.comPlanoAtivo}</b>
+              </li>
             ) : (
               <li className="flex items-center gap-1.5 text-slate-500">
                 <Loader2 className="h-3 w-3 animate-spin" /> Calculando alunos
@@ -310,8 +299,13 @@ export default function ReceitasView({
               </li>
             )}
             <li className="text-slate-500">
-              Cobranças que já existem não serão duplicadas. Isso apenas cria
-              lançamentos pendentes — nada é cobrado do aluno automaticamente.
+              Planos trimestrais, semestrais e anuais só geram cobrança no mês em que
+              o ciclo fecha, então o número final pode ser menor.
+            </li>
+            <li className="text-slate-500">
+              Isso roda sozinho uma vez por dia — o botão só antecipa. Cobranças
+              existentes não são duplicadas e nada é cobrado do aluno
+              automaticamente.
             </li>
           </ul>
           <div className="mt-4 flex flex-wrap gap-2">

@@ -105,6 +105,48 @@ export type ResultadoCobrancas = {
   naoElegiveis?: number;
 };
 
+export type ResultadoSincronizacao = {
+  erro?: string;
+  criadas?: number;
+  jaExistiam?: number;
+  alunosElegiveis?: number;
+};
+
+/**
+ * Botão "Sincronizar cobranças".
+ *
+ * Chama a MESMA RPC que a rotina diária (/api/cron/cobrancas) usa — a regra de
+ * qual cobrança criar existe só no banco, em sincronizar_cobrancas_academia.
+ * Cria cobranças cujo vencimento está a até 7 dias, sem duplicar as existentes
+ * e sem olhar se a anterior foi paga. Apenas lançamentos pendentes.
+ */
+export async function sincronizarCobrancas(
+  slug: string
+): Promise<ResultadoSincronizacao> {
+  await requireSecao(slug, "financeiro");
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .rpc("sincronizar_cobrancas", { p_dias: 7 })
+    .maybeSingle();
+
+  if (error) return { erro: `Falha ao sincronizar cobranças: ${error.message}` };
+
+  const r = data as {
+    criadas: number;
+    ja_existiam: number;
+    alunos_elegiveis: number;
+  } | null;
+
+  revalidatePath(`/painel/${slug}/financeiro`, "layout");
+  revalidatePath(`/painel/${slug}`);
+  return {
+    criadas: r?.criadas ?? 0,
+    jaExistiam: r?.ja_existiam ?? 0,
+    alunosElegiveis: r?.alunos_elegiveis ?? 0,
+  };
+}
+
 /**
  * Executa a RPC gerar_mensalidades_do_mes.
  *
