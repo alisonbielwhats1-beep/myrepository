@@ -9,6 +9,68 @@ import { StatusMatricula } from "@/lib/types";
 import { normalizarCpf, validarUrl } from "@/lib/validacoes";
 
 /**
+ * Gera a mensalidade do mês corrente para o aluno, se ainda não existir.
+ * Usa o índice único uidx_mensalidade_aluno_comp para idempotência —
+ * em caso de duplicidade o banco ignora silenciosamente (onConflict ignore).
+ */
+async function gerarMensalidadeAtual(
+  supabase: ReturnType<typeof createClient>,
+  academiaId: string,
+  alunoId: string,
+  planoId: string,
+  diaVencimento: number
+): Promise<void> {
+  const { data: plano } = await supabase
+    .from("planos")
+    .select("nome, valor_mensal, cobranca_recorrente")
+    .eq("id", planoId)
+    .eq("academia_id", academiaId)
+    .maybeSingle();
+
+  if (!plano || !plano.cobranca_recorrente || plano.valor_mensal <= 0) return;
+
+  const hoje = new Date();
+  const competencia = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-01`;
+  const diaVenc = Math.min(diaVencimento, 28);
+  const vencimento = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(diaVenc).padStart(2, "0")}`;
+
+  await supabase.from("receitas").upsert(
+    {
+      academia_id: academiaId,
+      aluno_id: alunoId,
+      tipo: "mensalidade",
+      descricao: `Mensalidade — ${plano.nome}`,
+      valor: plano.valor_mensal,
+      data: vencimento,
+      competencia,
+      status: "pendente",
+    },
+    { onConflict: "aluno_id,competencia", ignoreDuplicates: true }
+  );
+}
+
+/**
+ * Cancela mensalidades pendentes futuras (competência > mês atual) do aluno.
+ * Chamado ao trancar ou cancelar — não apaga dívidas passadas.
+ */
+async function cancelarMensalidadesFuturas(
+  supabase: ReturnType<typeof createClient>,
+  academiaId: string,
+  alunoId: string
+): Promise<void> {
+  const hoje = new Date();
+  const competenciaAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-01`;
+  await supabase
+    .from("receitas")
+    .delete()
+    .eq("academia_id", academiaId)
+    .eq("aluno_id", alunoId)
+    .eq("tipo", "mensalidade")
+    .eq("status", "pendente")
+    .gt("competencia", competenciaAtual);
+}
+
+/**
  * Lê e normaliza o CPF do formulário. Retorna:
  *  - { cpf } com os 11 dígitos limpos quando válido;
  *  - { cpf: null } quando o campo veio vazio (CPF é opcional);
@@ -77,6 +139,18 @@ export async function criarAluno(
 
   const planoId = String(formData.get("plano_id") ?? "").trim() || null;
 
+  // Sem plano → sempre "pendente", independentemente do que o formulário enviou.
+  // Com plano → respeita o select de status (default "ativa").
+  const statusInicial: StatusMatricula = planoId === null
+    ? "pendente"
+    : ((formData.get("status") as StatusMatricula) || "ativa");
+
+  // Dia de vencimento: usa o campo do form, ou o dia atual limitado a 28
+  const diaVencimentoRaw = parseInt(String(formData.get("dia_vencimento") ?? ""), 10);
+  const diaVencimento = Number.isFinite(diaVencimentoRaw) && diaVencimentoRaw >= 1 && diaVencimentoRaw <= 28
+    ? diaVencimentoRaw
+    : Math.min(new Date().getDate(), 28);
+
   // Gera código de matrícula de forma atômica (sem race condition)
   const { data: codigoData } = await supabase.rpc("nextval_matricula", {
     p_academia_id: sessao.academia.id,
@@ -92,8 +166,9 @@ export async function criarAluno(
       email: String(formData.get("email") ?? "").trim() || null,
       telefone: String(formData.get("telefone") ?? "").trim() || null,
       foto_perfil_url: validarUrl(String(formData.get("foto_perfil_url") ?? "")),
-      status_matricula: (formData.get("status") as StatusMatricula) || "ativa",
+      status_matricula: statusInicial,
       plano_id: planoId,
+      dia_vencimento: diaVencimento,
       matricula_codigo: matriculaCodigo,
       ...lerCamposSaude(formData),
     })
@@ -104,6 +179,9 @@ export async function criarAluno(
 
   if (planoId && novo) {
     await registrarHistoricoPlano(supabase, sessao.academia.id, novo.id, planoId);
+    if (statusInicial === "ativa") {
+      await gerarMensalidadeAtual(supabase, sessao.academia.id, novo.id, planoId, diaVencimento);
+    }
   }
 
   revalidatePath(`/painel/${slug}/alunos`);
@@ -127,14 +205,25 @@ export async function atualizarAluno(
   if ("erro" in cpf) return { erro: cpf.erro };
 
   const planoId = String(formData.get("plano_id") ?? "").trim() || null;
+  const statusDoForm = (formData.get("status") as StatusMatricula) || "ativa";
 
-  // Detecta troca de plano para registrar no histórico.
+  // Sem plano + status "ativa" → forçar "pendente" no servidor.
+  // Trancado, cancelado ou inativo sem plano são estados válidos (admin escolheu explicitamente).
+  const novoStatus: StatusMatricula =
+    planoId === null && statusDoForm === "ativa" ? "pendente" : statusDoForm;
+
+  // Lê estado atual para detectar transições relevantes.
   const { data: atual } = await supabase
     .from("alunos")
-    .select("plano_id")
+    .select("plano_id, status_matricula, dia_vencimento")
     .eq("id", alunoId)
     .eq("academia_id", sessao.academia.id)
     .maybeSingle();
+
+  const diaVencimentoRaw = parseInt(String(formData.get("dia_vencimento") ?? ""), 10);
+  const diaVencimento = Number.isFinite(diaVencimentoRaw) && diaVencimentoRaw >= 1 && diaVencimentoRaw <= 28
+    ? diaVencimentoRaw
+    : (atual?.dia_vencimento ?? Math.min(new Date().getDate(), 28));
 
   const { error } = await supabase
     .from("alunos")
@@ -144,8 +233,9 @@ export async function atualizarAluno(
       email: String(formData.get("email") ?? "").trim() || null,
       telefone: String(formData.get("telefone") ?? "").trim() || null,
       foto_perfil_url: validarUrl(String(formData.get("foto_perfil_url") ?? "")),
-      status_matricula: (formData.get("status") as StatusMatricula) || "ativa",
+      status_matricula: novoStatus,
       plano_id: planoId,
+      dia_vencimento: diaVencimento,
       ...lerCamposSaude(formData),
     })
     .eq("id", alunoId)
@@ -153,8 +243,24 @@ export async function atualizarAluno(
 
   if (error) return { erro: `Falha ao atualizar aluno: ${error.message}` };
 
-  if (planoId && planoId !== (atual?.plano_id ?? null)) {
+  const statusAnterior = atual?.status_matricula ?? "ativa";
+  const trocouPlano = planoId && planoId !== (atual?.plano_id ?? null);
+
+  if (trocouPlano) {
     await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId);
+  }
+
+  // Reativando (de qualquer status não-ativo para ativo): gera mensalidade do mês corrente.
+  if (novoStatus === "ativa" && statusAnterior !== "ativa" && planoId) {
+    await gerarMensalidadeAtual(supabase, sessao.academia.id, alunoId, planoId, diaVencimento);
+  }
+
+  // Trancando ou cancelando: cancela mensalidades futuras pendentes.
+  if (
+    (novoStatus === "trancada" || novoStatus === "cancelada") &&
+    statusAnterior === "ativa"
+  ) {
+    await cancelarMensalidadesFuturas(supabase, sessao.academia.id, alunoId);
   }
 
   revalidatePath(`/painel/${slug}/alunos`);
@@ -162,7 +268,7 @@ export async function atualizarAluno(
   return { ok: true, savedAt: Date.now(), id: alunoId };
 }
 
-/** Renova o plano atual do aluno (nova entrada no histórico com início hoje). */
+/** Renova o plano atual do aluno: registra histórico e gera mensalidade do mês. */
 export async function renovarPlano(
   slug: string,
   alunoId: string
@@ -172,13 +278,17 @@ export async function renovarPlano(
 
   const { data: aluno } = await supabase
     .from("alunos")
-    .select("plano_id")
+    .select("plano_id, dia_vencimento")
     .eq("id", alunoId)
     .eq("academia_id", sessao.academia.id)
     .maybeSingle();
   if (!aluno?.plano_id) return { erro: "O aluno não tem um plano definido." };
 
+  const diaVencimento = aluno.dia_vencimento ?? Math.min(new Date().getDate(), 28);
+
   await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, aluno.plano_id);
+  await gerarMensalidadeAtual(supabase, sessao.academia.id, alunoId, aluno.plano_id, diaVencimento);
+
   revalidatePath(`/painel/${slug}/alunos`);
   return { ok: true };
 }
