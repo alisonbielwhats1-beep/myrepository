@@ -11,7 +11,7 @@ export default async function ReceitasPage({
   searchParams,
 }: {
   params: { slug: string };
-  searchParams: { gran?: string; ref?: string; de?: string; ate?: string };
+  searchParams: { gran?: string; ref?: string; de?: string; ate?: string; aluno?: string };
 }) {
   const sessao = await requireSessao(params.slug);
   const periodo = resolverPeriodo(searchParams);
@@ -24,7 +24,7 @@ export default async function ReceitasPage({
   return (
     <div className="space-y-5">
       <PeriodoFilter periodo={periodo} />
-      <ReceitasView slug={params.slug} alunos={alunos} receitas={receitas} />
+      <ReceitasView slug={params.slug} alunos={alunos} receitas={receitas} alunoIdInicial={searchParams.aluno} />
     </div>
   );
 }

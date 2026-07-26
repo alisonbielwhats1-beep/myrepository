@@ -126,6 +126,25 @@ export async function atualizarReceita(
   return { ok: true, savedAt: Date.now() };
 }
 
+/** Marca uma mensalidade como paga diretamente, sem exigir todos os campos do formulário. */
+export async function marcarPago(
+  slug: string,
+  receitaId: string
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "financeiro");
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("receitas")
+    .update({ status: "pago" })
+    .eq("id", receitaId)
+    .eq("academia_id", sessao.academia.id);
+  if (error) return { erro: `Falha ao marcar como pago: ${error.message}` };
+  revalidatePath(`/painel/${slug}/alunos`);
+  revalidatePath(`/painel/${slug}/financeiro`);
+  revalidatePath(`/painel/${slug}`);
+  return { ok: true, savedAt: Date.now() };
+}
+
 export async function excluirReceita(slug: string, receitaId: string): Promise<void> {
   const sessao = await requireSecao(slug, "financeiro");
   const supabase = createClient();

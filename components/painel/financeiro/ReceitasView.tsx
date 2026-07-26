@@ -20,14 +20,22 @@ export default function ReceitasView({
   slug,
   alunos,
   receitas,
+  alunoIdInicial,
 }: {
   slug: string;
   alunos: Aluno[];
   receitas: Receita[];
+  alunoIdInicial?: string;
 }) {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [mensPending, startMens] = useTransition();
+
+  // Busca por nome de aluno — pré-populada quando navegando da ficha do aluno.
+  const nomeInicial = alunoIdInicial
+    ? (alunos.find((a) => a.id === alunoIdInicial)?.nome ?? "")
+    : "";
+  const [filtroAluno, setFiltroAluno] = useState(nomeInicial);
   const [mensMsg, setMensMsg] = useState<string | null>(null);
 
   const gerarMens = () => {
@@ -44,10 +52,16 @@ export default function ReceitasView({
     });
   };
 
-  const totalPago = receitas
+  const receitasFiltradas = filtroAluno.trim()
+    ? receitas.filter((r) =>
+        r.aluno?.nome?.toLowerCase().includes(filtroAluno.trim().toLowerCase())
+      )
+    : receitas;
+
+  const totalPago = receitasFiltradas
     .filter((r) => r.status === "pago")
     .reduce((a, r) => a + Number(r.valor), 0);
-  const totalPendente = receitas
+  const totalPendente = receitasFiltradas
     .filter((r) => r.status === "pendente")
     .reduce((a, r) => a + Number(r.valor), 0);
 
@@ -66,6 +80,22 @@ export default function ReceitasView({
             {formatBRL(totalPendente, { compacto: true })}
           </p>
         </div>
+      </div>
+
+      {/* Busca por aluno */}
+      <div className="flex items-center gap-2">
+        <input
+          type="search"
+          placeholder="Buscar por aluno..."
+          value={filtroAluno}
+          onChange={(e) => setFiltroAluno(e.target.value)}
+          className="inp max-w-xs"
+        />
+        {filtroAluno && (
+          <button onClick={() => setFiltroAluno("")} className="text-xs text-slate-400 hover:text-white">
+            Limpar
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -133,14 +163,14 @@ export default function ReceitasView({
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-700/70">
-              {receitas.length === 0 && (
+              {receitasFiltradas.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-5 py-6 text-slate-500">
-                    Nenhuma receita neste período.
+                    {filtroAluno ? "Nenhuma receita para este aluno no período." : "Nenhuma receita neste período."}
                   </td>
                 </tr>
               )}
-              {receitas.map((r) =>
+              {receitasFiltradas.map((r) =>
                 editandoId === r.id ? (
                   <tr key={r.id}>
                     <td colSpan={6} className="p-4">

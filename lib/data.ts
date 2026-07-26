@@ -193,6 +193,32 @@ export async function getMensalidadesResumidas(
   return (data as Array<{ aluno_id: string; status: string; data: string }>) ?? [];
 }
 
+export type MensalidadeDetalhe = {
+  id: string;
+  aluno_id: string;
+  competencia: string | null;
+  data: string;
+  valor: number;
+  status: string;
+  descricao: string;
+};
+
+/** Mensalidades com campos completos para exibição na ficha financeira do aluno. */
+export async function getMensalidadesDetalhadas(
+  academiaId: string
+): Promise<MensalidadeDetalhe[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("receitas")
+    .select("id, aluno_id, competencia, data, valor, status, descricao")
+    .eq("academia_id", academiaId)
+    .eq("tipo", "mensalidade")
+    .not("aluno_id", "is", null)
+    .order("data", { ascending: false });
+  if (error) throw new Error(`Falha ao carregar mensalidades: ${error.message}`);
+  return (data as MensalidadeDetalhe[]) ?? [];
+}
+
 /**
  * Receitas mais recentes primeiro. Filtra por `desde` (>= data) e/ou `ate`
  * (<= data), ambos ISO "YYYY-MM-DD".

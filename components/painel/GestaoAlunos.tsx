@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
+  AlertCircle,
+  ArrowRight,
   Check,
   Dumbbell,
   HeartPulse,
   ImagePlus,
+  Loader2,
   Pencil,
   QrCode,
   Target,
   UserPlus,
   UserRound,
+  Wallet,
   X,
 } from "lucide-react";
 import {
@@ -40,6 +44,8 @@ import {
   excluirAluno,
   excluirTreino,
 } from "@/app/painel/[slug]/alunos/actions";
+import { marcarPago } from "@/app/painel/[slug]/financeiro/actions";
+import type { MensalidadeDetalhe } from "@/lib/data";
 
 export default function GestaoAlunos({
   slug,
@@ -50,6 +56,7 @@ export default function GestaoAlunos({
   progresso,
   historico,
   statusFinanceiroMap = {},
+  mensalidadesPorAluno = {},
 }: {
   slug: string;
   alunosIniciais: Aluno[];
@@ -59,6 +66,7 @@ export default function GestaoAlunos({
   progresso: TipoProgresso[];
   historico: HistoricoPlano[];
   statusFinanceiroMap?: Record<string, StatusFinanceiro>;
+  mensalidadesPorAluno?: Record<string, MensalidadeDetalhe[]>;
 }) {
   const alunos = alunosIniciais;
   const treinos = treinosIniciais;
@@ -68,9 +76,23 @@ export default function GestaoAlunos({
   );
   const [mostrarNovoAluno, setMostrarNovoAluno] = useState(alunos.length === 0);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const financialRef = useRef<HTMLDivElement>(null);
 
   const treinosDoAluno = treinos.filter((t) => t.aluno_id === selecionadoId);
   const alunoSelecionado = alunos.find((a) => a.id === selecionadoId) ?? null;
+
+  function selecionarEScrollFinanceiro(alunoId: string) {
+    setSelecionadoId(alunoId);
+    setTimeout(() => financialRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  }
+
+  // Pré-computa total em aberto por aluno para exibir na lista.
+  const totaisAberto: Record<string, number> = {};
+  for (const [id, mens] of Object.entries(mensalidadesPorAluno)) {
+    totaisAberto[id] = mens
+      .filter((m) => m.status === "pendente")
+      .reduce((s, m) => s + Number(m.valor), 0);
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,400px)_1fr]">
@@ -133,7 +155,9 @@ export default function GestaoAlunos({
                     aluno={a}
                     ativo={selecionadoId === a.id}
                     statusFinanceiro={statusFinanceiroMap[a.id]}
+                    totalAberto={totaisAberto[a.id] ?? 0}
                     onSelecionar={() => setSelecionadoId(a.id)}
+                    onVerFinanceiro={() => selecionarEScrollFinanceiro(a.id)}
                     onEditar={() => setEditandoId(a.id)}
                   />
                 )
@@ -259,6 +283,18 @@ export default function GestaoAlunos({
             registros={progresso.filter((p) => p.aluno_id === alunoSelecionado.id)}
           />
         )}
+
+        {/* Situação financeira */}
+        {alunoSelecionado && (
+          <SituacaoFinanceira
+            sectionRef={financialRef}
+            slug={slug}
+            aluno={alunoSelecionado}
+            plano={planos.find((p) => p.id === alunoSelecionado.plano_id)}
+            mensalidades={mensalidadesPorAluno[alunoSelecionado.id] ?? []}
+            statusFinanceiro={statusFinanceiroMap[alunoSelecionado.id]}
+          />
+        )}
       </div>
     </div>
   );
@@ -272,14 +308,18 @@ function LinhaAluno({
   aluno,
   ativo,
   statusFinanceiro,
+  totalAberto,
   onSelecionar,
+  onVerFinanceiro,
   onEditar,
 }: {
   slug: string;
   aluno: Aluno;
   ativo: boolean;
   statusFinanceiro?: StatusFinanceiro;
+  totalAberto: number;
   onSelecionar: () => void;
+  onVerFinanceiro: () => void;
   onEditar: () => void;
 }) {
   const [copiado, setCopiado] = useState(false);
@@ -347,13 +387,21 @@ function LinhaAluno({
             {aluno.status_matricula}
           </span>
           {statusFinanceiro && statusFinanceiro !== "em_dia" && (
-            <span
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onVerFinanceiro(); }}
+              title="Ver situação financeira"
               className={cn(
-                "chip text-[10px]",
+                "chip text-[10px] cursor-pointer hover:opacity-80 transition-opacity",
                 badgeStatusFinanceiro(statusFinanceiro)
               )}
             >
               {statusFinanceiro === "inadimplente" ? "inadimplente" : "vence hoje"}
+            </button>
+          )}
+          {totalAberto > 0 && (
+            <span className="text-[10px] text-red-400 tabular-nums">
+              {totalAberto.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 })} em aberto
             </span>
           )}
         </div>
@@ -389,6 +437,179 @@ function LinhaAluno({
         </span>
       </div>
     </li>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Seção de situação financeira do aluno selecionado
+// ---------------------------------------------------------------------------
+const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+function formatComp(comp: string | null): string {
+  if (!comp) return "—";
+  const [y, m] = comp.split("-");
+  return `${MESES[parseInt(m) - 1]}/${y.slice(2)}`;
+}
+
+function BotaoPago({ slug, receitaId }: { slug: string; receitaId: string }) {
+  const [pending, start] = useTransition();
+  return (
+    <button
+      disabled={pending}
+      onClick={() => start(async () => { await marcarPago(slug, receitaId); })}
+      className="rounded-md bg-volt-500/15 px-2 py-1 text-[10px] font-medium text-volt-300 transition hover:bg-volt-500/25 disabled:opacity-50"
+    >
+      {pending ? <Loader2 className="inline h-3 w-3 animate-spin" /> : "Marcar pago"}
+    </button>
+  );
+}
+
+function SituacaoFinanceira({
+  sectionRef,
+  slug,
+  aluno,
+  plano,
+  mensalidades,
+  statusFinanceiro,
+}: {
+  sectionRef: React.RefObject<HTMLDivElement>;
+  slug: string;
+  aluno: Aluno;
+  plano: Plano | undefined;
+  mensalidades: MensalidadeDetalhe[];
+  statusFinanceiro: StatusFinanceiro | undefined;
+}) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const pendentes = mensalidades.filter((m) => m.status === "pendente");
+  const totalAberto = pendentes.reduce((s, m) => s + Number(m.valor), 0);
+  const vencMaisAntigo = pendentes.length
+    ? pendentes.reduce((min, m) => (m.data < min ? m.data : min), pendentes[0].data)
+    : null;
+  const diasAtraso = vencMaisAntigo && vencMaisAntigo < hoje
+    ? Math.floor((Date.now() - new Date(vencMaisAntigo + "T00:00:00").getTime()) / 86_400_000)
+    : 0;
+
+  const sorted = [...mensalidades].sort((a, b) => {
+    if (a.status !== b.status) return a.status === "pendente" ? -1 : 1;
+    return b.data.localeCompare(a.data);
+  });
+
+  return (
+    <div ref={sectionRef} className="surface rounded-2xl p-5">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 font-semibold text-white">
+          <Wallet className="h-4 w-4 text-volt-300" /> Situação financeira
+        </h3>
+        <a
+          href={`/painel/${slug}/financeiro/receitas?aluno=${aluno.id}`}
+          className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors"
+        >
+          Ir para Financeiro <ArrowRight className="h-3 w-3" />
+        </a>
+      </div>
+
+      {/* Resumo do plano */}
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div>
+          <p className="label-muted">Plano</p>
+          <p className="mt-0.5 text-sm font-medium text-white truncate">
+            {plano?.nome ?? <span className="text-slate-500">Sem plano</span>}
+          </p>
+        </div>
+        <div>
+          <p className="label-muted">Mensalidade</p>
+          <p className="mt-0.5 text-sm font-medium text-white">
+            {plano ? plano.valor_mensal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
+          </p>
+        </div>
+        <div>
+          <p className="label-muted">Vencimento</p>
+          <p className="mt-0.5 text-sm font-medium text-white">
+            {aluno.dia_vencimento ? `Dia ${aluno.dia_vencimento}` : "—"}
+          </p>
+        </div>
+        <div>
+          <p className="label-muted">Situação</p>
+          <p className="mt-0.5">
+            {statusFinanceiro ? (
+              <span className={cn("chip text-[10px]", badgeStatusFinanceiro(statusFinanceiro))}>
+                {statusFinanceiro === "em_dia" ? "Em dia" : statusFinanceiro === "inadimplente" ? "Inadimplente" : "Vence hoje"}
+              </span>
+            ) : (
+              <span className="text-sm text-slate-500">—</span>
+            )}
+          </p>
+        </div>
+      </div>
+
+      {/* Alertas de inadimplência */}
+      {pendentes.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-red-800/40 bg-red-900/20 px-4 py-3 text-sm">
+          <span className="flex items-center gap-1.5 font-medium text-red-300">
+            <AlertCircle className="h-4 w-4 flex-none" />
+            {pendentes.length} em aberto
+          </span>
+          <span className="text-red-200 tabular-nums">
+            Total: {totalAberto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          </span>
+          {vencMaisAntigo && (
+            <span className="text-red-300/80 text-xs">
+              Mais antigo: {new Date(vencMaisAntigo + "T00:00:00").toLocaleDateString("pt-BR")}
+              {diasAtraso > 0 && ` · ${diasAtraso} dias de atraso`}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Lista de mensalidades */}
+      {mensalidades.length === 0 ? (
+        <p className="text-sm text-slate-500">Nenhuma mensalidade registrada.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[480px] text-left text-xs">
+            <thead>
+              <tr className="text-slate-500">
+                <th className="pb-2 pr-4 font-medium">Competência</th>
+                <th className="pb-2 pr-4 font-medium">Vencimento</th>
+                <th className="pb-2 pr-4 font-medium">Valor</th>
+                <th className="pb-2 pr-4 font-medium">Status</th>
+                <th className="pb-2 font-medium" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-700/50">
+              {sorted.map((m) => (
+                <tr key={m.id} className="group">
+                  <td className="py-2 pr-4 text-slate-300">{formatComp(m.competencia)}</td>
+                  <td className="py-2 pr-4 text-slate-300">
+                    {new Date(m.data + "T00:00:00").toLocaleDateString("pt-BR")}
+                  </td>
+                  <td className="py-2 pr-4 font-medium text-white tabular-nums">
+                    {Number(m.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  </td>
+                  <td className="py-2 pr-4">
+                    <span className={cn(
+                      "chip text-[10px]",
+                      m.status === "pago"
+                        ? "bg-volt-500/15 text-volt-300 border-volt-500/30"
+                        : m.data < hoje
+                        ? "bg-red-500/15 text-red-400 border-red-500/30"
+                        : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                    )}>
+                      {m.status === "pago" ? "pago" : m.data < hoje ? "vencida" : "a vencer"}
+                    </span>
+                  </td>
+                  <td className="py-2 text-right">
+                    {m.status === "pendente" && (
+                      <BotaoPago slug={slug} receitaId={m.id} />
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -4,11 +4,12 @@ import { requireSessao } from "@/lib/auth";
 import {
   getAlunos,
   getCatalogoExercicios,
-  getMensalidadesResumidas,
+  getMensalidadesDetalhadas,
   getPlanos,
   getTodoHistoricoPlanos,
   getTodoProgresso,
   getTodosOsTreinos,
+  type MensalidadeDetalhe,
 } from "@/lib/data";
 import { calcularStatusFinanceiro } from "@/lib/utils";
 import type { StatusFinanceiro } from "@/lib/types";
@@ -29,17 +30,16 @@ export default async function AlunosPage({
       getCatalogoExercicios(),
       getTodoProgresso(sessao.academia.id),
       getTodoHistoricoPlanos(sessao.academia.id),
-      getMensalidadesResumidas(sessao.academia.id),
+      getMensalidadesDetalhadas(sessao.academia.id),
     ]);
 
-  // Agrupa mensalidades por aluno e calcula o statusFinanceiro de cada um.
+  // Agrupa mensalidades por aluno; deriva statusFinanceiro e mapa detalhado da mesma query.
   const statusFinanceiroMap: Record<string, StatusFinanceiro> = {};
-  const porAluno: Record<string, Array<{ status: string; data: string }>> = {};
+  const mensalidadesPorAluno: Record<string, MensalidadeDetalhe[]> = {};
   for (const m of mensalidades) {
-    if (!m.aluno_id) continue;
-    (porAluno[m.aluno_id] ??= []).push({ status: m.status, data: m.data });
+    (mensalidadesPorAluno[m.aluno_id] ??= []).push(m);
   }
-  for (const [alunoId, mens] of Object.entries(porAluno)) {
+  for (const [alunoId, mens] of Object.entries(mensalidadesPorAluno)) {
     statusFinanceiroMap[alunoId] = calcularStatusFinanceiro(mens);
   }
 
@@ -64,6 +64,7 @@ export default async function AlunosPage({
         progresso={progresso}
         historico={historico}
         statusFinanceiroMap={statusFinanceiroMap}
+        mensalidadesPorAluno={mensalidadesPorAluno}
       />
     </div>
   );
