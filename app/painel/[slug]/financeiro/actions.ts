@@ -68,12 +68,20 @@ export async function gerarMensalidades(
 function lerReceita(formData: FormData) {
   const tipo = (formData.get("tipo") as TipoReceita) || "outra";
   const descricaoRaw = String(formData.get("descricao") ?? "").trim();
+  const status = (formData.get("status") as StatusPagamento) || "pendente";
+  const formaPagamento = String(formData.get("forma_pagamento") ?? "").trim();
+  const dataPagamento = String(formData.get("data_pagamento") ?? "").trim();
+  const data = String(formData.get("data") ?? "").trim();
   return {
     tipo,
     descricao: descricaoRaw || TIPOS_RECEITA.find((t) => t.value === tipo)?.label || tipo,
     valor: Number(formData.get("valor") ?? 0) || 0,
-    data: String(formData.get("data") ?? "").trim(),
-    status: (formData.get("status") as StatusPagamento) || "pendente",
+    data,
+    status,
+    // Só faz sentido guardar pagamento em receita paga; se voltar a pendente
+    // ou for cancelada, os campos são limpos.
+    data_pagamento: status === "pago" ? dataPagamento || data : null,
+    forma_pagamento: status === "pago" ? formaPagamento || null : null,
     observacoes: String(formData.get("observacoes") ?? "").trim() || null,
     aluno_id: String(formData.get("aluno_id") ?? "").trim() || null,
   };
@@ -126,19 +134,88 @@ export async function atualizarReceita(
   return { ok: true, savedAt: Date.now() };
 }
 
-/** Marca uma mensalidade como paga diretamente, sem exigir todos os campos do formulário. */
+/**
+ * Marca uma mensalidade como paga sem exigir todos os campos do formulário.
+ * Registra também quando e como foi pago — `data` continua sendo o vencimento,
+ * intocado, para não perder a informação de atraso.
+ */
 export async function marcarPago(
   slug: string,
-  receitaId: string
+  receitaId: string,
+  formaPagamento?: string
 ): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "financeiro");
   const supabase = createClient();
+
+  // Data do pagamento = hoje no fuso da academia.
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
   const { error } = await supabase
     .from("receitas")
-    .update({ status: "pago" })
+    .update({
+      status: "pago",
+      data_pagamento: partes,
+      forma_pagamento: formaPagamento?.trim() || null,
+    })
     .eq("id", receitaId)
     .eq("academia_id", sessao.academia.id);
   if (error) return { erro: `Falha ao marcar como pago: ${error.message}` };
+  revalidatePath(`/painel/${slug}/alunos`);
+  revalidatePath(`/painel/${slug}/financeiro`);
+  revalidatePath(`/painel/${slug}`);
+  return { ok: true, savedAt: Date.now() };
+}
+
+/**
+ * Cancela uma cobrança individualmente, preservando o histórico.
+ * - Status → "cancelada" (não exclui o registro).
+ * - Motivo + timestamp SP + responsável são appended em observacoes.
+ * - Cobranças canceladas são ignoradas nos cálculos financeiros.
+ */
+export async function cancelarCobranca(
+  slug: string,
+  receitaId: string,
+  motivo: string
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "financeiro");
+  if (!motivo.trim()) return { erro: "Informe o motivo do cancelamento." };
+
+  const supabase = createClient();
+
+  const { data: receita, error: errLeitura } = await supabase
+    .from("receitas")
+    .select("observacoes, status")
+    .eq("id", receitaId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+
+  if (errLeitura || !receita) return { erro: "Cobrança não encontrada." };
+  if (receita.status === "cancelada") return { erro: "Cobrança já cancelada." };
+
+  const timestamp = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date());
+
+  const novoObservacoes = [
+    receita.observacoes,
+    `[Cancelada em ${timestamp} por ${sessao.nome}] ${motivo.trim()}`,
+  ].filter(Boolean).join("\n");
+
+  const { error } = await supabase
+    .from("receitas")
+    .update({ status: "cancelada", observacoes: novoObservacoes })
+    .eq("id", receitaId)
+    .eq("academia_id", sessao.academia.id);
+
+  if (error) return { erro: `Falha ao cancelar: ${error.message}` };
+
   revalidatePath(`/painel/${slug}/alunos`);
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);

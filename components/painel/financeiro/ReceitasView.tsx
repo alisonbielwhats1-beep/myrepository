@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useFormState } from "react-dom";
 import { CalendarClock, Loader2, Pencil, Plus } from "lucide-react";
-import { Aluno, Receita, TIPOS_RECEITA } from "@/lib/types";
+import { Aluno, FORMAS_PAGAMENTO, Receita, TIPOS_RECEITA } from "@/lib/types";
 import { cn, formatBRL } from "@/lib/utils";
 import { baixarCSV } from "@/lib/csv";
 import FormActions from "@/components/ui/FormActions";
@@ -249,6 +249,7 @@ function FormularioReceita({
     ? atualizarReceita.bind(null, slug, receitaExistente.id)
     : criarReceita.bind(null, slug);
   const [estado, formAction] = useFormState(acao, {});
+  const [status, setStatus] = useState<string>(receitaExistente?.status ?? "pendente");
 
   useEffect(() => {
     if (estado.ok) onSalvo();
@@ -312,13 +313,40 @@ function FormularioReceita({
         <Field label="Status">
           <select
             name="status"
-            defaultValue={receitaExistente?.status ?? "pendente"}
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
             className="inp"
           >
             <option value="pago">Pago</option>
             <option value="pendente">Pendente</option>
           </select>
         </Field>
+        {status === "pago" && (
+          <>
+            <Field label="Forma de pagamento">
+              <select
+                name="forma_pagamento"
+                defaultValue={receitaExistente?.forma_pagamento ?? ""}
+                className="inp"
+              >
+                <option value="">—</option>
+                {FORMAS_PAGAMENTO.map((f) => (
+                  <option key={f.value} value={f.label}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Data do pagamento">
+              <input
+                name="data_pagamento"
+                type="date"
+                defaultValue={receitaExistente?.data_pagamento ?? hoje}
+                className="inp"
+              />
+            </Field>
+          </>
+        )}
         <Field label="Aluno (opcional)">
           <select
             name="aluno_id"
@@ -354,17 +382,19 @@ function FormularioReceita({
   );
 }
 
-function StatusChip({ status }: { status: "pago" | "pendente" }) {
+function StatusChip({ status }: { status: "pago" | "pendente" | "cancelada" }) {
   return (
     <span
       className={cn(
         "chip",
         status === "pago"
           ? "border-volt-500/30 bg-volt-500/10 text-volt-300"
+          : status === "cancelada"
+          ? "border-slate-500/30 bg-slate-500/10 text-slate-500"
           : "border-amber-500/30 bg-amber-500/10 text-amber-300"
       )}
     >
-      {status === "pago" ? "Pago" : "Pendente"}
+      {status === "pago" ? "Pago" : status === "cancelada" ? "Cancelada" : "Pendente"}
     </span>
   );
 }

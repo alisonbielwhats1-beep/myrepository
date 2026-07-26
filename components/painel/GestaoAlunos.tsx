@@ -23,6 +23,7 @@ import {
 import {
   Aluno,
   CatalogoExercicio,
+  FORMAS_PAGAMENTO,
   HistoricoPlano,
   Plano,
   ProgressoAluno as TipoProgresso,
@@ -44,7 +45,7 @@ import {
   excluirAluno,
   excluirTreino,
 } from "@/app/painel/[slug]/alunos/actions";
-import { marcarPago } from "@/app/painel/[slug]/financeiro/actions";
+import { cancelarCobranca, marcarPago } from "@/app/painel/[slug]/financeiro/actions";
 import type { MensalidadeDetalhe } from "@/lib/data";
 
 export default function GestaoAlunos({
@@ -452,15 +453,109 @@ function formatComp(comp: string | null): string {
 }
 
 function BotaoPago({ slug, receitaId }: { slug: string; receitaId: string }) {
+  const [expandido, setExpandido] = useState(false);
+  const [forma, setForma] = useState("");
   const [pending, start] = useTransition();
+
+  if (!expandido) {
+    return (
+      <button
+        onClick={() => setExpandido(true)}
+        className="rounded-md bg-volt-500/15 px-2 py-1 text-[10px] font-medium text-volt-300 transition hover:bg-volt-500/25"
+      >
+        Marcar pago
+      </button>
+    );
+  }
+
   return (
-    <button
-      disabled={pending}
-      onClick={() => start(async () => { await marcarPago(slug, receitaId); })}
-      className="rounded-md bg-volt-500/15 px-2 py-1 text-[10px] font-medium text-volt-300 transition hover:bg-volt-500/25 disabled:opacity-50"
-    >
-      {pending ? <Loader2 className="inline h-3 w-3 animate-spin" /> : "Marcar pago"}
-    </button>
+    <div className="flex items-center gap-1">
+      <select
+        value={forma}
+        onChange={(e) => setForma(e.target.value)}
+        className="h-6 rounded border border-ink-600 bg-ink-900 px-1 text-[10px] text-slate-200 focus:outline-none"
+        autoFocus
+      >
+        <option value="">Forma…</option>
+        {FORMAS_PAGAMENTO.map((f) => (
+          <option key={f.value} value={f.label}>
+            {f.label}
+          </option>
+        ))}
+      </select>
+      <button
+        disabled={!forma || pending}
+        onClick={() =>
+          start(async () => {
+            await marcarPago(slug, receitaId, forma);
+            setExpandido(false);
+            setForma("");
+          })
+        }
+        title="Confirmar pagamento"
+        className="grid h-6 w-6 place-items-center rounded bg-volt-500/15 text-volt-300 transition hover:bg-volt-500/25 disabled:opacity-40"
+      >
+        {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+      </button>
+      <button
+        onClick={() => { setExpandido(false); setForma(""); }}
+        title="Fechar"
+        className="grid h-6 w-6 place-items-center rounded text-slate-500 transition hover:text-slate-300"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+function BotaoCancelar({ slug, receitaId }: { slug: string; receitaId: string }) {
+  const [expandido, setExpandido] = useState(false);
+  const [motivo, setMotivo] = useState("");
+  const [pending, start] = useTransition();
+
+  if (!expandido) {
+    return (
+      <button
+        onClick={() => setExpandido(true)}
+        className="rounded-md px-2 py-1 text-[10px] font-medium text-slate-500 transition hover:bg-ink-700 hover:text-slate-300"
+      >
+        Cancelar
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="text"
+        placeholder="Motivo…"
+        value={motivo}
+        onChange={(e) => setMotivo(e.target.value)}
+        className="h-6 w-28 rounded border border-ink-600 bg-ink-900 px-1.5 text-[10px] text-slate-200 placeholder-slate-600 focus:outline-none"
+        autoFocus
+      />
+      <button
+        disabled={!motivo.trim() || pending}
+        onClick={() =>
+          start(async () => {
+            await cancelarCobranca(slug, receitaId, motivo.trim());
+            setExpandido(false);
+            setMotivo("");
+          })
+        }
+        title="Confirmar cancelamento"
+        className="grid h-6 w-6 place-items-center rounded bg-red-500/15 text-red-400 transition hover:bg-red-500/25 disabled:opacity-40"
+      >
+        {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+      </button>
+      <button
+        onClick={() => { setExpandido(false); setMotivo(""); }}
+        title="Cancelar"
+        className="grid h-6 w-6 place-items-center rounded text-slate-500 transition hover:text-slate-300"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
   );
 }
 
@@ -577,34 +672,53 @@ function SituacaoFinanceira({
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-700/50">
-              {sorted.map((m) => (
-                <tr key={m.id} className="group">
-                  <td className="py-2 pr-4 text-slate-300">{formatComp(m.competencia)}</td>
-                  <td className="py-2 pr-4 text-slate-300">
-                    {new Date(m.data + "T00:00:00").toLocaleDateString("pt-BR")}
-                  </td>
-                  <td className="py-2 pr-4 font-medium text-white tabular-nums">
-                    {Number(m.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <span className={cn(
-                      "chip text-[10px]",
-                      m.status === "pago"
-                        ? "bg-volt-500/15 text-volt-300 border-volt-500/30"
-                        : m.data < hoje
-                        ? "bg-red-500/15 text-red-400 border-red-500/30"
-                        : "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                    )}>
-                      {m.status === "pago" ? "pago" : m.data < hoje ? "vencida" : "a vencer"}
-                    </span>
-                  </td>
-                  <td className="py-2 text-right">
-                    {m.status === "pendente" && (
-                      <BotaoPago slug={slug} receitaId={m.id} />
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {sorted.map((m) => {
+                const cancelada = m.status === "cancelada";
+                return (
+                  <tr key={m.id} className={cn("group", cancelada && "opacity-50")}>
+                    <td className={cn("py-2 pr-4", cancelada ? "text-slate-600 line-through" : "text-slate-300")}>
+                      {formatComp(m.competencia)}
+                    </td>
+                    <td className={cn("py-2 pr-4", cancelada ? "text-slate-600 line-through" : "text-slate-300")}>
+                      {new Date(m.data + "T00:00:00").toLocaleDateString("pt-BR")}
+                      {m.data_pagamento && (
+                        <span className="block text-[10px] text-volt-300/70">
+                          Pago {new Date(m.data_pagamento + "T00:00:00").toLocaleDateString("pt-BR")}
+                          {m.forma_pagamento && ` · ${m.forma_pagamento}`}
+                        </span>
+                      )}
+                    </td>
+                    <td className={cn("py-2 pr-4 tabular-nums", cancelada ? "text-slate-600 line-through" : "font-medium text-white")}>
+                      {Number(m.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <span className={cn(
+                        "chip text-[10px]",
+                        m.status === "pago"
+                          ? "bg-volt-500/15 text-volt-300 border-volt-500/30"
+                          : m.status === "cancelada"
+                          ? "bg-slate-500/15 text-slate-500 border-slate-500/30"
+                          : m.data < hoje
+                          ? "bg-red-500/15 text-red-400 border-red-500/30"
+                          : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                      )}>
+                        {m.status === "pago" ? "pago"
+                          : m.status === "cancelada" ? "cancelada"
+                          : m.data < hoje ? "vencida"
+                          : "a vencer"}
+                      </span>
+                    </td>
+                    <td className="py-2 text-right">
+                      {m.status === "pendente" && (
+                        <div className="flex items-center justify-end gap-1">
+                          <BotaoPago slug={slug} receitaId={m.id} />
+                          <BotaoCancelar slug={slug} receitaId={m.id} />
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -636,15 +750,38 @@ function FormularioAluno({
   const [estado, formAction] = useFormState(acao, {});
   const [fotoUrl, setFotoUrl] = useState(alunoExistente?.foto_perfil_url ?? "");
 
+  // Controle do plano selecionado (para exibir info de ciclo e pagamento).
+  const [planoSelecionadoId, setPlanoSelecionadoId] = useState(
+    alunoExistente?.plano_id ?? ""
+  );
+  const planoSelecionado = planos.find((p) => p.id === planoSelecionadoId) ?? null;
+  const exibirPagamento =
+    !alunoExistente &&
+    !!planoSelecionado &&
+    planoSelecionado.cobranca_recorrente &&
+    planoSelecionado.valor_mensal > 0;
+
+  const [pagamentoInicial, setPagamentoInicial] = useState<"a_pagar" | "pago_agora">("a_pagar");
+  const [diaVencimento, setDiaVencimento] = useState(
+    alunoExistente?.dia_vencimento ?? Math.min(new Date().getDate(), 28)
+  );
+  const hoje = new Date().toISOString().slice(0, 10);
+  const [dataPagamento, setDataPagamento] = useState(hoje);
+
   useEffect(() => {
     if (estado.ok) {
-      // Recarrega os dados do servidor para que a lista (e o alerta de
-      // condições médicas) já reflita o que foi salvo, e seleciona o aluno.
       router.refresh();
       onSalvo(estado.id ?? alunoExistente?.id ?? "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado.savedAt]);
+
+  // Próxima renovação (exibição — cálculo aproximado no cliente).
+  function proximaRenovacao(meses: number): string {
+    const d = new Date();
+    d.setMonth(d.getMonth() + meses, 1);
+    return d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  }
 
   return (
     <form action={formAction} className="surface rounded-2xl p-5">
@@ -711,20 +848,129 @@ function FormularioAluno({
             />
           </Field>
         </div>
-        <Field label="Plano">
-          <select
-            name="plano_id"
-            defaultValue={alunoExistente?.plano_id ?? ""}
-            className="inp"
-          >
-            <option value="">Nenhum</option>
-            {planos.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Plano">
+            <select
+              name="plano_id"
+              value={planoSelecionadoId}
+              onChange={(e) => {
+                setPlanoSelecionadoId(e.target.value);
+                setPagamentoInicial("a_pagar");
+              }}
+              className="inp"
+            >
+              <option value="">Nenhum</option>
+              {planos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nome}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Dia de vencimento">
+            <input
+              name="dia_vencimento"
+              type="number"
+              min={1}
+              max={28}
+              value={diaVencimento}
+              onChange={(e) =>
+                setDiaVencimento(Math.min(28, Math.max(1, parseInt(e.target.value) || 1)))
+              }
+              className="inp"
+            />
+          </Field>
+        </div>
+
+        {/* Painel de ciclo e pagamento inicial — somente ao cadastrar com plano recorrente */}
+        {exibirPagamento && planoSelecionado && (
+          <div className="rounded-xl border border-ink-600 bg-ink-800/60 p-4 space-y-4">
+            {/* Info do ciclo */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-xs">
+              <div>
+                <p className="label-muted">Valor do plano</p>
+                <p className="mt-0.5 font-semibold text-white">
+                  {planoSelecionado.valor_mensal.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </p>
+              </div>
+              <div>
+                <p className="label-muted">Dia de vencimento</p>
+                <p className="mt-0.5 font-semibold text-white">Dia {diaVencimento}</p>
+              </div>
+              <div>
+                <p className="label-muted">Início do ciclo</p>
+                <p className="mt-0.5 font-semibold text-white">
+                  {new Date().toLocaleDateString("pt-BR")}
+                </p>
+              </div>
+              <div>
+                <p className="label-muted">Próxima renovação</p>
+                <p className="mt-0.5 font-semibold text-white">
+                  {proximaRenovacao(planoSelecionado.recorrencia_meses)}
+                </p>
+              </div>
+            </div>
+
+            {/* Pagamento inicial */}
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-2">Pagamento inicial</p>
+              <input type="hidden" name="pagamento_inicial" value={pagamentoInicial} />
+              <div className="flex gap-3">
+                {(["a_pagar", "pago_agora"] as const).map((op) => (
+                  <label
+                    key={op}
+                    className={cn(
+                      "flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-medium transition",
+                      pagamentoInicial === op
+                        ? op === "pago_agora"
+                          ? "border-volt-500/50 bg-volt-500/10 text-volt-300"
+                          : "border-amber-500/50 bg-amber-500/10 text-amber-300"
+                        : "border-ink-600 bg-ink-800 text-slate-400 hover:border-ink-500"
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      className="sr-only"
+                      checked={pagamentoInicial === op}
+                      onChange={() => setPagamentoInicial(op)}
+                    />
+                    {op === "pago_agora" ? "✓ Pago agora" : "⏳ A pagar"}
+                  </label>
+                ))}
+              </div>
+
+              {pagamentoInicial === "pago_agora" && (
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <Field label="Forma de pagamento">
+                    <select name="forma_pagamento" className="inp" required>
+                      <option value="">Selecione…</option>
+                      {FORMAS_PAGAMENTO.map((f) => (
+                        <option key={f.value} value={f.label}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Data do pagamento">
+                    <input
+                      name="data_pagamento"
+                      type="date"
+                      value={dataPagamento}
+                      onChange={(e) => setDataPagamento(e.target.value)}
+                      max={hoje}
+                      className="inp"
+                      required
+                    />
+                  </Field>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <Field label="Foto de perfil">
           <input type="hidden" name="foto_perfil_url" value={fotoUrl} />
           <ImageUpload

@@ -197,10 +197,13 @@ export type MensalidadeDetalhe = {
   id: string;
   aluno_id: string;
   competencia: string | null;
+  /** Sempre o vencimento. A data do pagamento fica em data_pagamento. */
   data: string;
   valor: number;
   status: string;
   descricao: string;
+  data_pagamento: string | null;
+  forma_pagamento: string | null;
 };
 
 /** Mensalidades com campos completos para exibição na ficha financeira do aluno. */
@@ -210,7 +213,7 @@ export async function getMensalidadesDetalhadas(
   const supabase = createClient();
   const { data, error } = await supabase
     .from("receitas")
-    .select("id, aluno_id, competencia, data, valor, status, descricao")
+    .select("id, aluno_id, competencia, data, valor, status, descricao, data_pagamento, forma_pagamento")
     .eq("academia_id", academiaId)
     .eq("tipo", "mensalidade")
     .not("aluno_id", "is", null)

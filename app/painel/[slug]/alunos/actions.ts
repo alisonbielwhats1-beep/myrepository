@@ -39,8 +39,20 @@ function spCompetencia(): string {
 
 /**
  * Gera a cobrança inicial de um ciclo (criar aluno ou reativar sem ciclo vigente).
- * Sempre tenta inserir uma cobrança para a competência fornecida.
- * Idempotente via índice único uidx_mensalidade_aluno_comp.
+ * Cria no máximo uma cobrança para a competência fornecida.
+ *
+ * Idempotência: `uidx_mensalidade_aluno_comp` é um índice **parcial**
+ * (WHERE tipo = 'mensalidade' AND ...). O PostgREST monta o upsert como
+ * `ON CONFLICT (aluno_id, competencia)` sem repetir o predicado, e o Postgres
+ * não consegue inferir o índice — o upsert falha com 42P10. Por isso fazemos
+ * verificação explícita antes do insert e tratamos a violação de unicidade
+ * (23505, corrida entre duas requisições) como no-op bem-sucedido.
+ *
+ * statusCobranca: "pendente" (a pagar) ou "pago" (pago agora).
+ * dataPagamento: quando pago, a data efetiva do pagamento (YYYY-MM-DD em SP).
+ * formaPagamento: forma usada (pix, dinheiro, etc.) — registrada em observacoes.
+ *
+ * Retorna null em sucesso ou mensagem de erro.
  */
 async function gerarCobrancaInicial(
   supabase: ReturnType<typeof createClient>,
@@ -48,8 +60,11 @@ async function gerarCobrancaInicial(
   alunoId: string,
   planoId: string,
   diaVencimento: number,
-  competencia: string // YYYY-MM-01 no fuso SP
-): Promise<void> {
+  competencia: string, // YYYY-MM-01 no fuso SP
+  statusCobranca: "pago" | "pendente" = "pendente",
+  dataPagamento?: string,
+  formaPagamento?: string
+): Promise<string | null> {
   const { data: plano } = await supabase
     .from("planos")
     .select("nome, valor_mensal, cobranca_recorrente")
@@ -57,26 +72,87 @@ async function gerarCobrancaInicial(
     .eq("academia_id", academiaId)
     .maybeSingle();
 
-  if (!plano || !plano.cobranca_recorrente || plano.valor_mensal <= 0) return;
+  if (!plano || !plano.cobranca_recorrente || plano.valor_mensal <= 0) return null;
 
   const ano = parseInt(competencia.slice(0, 4), 10);
   const mes = parseInt(competencia.slice(5, 7), 10);
   const diaVenc = Math.min(diaVencimento, 28);
-  const vencimento = `${ano}-${String(mes).padStart(2, "0")}-${String(diaVenc).padStart(2, "0")}`;
 
-  await supabase.from("receitas").upsert(
-    {
-      academia_id: academiaId,
-      aluno_id: alunoId,
-      tipo: "mensalidade",
-      descricao: `Mensalidade — ${plano.nome}`,
-      valor: plano.valor_mensal,
-      data: vencimento,
-      competencia,
-      status: "pendente",
-    },
-    { onConflict: "aluno_id,competencia", ignoreDuplicates: true }
-  );
+  // `data` é SEMPRE o vencimento, mesmo quando já pago — a data em que o
+  // dinheiro entrou vai em data_pagamento, coluna própria (migration 027).
+  const vencimento = `${ano}-${String(mes).padStart(2, "0")}-${String(diaVenc).padStart(2, "0")}`;
+  const pago = statusCobranca === "pago";
+
+  // Já existe mensalidade desta competência? Não duplica (qualquer status).
+  const { data: existente, error: errBusca } = await supabase
+    .from("receitas")
+    .select("id")
+    .eq("academia_id", academiaId)
+    .eq("aluno_id", alunoId)
+    .eq("tipo", "mensalidade")
+    .eq("competencia", competencia)
+    .limit(1)
+    .maybeSingle();
+
+  if (errBusca) return errBusca.message;
+  if (existente) return null;
+
+  const { error } = await supabase.from("receitas").insert({
+    academia_id: academiaId,
+    aluno_id: alunoId,
+    tipo: "mensalidade",
+    descricao: `Mensalidade — ${plano.nome}`,
+    valor: plano.valor_mensal,
+    data: vencimento,
+    competencia,
+    status: statusCobranca,
+    data_pagamento: pago ? (dataPagamento ?? spHojeISO()) : null,
+    forma_pagamento: pago ? (formaPagamento ?? null) : null,
+  });
+
+  // 23505 = unique_violation: outra requisição criou a mesma competência
+  // entre a verificação e o insert. O resultado desejado já está no banco.
+  if (error && error.code !== "23505") return error.message;
+  return null;
+}
+
+/**
+ * Retorna true se já existe cobrança (não cancelada) dentro do ciclo vigente,
+ * ou seja, com competência a partir do mês em que o ciclo começou.
+ * Usado na reativação para não repetir a cobrança de um ciclo já cobrado —
+ * e para gerar a que faltou quando o aluno foi cadastrado sem cobrança
+ * (ex.: criado com plano mas status "pendente").
+ */
+async function possuiCobrancaNoCicloAtual(
+  supabase: ReturnType<typeof createClient>,
+  academiaId: string,
+  alunoId: string
+): Promise<boolean> {
+  const { data: hist } = await supabase
+    .from("historico_planos")
+    .select("data_inicio")
+    .eq("aluno_id", alunoId)
+    .eq("academia_id", academiaId)
+    .order("data_inicio", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!hist) return false;
+
+  // Competência do mês em que o ciclo começou (YYYY-MM-01).
+  const competenciaInicio = `${hist.data_inicio.slice(0, 7)}-01`;
+
+  const { data: cobrancas } = await supabase
+    .from("receitas")
+    .select("id")
+    .eq("academia_id", academiaId)
+    .eq("aluno_id", alunoId)
+    .eq("tipo", "mensalidade")
+    .neq("status", "cancelada")
+    .gte("competencia", competenciaInicio)
+    .limit(1);
+
+  return (cobrancas?.length ?? 0) > 0;
 }
 
 /**
@@ -111,13 +187,16 @@ async function cicloVigente(
 }
 
 /**
- * Fecha o registro mais recente em historico_planos que ainda não tem data_fim.
- * Chamado antes de abrir um novo ciclo (renovar ou reativar com novo plano).
+ * Fecha o registro mais recente em historico_planos que ainda não tem data_fim,
+ * gravando por que o ciclo terminou. Chamado ao renovar, trocar de plano,
+ * trancar e cancelar — o `motivo` é o que explica o encerramento no histórico.
+ * Não faz nada se o último registro já estiver fechado.
  */
 async function fecharHistoricoVigente(
   supabase: ReturnType<typeof createClient>,
   academiaId: string,
-  alunoId: string
+  alunoId: string,
+  motivo: string
 ): Promise<void> {
   const { data: ultimo } = await supabase
     .from("historico_planos")
@@ -132,7 +211,7 @@ async function fecharHistoricoVigente(
 
   await supabase
     .from("historico_planos")
-    .update({ data_fim: spHojeISO() })
+    .update({ data_fim: spHojeISO(), motivo })
     .eq("id", ultimo.id)
     .eq("academia_id", academiaId);
 }
@@ -189,6 +268,7 @@ function lerCamposSaude(formData: FormData) {
 /**
  * Registra no histórico o plano que o aluno passou a ter.
  * dataInicio: data em SP (YYYY-MM-DD). Padrão: hoje em SP.
+ * Retorna null em sucesso ou mensagem de erro.
  */
 async function registrarHistoricoPlano(
   supabase: ReturnType<typeof createClient>,
@@ -196,15 +276,16 @@ async function registrarHistoricoPlano(
   alunoId: string,
   planoId: string,
   dataInicio?: string
-): Promise<void> {
-  const { data: plano } = await supabase
+): Promise<string | null> {
+  const { data: plano, error: errPlano } = await supabase
     .from("planos")
     .select("nome, valor_mensal, recorrencia_meses")
     .eq("id", planoId)
     .eq("academia_id", academiaId)
     .maybeSingle();
-  if (!plano) return;
-  await supabase.from("historico_planos").insert({
+  if (errPlano) return errPlano.message;
+  if (!plano) return "Plano não encontrado.";
+  const { error } = await supabase.from("historico_planos").insert({
     academia_id: academiaId,
     aluno_id: alunoId,
     plano_id: planoId,
@@ -213,6 +294,7 @@ async function registrarHistoricoPlano(
     recorrencia_meses: plano.recorrencia_meses,
     data_inicio: dataInicio ?? spHojeISO(),
   });
+  return error ? error.message : null;
 }
 
 export async function criarAluno(
@@ -270,12 +352,35 @@ export async function criarAluno(
   if (error) return { erro: `Falha ao cadastrar aluno: ${error.message}` };
 
   if (planoId && novo) {
+    // Lê campos de pagamento inicial (somente relevantes na criação de novos alunos).
+    const pagamentoInicial = String(formData.get("pagamento_inicial") ?? "a_pagar").trim();
+    const formaPagamento = String(formData.get("forma_pagamento") ?? "").trim() || undefined;
+    const dataPagamentoRaw = String(formData.get("data_pagamento") ?? "").trim();
+    const dataPagamento = dataPagamentoRaw || spHojeISO();
+    const statusCobranca: "pago" | "pendente" =
+      pagamentoInicial === "pago_agora" ? "pago" : "pendente";
+
+    // Compensação: se qualquer etapa falhar após criar o aluno, deleta o aluno
+    // (ON DELETE CASCADE limpa historico_planos automaticamente).
     const competencia = spCompetencia();
-    // data_inicio do ciclo inicial = hoje em SP.
-    await registrarHistoricoPlano(supabase, sessao.academia.id, novo.id, planoId, spHojeISO());
+
+    const errHist = await registrarHistoricoPlano(
+      supabase, sessao.academia.id, novo.id, planoId, spHojeISO()
+    );
+    if (errHist) {
+      await supabase.from("alunos").delete().eq("id", novo.id).eq("academia_id", sessao.academia.id);
+      return { erro: `Falha ao registrar histórico do plano: ${errHist}` };
+    }
+
     if (statusInicial === "ativa") {
-      // Primeira cobrança do ciclo — sempre gera exatamente uma.
-      await gerarCobrancaInicial(supabase, sessao.academia.id, novo.id, planoId, diaVencimento, competencia);
+      const errCobranca = await gerarCobrancaInicial(
+        supabase, sessao.academia.id, novo.id, planoId, diaVencimento,
+        competencia, statusCobranca, dataPagamento, formaPagamento
+      );
+      if (errCobranca) {
+        await supabase.from("alunos").delete().eq("id", novo.id).eq("academia_id", sessao.academia.id);
+        return { erro: `Falha ao gerar cobrança inicial: ${errCobranca}` };
+      }
     }
   }
 
@@ -344,28 +449,47 @@ export async function atualizarAluno(
 
   if (reativando && trocouPlano && planoId) {
     // Reativação com troca de plano: fecha ciclo anterior, abre novo e gera cobrança.
-    await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId);
-    await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId, spHojeISO());
-    await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, planoId, diaVencimento, spCompetencia());
+    await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId, "Troca de plano na reativação");
+    const errHist = await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId, spHojeISO());
+    if (errHist) return { erro: `Falha ao registrar histórico: ${errHist}` };
+    const errCob = await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, planoId, diaVencimento, spCompetencia());
+    if (errCob) return { erro: `Falha ao gerar cobrança: ${errCob}` };
   } else if (reativando && planoId) {
-    // Reativação com mesmo plano: só gera cobrança se ciclo encerrado.
     const vigente = await cicloVigente(supabase, sessao.academia.id, alunoId);
     if (!vigente) {
-      await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, planoId, diaVencimento, spCompetencia());
+      // Ciclo encerrado (ou inexistente): abre um novo ciclo e cobra.
+      await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId, "Ciclo encerrado — reativação");
+      const errHist = await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId, spHojeISO());
+      if (errHist) return { erro: `Falha ao registrar histórico: ${errHist}` };
+      const errCob = await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, planoId, diaVencimento, spCompetencia());
+      if (errCob) return { erro: `Falha ao gerar cobrança: ${errCob}` };
+    } else if (!(await possuiCobrancaNoCicloAtual(supabase, sessao.academia.id, alunoId))) {
+      // Ciclo vigente mas ainda sem cobrança — caso do aluno cadastrado com
+      // plano e status "pendente", que nunca recebeu a cobrança inicial.
+      const errCob = await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, planoId, diaVencimento, spCompetencia());
+      if (errCob) return { erro: `Falha ao gerar cobrança: ${errCob}` };
     }
   } else if (trocouPlano && planoId) {
     // Troca de plano sem reativação: registra histórico, sem gerar cobrança.
-    await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId);
-    await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId, spHojeISO());
+    await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId, "Troca de plano");
+    const errHist = await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId, spHojeISO());
+    if (errHist) return { erro: `Falha ao registrar histórico: ${errHist}` };
   }
   // Edição de dados comuns (nome, email, dia_vencimento etc.) sem troca de status/plano:
   // nenhuma cobrança gerada.
 
-  // Trancando ou cancelando: cancela mensalidades futuras pendentes.
+  // Trancando ou cancelando: encerra o ciclo no histórico (deixando registrado
+  // o porquê) e cancela as mensalidades futuras pendentes.
   if (
     (novoStatus === "trancada" || novoStatus === "cancelada") &&
     statusAnterior === "ativa"
   ) {
+    await fecharHistoricoVigente(
+      supabase,
+      sessao.academia.id,
+      alunoId,
+      novoStatus === "trancada" ? "Matrícula trancada" : "Matrícula cancelada"
+    );
     await cancelarMensalidadesFuturas(supabase, sessao.academia.id, alunoId);
   }
 
@@ -410,13 +534,14 @@ export async function renovarPlano(
 
   if (!jaRenovado) {
     // Fecha somente o histórico vigente mais recente (sem data_fim).
-    await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId);
+    await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId, "Renovação de plano");
     // Cria novo registro para o ciclo que inicia hoje em SP.
     await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, aluno.plano_id, spHojeISO());
   }
 
   // Gera a cobrança do novo ciclo (idempotente via unique index).
-  await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, aluno.plano_id, diaVencimento, competencia);
+  const errCob = await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, aluno.plano_id, diaVencimento, competencia);
+  if (errCob) return { erro: `Falha ao gerar cobrança: ${errCob}` };
 
   revalidatePath(`/painel/${slug}/alunos`);
   return { ok: true };

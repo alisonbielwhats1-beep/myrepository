@@ -306,17 +306,19 @@ function FormularioDespesa({
   );
 }
 
-function StatusChip({ status }: { status: "pago" | "pendente" }) {
+function StatusChip({ status }: { status: "pago" | "pendente" | "cancelada" }) {
   return (
     <span
       className={cn(
         "chip",
         status === "pago"
           ? "border-volt-500/30 bg-volt-500/10 text-volt-300"
+          : status === "cancelada"
+          ? "border-slate-500/30 bg-slate-500/10 text-slate-500"
           : "border-amber-500/30 bg-amber-500/10 text-amber-300"
       )}
     >
-      {status === "pago" ? "Pago" : "Pendente"}
+      {status === "pago" ? "Pago" : status === "cancelada" ? "Cancelada" : "Pendente"}
     </span>
   );
 }

@@ -11,7 +11,7 @@ export type OrigemAcesso = "Direto" | "Gympass" | "TotalPass";
 export type StatusLiberacao = "liberado" | "negado" | "pendente";
 export type StatusFuncionario = "ativo" | "inativo";
 export type TipoReceita = "mensalidade" | "matricula" | "venda_produto" | "outra";
-export type StatusPagamento = "pago" | "pendente";
+export type StatusPagamento = "pago" | "pendente" | "cancelada";
 
 export type StatusIntegracao =
   | "nao_configurada"
@@ -61,6 +61,15 @@ export const TIPOS_RECEITA: { value: TipoReceita; label: string }[] = [
   { value: "matricula", label: "Matrícula" },
   { value: "venda_produto", label: "Venda de produto" },
   { value: "outra", label: "Outra receita" },
+];
+
+export const FORMAS_PAGAMENTO: { value: string; label: string }[] = [
+  { value: "pix", label: "PIX" },
+  { value: "dinheiro", label: "Dinheiro" },
+  { value: "cartao_debito", label: "Cartão de débito" },
+  { value: "cartao_credito", label: "Cartão de crédito" },
+  { value: "transferencia", label: "Transferência bancária" },
+  { value: "boleto", label: "Boleto" },
 ];
 
 export type GrupoMuscular =
@@ -312,9 +321,13 @@ export interface Receita {
   tipo: TipoReceita;
   descricao: string;
   valor: number;
+  /** Sempre a data de vencimento — nunca a data do pagamento. */
   data: string;
   status: StatusPagamento;
   competencia: string | null;
+  /** Quando foi efetivamente pago. Null enquanto pendente ou cancelada. */
+  data_pagamento: string | null;
+  forma_pagamento: string | null;
   observacoes: string | null;
   criado_em: string;
   atualizado_em: string;
