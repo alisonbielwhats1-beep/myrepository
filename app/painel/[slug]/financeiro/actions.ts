@@ -43,24 +43,154 @@ export async function gerarFolha(
  * Gera as mensalidades pendentes do mês para todos os alunos ativos com plano,
  * respeitando a recorrência de cada plano. Idempotente.
  */
+export type PreviaCobrancas = {
+  competencia: string;
+  /** Alunos ativos cujo plano tem cobrança recorrente e valor > 0. */
+  comPlanoAtivo: number;
+  /** Desses, quantos já têm cobrança lançada nesta competência. */
+  jaLancados: number;
+  erro?: string;
+};
+
+/**
+ * Prévia para a confirmação do botão "Gerar cobranças mensais".
+ *
+ * Conta os alunos que a RPC considera (ativo + plano com cobrança recorrente e
+ * valor > 0) e quantos já têm mensalidade nesta competência. Não replica a
+ * regra de ciclo da RPC — planos trimestrais/semestrais só são cobrados no mês
+ * em que o ciclo fecha, então este número é um teto, não uma promessa.
+ */
+export async function previewCobrancasMensais(
+  slug: string,
+  competencia: string
+): Promise<PreviaCobrancas> {
+  const sessao = await requireSecao(slug, "financeiro");
+  const supabase = createClient();
+  const comp = /^\d{4}-\d{2}-\d{2}$/.test(competencia)
+    ? competencia
+    : `${hojeSaoPaulo().slice(0, 7)}-01`;
+
+  const { data: alunos, error } = await supabase
+    .from("alunos")
+    .select("id, plano:planos!inner(valor_mensal, cobranca_recorrente)")
+    .eq("academia_id", sessao.academia.id)
+    .eq("status_matricula", "ativa")
+    .eq("planos.cobranca_recorrente", true)
+    .gt("planos.valor_mensal", 0);
+
+  if (error) {
+    return { competencia: comp, comPlanoAtivo: 0, jaLancados: 0, erro: error.message };
+  }
+
+  const ids = (alunos ?? []).map((a) => a.id);
+  let jaLancados = 0;
+  if (ids.length > 0) {
+    const { count } = await supabase
+      .from("receitas")
+      .select("id", { count: "exact", head: true })
+      .eq("academia_id", sessao.academia.id)
+      .eq("tipo", "mensalidade")
+      .eq("competencia", comp)
+      .in("aluno_id", ids);
+    jaLancados = count ?? 0;
+  }
+
+  return { competencia: comp, comPlanoAtivo: ids.length, jaLancados };
+}
+
+export type ResultadoCobrancas = {
+  erro?: string;
+  criadas?: number;
+  jaExistiam?: number;
+  naoElegiveis?: number;
+};
+
+/**
+ * Executa a RPC gerar_mensalidades_do_mes.
+ *
+ * A RPC cria APENAS lançamentos pendentes — não movimenta dinheiro nem cobra
+ * ninguém. Ela retorna só a quantidade criada, então medimos a situação antes
+ * para conseguir explicar o resto do número ao usuário.
+ */
 export async function gerarMensalidades(
   slug: string,
   competencia: string
-): Promise<{ erro?: string; criadas?: number }> {
+): Promise<ResultadoCobrancas> {
   await requireSecao(slug, "financeiro");
   const supabase = createClient();
   const comp = /^\d{4}-\d{2}-\d{2}$/.test(competencia)
     ? competencia
-    : new Date().toISOString().slice(0, 10);
+    : `${hojeSaoPaulo().slice(0, 7)}-01`;
+
+  const antes = await previewCobrancasMensais(slug, comp);
 
   const { data, error } = await supabase.rpc("gerar_mensalidades_do_mes", {
     p_competencia: comp,
   });
-  if (error) return { erro: `Falha ao gerar mensalidades: ${error.message}` };
+  if (error) return { erro: `Falha ao gerar cobranças: ${error.message}` };
+
+  const criadas = (data as number) ?? 0;
+  // O que sobrou de elegível e não virou cobrança nova é ciclo que ainda não
+  // fechou (trimestral, semestral, anual) ou aluno sem dia de vencimento válido.
+  const naoElegiveis = Math.max(
+    0,
+    antes.comPlanoAtivo - antes.jaLancados - criadas
+  );
 
   revalidatePath(`/painel/${slug}/financeiro`, "layout");
   revalidatePath(`/painel/${slug}`);
-  return { criadas: (data as number) ?? 0 };
+  return { criadas, jaExistiam: antes.jaLancados, naoElegiveis };
+}
+
+/**
+ * Preenche data e forma de pagamento de um lançamento já pago, sem tocar em
+ * valor, competência, vencimento ou status. Usado na correção do histórico.
+ *
+ * Só age sobre lançamento cuja data_pagamento ainda está nula: uma tela aberta
+ * antes de outra pessoa registrar o pagamento não pode sobrescrever a data já
+ * gravada.
+ */
+export async function registrarPagamentoRetroativo(
+  slug: string,
+  tabela: "receitas" | "despesas",
+  id: string,
+  dataPagamento: string,
+  formaPagamento: string
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "financeiro");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataPagamento)) {
+    return { erro: "Informe uma data de pagamento válida." };
+  }
+  if (dataPagamento > hojeSaoPaulo()) {
+    return { erro: "A data de pagamento não pode estar no futuro." };
+  }
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from(tabela)
+    .update({
+      data_pagamento: dataPagamento,
+      forma_pagamento: formaPagamento.trim() || null,
+    })
+    .eq("id", id)
+    .eq("academia_id", sessao.academia.id)
+    .eq("status", "pago")
+    // Só preenche o que está vazio — nunca sobrescreve data já registrada.
+    .is("data_pagamento", null)
+    .select("id");
+
+  if (error) return { erro: `Falha ao salvar: ${error.message}` };
+  if (!data || data.length === 0) {
+    return {
+      erro:
+        "Lançamento não encontrado, não está pago, ou já teve o pagamento " +
+        "registrado por outra pessoa. Atualize a página.",
+    };
+  }
+
+  revalidatePath(`/painel/${slug}/financeiro`, "layout");
+  revalidatePath(`/painel/${slug}`);
+  return { ok: true, savedAt: Date.now() };
 }
 
 /**

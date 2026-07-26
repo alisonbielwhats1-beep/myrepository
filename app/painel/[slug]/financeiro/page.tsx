@@ -7,6 +7,8 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
+import Link from "next/link";
+import Ajuda from "@/components/ui/Ajuda";
 import StatTile from "@/components/painel/StatTile";
 import { GraficoFinanceiroMensal } from "@/components/painel/DashboardCharts";
 import DREResumo from "@/components/painel/financeiro/DREResumo";
@@ -91,56 +93,67 @@ export default async function FinanceiroOverviewPage({
       {(incompletos.receitas > 0 || incompletos.despesas > 0) && (
         <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             {incompletos.receitas > 0 && (
               <p>
-                Existem <b>{incompletos.receitas}</b> receita(s) paga(s) sem data de
-                pagamento ({formatBRL(incompletos.receitasValor)}) e elas não estão
-                incluídas no regime de caixa.
+                <b>{incompletos.receitas}</b> receita(s) paga(s) sem data de pagamento
+                ({formatBRL(incompletos.receitasValor)}) ficam de fora do dinheiro
+                realizado.{" "}
+                <Link
+                  href={`/painel/${params.slug}/financeiro/receitas?status=pago&pagamento=sem_data`}
+                  className="font-medium text-amber-100 underline underline-offset-2 hover:text-white"
+                >
+                  Corrigir agora
+                </Link>
               </p>
             )}
             {incompletos.despesas > 0 && (
               <p>
-                Existem <b>{incompletos.despesas}</b> despesa(s) paga(s) sem data de
-                pagamento ({formatBRL(incompletos.despesasValor)}) e elas não estão
-                incluídas no regime de caixa.
+                <b>{incompletos.despesas}</b> despesa(s) paga(s) sem data de pagamento
+                ({formatBRL(incompletos.despesasValor)}) ficam de fora do dinheiro
+                realizado.{" "}
+                <Link
+                  href={`/painel/${params.slug}/financeiro/despesas?pagamento=sem_data`}
+                  className="font-medium text-amber-100 underline underline-offset-2 hover:text-white"
+                >
+                  Corrigir agora
+                </Link>
               </p>
             )}
-            <p className="text-amber-300/70">
-              Elas continuam visíveis nas tabelas. Informe a data de pagamento ao
-              editar o lançamento para que passem a contar no caixa.
-            </p>
           </div>
         </div>
       )}
 
-      {/* Caixa do período */}
-      <div>
-        <p className="mb-2 text-xs text-slate-500">
-          Regime de caixa · {periodo.label} — considera a data em que o dinheiro
-          entrou ou saiu, não o vencimento.
-        </p>
+      {/* ---------- A. Dinheiro realizado no período ---------- */}
+      <section>
+        <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-white">
+          Dinheiro realizado · {periodo.label}
+          <Ajuda texto="Só o que de fato entrou e saiu no período escolhido, pela data em que o pagamento aconteceu. O vencimento não conta aqui." />
+        </h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatTile
             icon={ArrowUpCircle}
             label="Receita recebida"
             value={formatBRL(caixa.receitaRecebida, { compacto: true })}
-            hint="pagas no período"
+            hint="entrou no período"
             accent="volt"
+            ajuda="Dinheiro que realmente entrou no período."
           />
           <StatTile
             icon={ArrowDownCircle}
             label="Despesa paga"
             value={formatBRL(caixa.despesaPaga, { compacto: true })}
-            hint="pagas no período"
+            hint="saiu no período"
             accent="magenta"
+            ajuda="Dinheiro que realmente saiu no período."
           />
           <StatTile
             icon={Scale}
             label="Resultado do período"
             value={formatBRL(caixa.resultado, { compacto: true })}
-            hint="recebido - pago"
+            hint="recebido − pago"
             accent={caixa.resultado >= 0 ? "volt" : "magenta"}
+            ajuda="Receita recebida menos despesa paga, dentro do período selecionado."
           />
           <StatTile
             icon={Wallet}
@@ -148,20 +161,21 @@ export default async function FinanceiroOverviewPage({
             value={formatBRL(saldo.saldo, { compacto: true })}
             hint={
               saldo.desde
-                ? `no GestAcad desde ${new Date(saldo.desde + "T00:00:00").toLocaleDateString("pt-BR")}`
+                ? `desde ${new Date(saldo.desde + "T00:00:00").toLocaleDateString("pt-BR")}`
                 : "no GestAcad"
             }
             accent="cyan"
+            ajuda="Saldo calculado com os lançamentos conhecidos pelo GestAcad. Não é o saldo da sua conta bancária."
           />
         </div>
-      </div>
+      </section>
 
-      {/* Pendências */}
-      <div>
-        <p className="mb-2 text-xs text-slate-500">
-          Contas em aberto — independem do período selecionado, pois uma dívida
-          antiga continua devida hoje.
-        </p>
+      {/* ---------- B. Contas em aberto ---------- */}
+      <section>
+        <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-white">
+          Contas em aberto
+          <Ajuda texto="Tudo que ainda não foi pago, independente do período escolhido: uma dívida antiga continua em aberto hoje. Canceladas não entram." />
+        </h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
           <StatTile
             icon={ArrowUpCircle}
@@ -169,6 +183,7 @@ export default async function FinanceiroOverviewPage({
             value={formatBRL(aReceber.vencido, { compacto: true })}
             hint={`${aReceber.qtdVencido} cobrança(s)`}
             accent={aReceber.vencido > 0 ? "magenta" : "slate"}
+            ajuda="Cobranças pendentes cujo vencimento já passou."
           />
           <StatTile
             icon={ArrowUpCircle}
@@ -176,6 +191,7 @@ export default async function FinanceiroOverviewPage({
             value={formatBRL(aReceber.futuro, { compacto: true })}
             hint={`${aReceber.qtdFuturo} a vencer`}
             accent="volt"
+            ajuda="Cobranças pendentes que ainda vão vencer."
           />
           <StatTile
             icon={ArrowDownCircle}
@@ -183,6 +199,7 @@ export default async function FinanceiroOverviewPage({
             value={formatBRL(aPagar.vencido, { compacto: true })}
             hint={`${aPagar.qtdVencido} conta(s)`}
             accent={aPagar.vencido > 0 ? "magenta" : "slate"}
+            ajuda="Contas suas que já venceram e ainda não foram pagas."
           />
           <StatTile
             icon={ArrowDownCircle}
@@ -190,46 +207,53 @@ export default async function FinanceiroOverviewPage({
             value={formatBRL(aPagar.futuro, { compacto: true })}
             hint={`${aPagar.qtdFuturo} a vencer`}
             accent="amber"
+            ajuda="Contas suas que ainda vão vencer."
           />
           <StatTile
             icon={TrendingUp}
             label="Saldo projetado"
             value={formatBRL(projecao.projetado, { compacto: true })}
-            hint="registrado + a receber - a pagar"
+            hint="se tudo for pago"
             accent={projecao.projetado >= 0 ? "cyan" : "magenta"}
+            ajuda="Saldo registrado + valores a receber − valores a pagar. É uma projeção: depende de todas as pendências serem recebidas e pagas."
           />
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          {formatBRL(projecao.saldoRegistrado)} registrado ·{" "}
-          <span className="text-volt-300">+{formatBRL(projecao.aReceber)}</span> a
-          receber ·{" "}
-          <span className="text-magenta-400">−{formatBRL(projecao.aPagar)}</span> a
-          pagar =<b className="text-white"> {formatBRL(projecao.projetado)}</b>.
-          É uma projeção potencial: depende de todas as pendências serem
-          efetivamente recebidas e pagas. Canceladas não entram.
+          {formatBRL(projecao.saldoRegistrado)} registrado{" "}
+          <span className="text-volt-300">+ {formatBRL(projecao.aReceber)}</span> a
+          receber{" "}
+          <span className="text-magenta-400">− {formatBRL(projecao.aPagar)}</span> a
+          pagar =<b className="text-white"> {formatBRL(projecao.projetado)}</b>
         </p>
-      </div>
+      </section>
 
-      <div className="surface rounded-2xl p-5">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-volt-300" />
-          <h2 className="font-semibold text-white">Receita x Despesa x Projetado</h2>
+      {/* ---------- C. Análise ---------- */}
+      <section className="space-y-4">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-white">
+          Análise
+          <Ajuda texto="Visões mais detalhadas: a evolução no tempo, o ponto de partida do saldo e o resultado por competência." />
+        </h2>
+
+        <div className="surface rounded-2xl p-5">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-volt-300" />
+            <h3 className="font-semibold text-white">Entradas e saídas no período</h3>
+            <Ajuda texto="As barras mostram o dinheiro que entrou e saiu de fato, pela data de pagamento. A linha tracejada soma a esse resultado o que ainda está pendente com vencimento dentro do período." />
+          </div>
+          <div className="mt-3">
+            <GraficoFinanceiroMensal dados={dadosPeriodo} />
+          </div>
         </div>
-        <p className="mb-2 text-xs text-slate-500">
-          Barras = caixa realizado no período (por data de pagamento) · linha
-          tracejada = resultado do período somado às pendências que vencem nele
-        </p>
-        <GraficoFinanceiroMensal dados={dadosPeriodo} />
-      </div>
 
-      <SaldoInicialCard
-        slug={params.slug}
-        saldoInicial={Number(sessao.academia.saldo_inicial ?? 0)}
-        dataSaldoInicial={sessao.academia.data_saldo_inicial ?? null}
-        desdeEfetivo={saldo.desde}
-      />
+        <SaldoInicialCard
+          slug={params.slug}
+          saldoInicial={Number(sessao.academia.saldo_inicial ?? 0)}
+          dataSaldoInicial={sessao.academia.data_saldo_inicial ?? null}
+          desdeEfetivo={saldo.desde}
+        />
 
-      <DREResumo dre={dre} periodo={periodo.label} />
+        <DREResumo dre={dre} periodo={periodo.label} />
+      </section>
     </div>
   );
 }

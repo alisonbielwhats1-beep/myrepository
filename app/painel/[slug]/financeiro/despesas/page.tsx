@@ -11,7 +11,9 @@ export default async function DespesasPage({
   searchParams,
 }: {
   params: { slug: string };
-  searchParams: { gran?: string; ref?: string; de?: string; ate?: string };
+  searchParams: {
+    gran?: string; ref?: string; de?: string; ate?: string; pagamento?: string;
+  };
 }) {
   const sessao = await requireSessao(params.slug);
   const periodo = resolverPeriodo(searchParams);
@@ -27,6 +29,7 @@ export default async function DespesasPage({
         slug={params.slug}
         despesas={despesas}
         competenciaFolha={competenciaFolha}
+        pagamentoInicial={searchParams.pagamento}
       />
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useFormState } from "react-dom";
-import { CalendarClock, Loader2, Lock, Pencil, Plus } from "lucide-react";
+import { CalendarClock, FilterX, Loader2, Lock, Pencil, Plus } from "lucide-react";
 import { CATEGORIAS_DESPESA, Despesa, FORMAS_PAGAMENTO } from "@/lib/types";
 import { cn, formatBRL, hojeSaoPaulo } from "@/lib/utils";
 import { baixarCSV } from "@/lib/csv";
@@ -18,17 +18,30 @@ import {
 
 export default function DespesasView({
   slug,
-  despesas,
+  despesas: despesasTodas,
   competenciaFolha,
+  pagamentoInicial,
 }: {
   slug: string;
   despesas: Despesa[];
   competenciaFolha: string;
+  pagamentoInicial?: string;
 }) {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [folhaPending, startFolha] = useTransition();
   const [folhaMsg, setFolhaMsg] = useState<string | null>(null);
+  const [pagamento, setPagamento] = useState(pagamentoInicial ?? "todas");
+
+  // Filtro por situação do pagamento — usado pelo aviso da Visão geral, que
+  // linka direto para "Sem data de pagamento".
+  const despesas = despesasTodas.filter((d) => {
+    if (pagamento === "com_data") return !!d.data_pagamento;
+    if (pagamento === "sem_data") return !d.data_pagamento;
+    return true;
+  });
+
+  const corrigindoHistorico = pagamento === "sem_data";
 
   const totalPago = despesas
     .filter((d) => d.status === "pago")
@@ -64,6 +77,38 @@ export default function DespesasView({
           </p>
         </div>
       </div>
+
+      <div className="no-print surface flex flex-wrap items-end justify-between gap-3 rounded-2xl p-4">
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">Pagamento</span>
+          <select
+            value={pagamento}
+            onChange={(e) => setPagamento(e.target.value)}
+            className="inp"
+          >
+            <option value="todas">Todas</option>
+            <option value="com_data">Com data de pagamento</option>
+            <option value="sem_data">Sem data de pagamento</option>
+          </select>
+        </label>
+        <span className="text-xs text-slate-400">
+          <b className="text-white">{despesas.length}</b> de {despesasTodas.length}{" "}
+          lançamento(s) no período
+        </span>
+        {pagamento !== "todas" && (
+          <button onClick={() => setPagamento("todas")} className="btn-ghost h-8 px-3 text-xs">
+            <FilterX className="h-3.5 w-3.5" /> Limpar filtro
+          </button>
+        )}
+      </div>
+
+      {corrigindoHistorico && despesas.length > 0 && (
+        <p className="no-print rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          Lançamentos sem data de pagamento não entram no dinheiro realizado. Edite a
+          despesa e informe a data e a forma — valor, competência e vencimento não são
+          alterados.
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="no-print flex flex-wrap items-center gap-2">

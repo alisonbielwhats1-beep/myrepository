@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, LucideIcon, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Ajuda from "@/components/ui/Ajuda";
 
 export default function StatTile({
   icon: Icon,
@@ -10,12 +11,15 @@ export default function StatTile({
   accent = "volt",
   href,
   delta,
+  ajuda,
 }: {
   icon: LucideIcon;
   label: string;
   value: string;
   hint?: string;
   accent?: "volt" | "magenta" | "cyan" | "slate" | "amber";
+  /** Explicação curta em ícone de ajuda, ao lado do rótulo. */
+  ajuda?: string;
   /** Se informado, o card vira um link clicável para esta rota. */
   href?: string;
   /** Comparativo vs período anterior. `pct` em %, `positivoBom` inverte a cor
@@ -33,7 +37,10 @@ export default function StatTile({
   const conteudo = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <span className="label-muted min-w-0">{label}</span>
+        <span className="label-muted flex min-w-0 items-center gap-1">
+          <span className="truncate">{label}</span>
+          {ajuda && <Ajuda texto={ajuda} />}
+        </span>
         <span
           className={cn(
             "grid h-8 w-8 flex-none place-items-center rounded-xl sm:h-9 sm:w-9",
