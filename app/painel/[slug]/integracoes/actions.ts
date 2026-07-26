@@ -14,6 +14,11 @@ export async function rotarSecretIntegracao(
   plataforma: "gympass" | "totalpass"
 ): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "integracoes");
+
+  if (sessao.academia.is_demo) {
+    return { erro: "Ação indisponível no ambiente de demonstração." };
+  }
+
   const supabase = createClient();
 
   const campo =
@@ -50,6 +55,10 @@ export async function atualizarStatusIntegracao(
   novoStatus: StatusIntegracao
 ): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "integracoes");
+
+  if (sessao.academia.is_demo) {
+    return { erro: "Ação indisponível no ambiente de demonstração." };
+  }
 
   if (!Object.keys(LABELS_STATUS_INTEGRACAO).includes(novoStatus)) {
     return { erro: "Status inválido." };

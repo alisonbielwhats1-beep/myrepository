@@ -1,12 +1,17 @@
 /**
  * Monta um link "click-to-chat" do WhatsApp (wa.me) com mensagem pré-escrita.
  * Normaliza o telefone: só dígitos, com DDI do Brasil (55) quando ausente.
- * Retorna null se o telefone não for utilizável.
+ * Retorna null se o telefone não for utilizável OU se o tenant for demonstração.
+ * A verificação de isDemo aqui é defesa em profundidade — o componente que
+ * chama esta função deve também bloquear a renderização quando isDemo=true.
  */
 export function linkWhats(
   telefone: string | null | undefined,
-  texto: string
+  texto: string,
+  { isDemo = false }: { isDemo?: boolean } = {}
 ): string | null {
+  if (isDemo) return null; // bloqueio de camada de função
+
   const digits = (telefone ?? "").replace(/\D/g, "");
   if (digits.length < 10) return null; // telefone incompleto
 

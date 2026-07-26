@@ -41,6 +41,7 @@ export default async function IntegracoesPage({
         gympassStatus={(data?.gympass_status as StatusIntegracao) ?? "nao_configurada"}
         totalpassSecretMascarado={mascarar(data?.totalpass_webhook_secret)}
         totalpassStatus={(data?.totalpass_status as StatusIntegracao) ?? "nao_configurada"}
+        isDemo={sessao.academia.is_demo}
       />
     </div>
   );

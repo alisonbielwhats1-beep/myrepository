@@ -5,6 +5,7 @@ import { linkWhats, mensagemCobranca } from "@/lib/whats";
  * Botão "Cobrar no WhatsApp": abre o WhatsApp com a mensagem de cobrança já
  * pronta para o telefone do aluno. Grátis, sem API — é só apertar enviar.
  * Se o aluno não tiver telefone válido, não renderiza nada.
+ * No tenant demo (isDemo=true) exibe estado desabilitado sem link externo.
  */
 export default function BotaoCobrancaWhats({
   nome,
@@ -14,6 +15,7 @@ export default function BotaoCobrancaWhats({
   data,
   vencida,
   compacto = false,
+  isDemo = false,
 }: {
   nome: string;
   telefone: string | null | undefined;
@@ -22,9 +24,27 @@ export default function BotaoCobrancaWhats({
   data: string;
   vencida: boolean;
   compacto?: boolean;
+  isDemo?: boolean;
 }) {
+  if (isDemo) {
+    return (
+      <span
+        title="Ação indisponível no ambiente de demonstração"
+        aria-disabled="true"
+        className={
+          compacto
+            ? "inline-flex cursor-not-allowed items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-xs text-slate-600 select-none"
+            : "inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-600 select-none"
+        }
+      >
+        <MessageCircle className={compacto ? "h-3.5 w-3.5" : "h-4 w-4"} />
+        Cobrar
+      </span>
+    );
+  }
+
   const texto = mensagemCobranca({ nome, academia, valor, data, vencida });
-  const href = linkWhats(telefone, texto);
+  const href = linkWhats(telefone, texto, { isDemo });
   if (!href) return null;
 
   return (

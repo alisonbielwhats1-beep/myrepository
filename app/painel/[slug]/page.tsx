@@ -351,6 +351,7 @@ export default async function DashboardOverviewPage({
         inadimplentes={inadimplentes}
         sumidos={sumidos}
         academiaNome={sessao.academia.nome_fantasia}
+        isDemo={sessao.academia.is_demo}
       />
 
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
@@ -408,6 +409,7 @@ export default async function DashboardOverviewPage({
                           data={new Date(r.data + "T00:00:00").toLocaleDateString("pt-BR")}
                           vencida={false}
                           compacto
+                          isDemo={sessao.academia.is_demo}
                         />
                       )}
                     </div>

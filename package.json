@@ -10,7 +10,10 @@
     "lint": "next lint",
     "criar-academia": "node scripts/criar-academia.mjs",
     "criar-usuario": "node scripts/criar-usuario.mjs",
-    "seed-demo": "node scripts/seed-demo.mjs"
+    "seed-demo": "node scripts/seed-demo.mjs",
+    "criar-demo": "node scripts/criar-demo.mjs",
+    "reset-demo": "node scripts/reset-demo.mjs",
+    "remover-demo": "node scripts/remover-demo.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

@@ -89,6 +89,7 @@ function BlocoParceiro({
   status,
   rota,
   plataforma,
+  isDemo = false,
 }: {
   nome: string;
   cor: string;
@@ -97,6 +98,7 @@ function BlocoParceiro({
   status: StatusIntegracao;
   rota: string;
   plataforma: "gympass" | "totalpass";
+  isDemo?: boolean;
 }) {
   const [origem, setOrigem] = useState("");
   const [pendingRotar, startRotar] = useTransition();
@@ -138,6 +140,27 @@ function BlocoParceiro({
   }
 
   const naoAtiva = statusLocal !== "ativa";
+
+  if (isDemo) {
+    return (
+      <div className="surface relative space-y-4 rounded-2xl p-5 opacity-60">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className={`h-2.5 w-2.5 rounded-full ${cor}`} />
+            <h2 className="text-lg font-semibold text-white">{nome}</h2>
+          </div>
+          <span className="rounded-full border border-ink-500 bg-ink-600/60 px-2.5 py-0.5 text-[11px] font-medium text-slate-400">
+            {LABELS_STATUS_INTEGRACAO[statusLocal]}
+          </span>
+        </div>
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-ink-900/70">
+          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-300">
+            Ação indisponível no ambiente de demonstração.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="surface space-y-4 rounded-2xl p-5">
@@ -250,12 +273,14 @@ export default function Integracoes({
   gympassStatus,
   totalpassSecretMascarado,
   totalpassStatus,
+  isDemo = false,
 }: {
   slug: string;
   gympassSecretMascarado: string;
   gympassStatus: StatusIntegracao;
   totalpassSecretMascarado: string;
   totalpassStatus: StatusIntegracao;
+  isDemo?: boolean;
 }) {
   return (
     <div className="space-y-5">
@@ -283,6 +308,7 @@ export default function Integracoes({
         status={gympassStatus}
         rota="gympass"
         plataforma="gympass"
+        isDemo={isDemo}
       />
       <BlocoParceiro
         nome="TotalPass"
@@ -292,6 +318,7 @@ export default function Integracoes({
         status={totalpassStatus}
         rota="totalpass"
         plataforma="totalpass"
+        isDemo={isDemo}
       />
     </div>
   );

@@ -24,11 +24,13 @@ export default function AlertasPainel({
   inadimplentes,
   sumidos,
   academiaNome,
+  isDemo = false,
 }: {
   slug: string;
   inadimplentes: AlertaInadimplente[];
   sumidos: AlertaSumido[];
   academiaNome?: string;
+  isDemo?: boolean;
 }) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -71,6 +73,7 @@ export default function AlertasPainel({
                     }
                     vencida
                     compacto
+                    isDemo={isDemo}
                   />
                 </div>
               </li>

@@ -1,6 +1,7 @@
 import Sidebar from "@/components/painel/Sidebar";
 import NotificationBell from "@/components/painel/NotificationBell";
 import InstallPWA from "@/components/painel/InstallPWA";
+import DemoBanner from "@/components/painel/DemoBanner";
 import { requireSessao } from "@/lib/auth";
 import { getNotificacoes } from "@/lib/data";
 
@@ -17,7 +18,9 @@ export default async function PainelLayout({
   const notificacoes = await getNotificacoes(sessao.academia.id);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-ink-950 bg-grid-fade lg:flex-row">
+    <div className="flex min-h-dvh flex-col bg-ink-950 bg-grid-fade">
+      {sessao.academia.is_demo && <DemoBanner />}
+      <div className="flex flex-1 lg:flex-row">
       <Sidebar
         slug={params.slug}
         academiaNome={sessao.academia.nome_fantasia}
@@ -39,6 +42,7 @@ export default async function PainelLayout({
           {children}
         </div>
       </main>
+      </div>
     </div>
   );
 }
