@@ -12,7 +12,7 @@ export default async function ReceitasPage({
 }: {
   params: { slug: string };
   searchParams: {
-    gran?: string; ref?: string; de?: string; ate?: string;
+    gran?: string; ref?: string; de?: string; ate?: string; periodo?: string;
     aluno?: string; status?: string; pagamento?: string; tipo?: string; q?: string;
   };
 }) {

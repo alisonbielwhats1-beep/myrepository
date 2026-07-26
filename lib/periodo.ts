@@ -14,12 +14,14 @@ export const GRANULARIDADES: { valor: Granularidade; label: string }[] = [
 ];
 
 export interface Periodo {
-  gran: Granularidade | "custom";
+  gran: Granularidade | "custom" | "todos";
   ref: string; // data de referência YYYY-MM-DD
   inicio: string;
   fim: string;
   label: string;
   custom: boolean;
+  /** true quando o filtro está em "todo o período" (?periodo=todos). */
+  todos?: boolean;
 }
 
 function pad(n: number): string {
@@ -50,7 +52,24 @@ export function resolverPeriodo(searchParams: {
   ref?: string;
   de?: string;
   ate?: string;
+  periodo?: string;
 }): Periodo {
+  // "Todo o período": usado pelos atalhos de correção, que precisam alcançar
+  // lançamentos antigos sem o usuário ter que caçar mês a mês.
+  if (searchParams.periodo === "todos") {
+    const hoje = hojeSaoPaulo();
+    const fim = `${Number(hoje.slice(0, 4)) + 1}-12-31`;
+    return {
+      gran: "todos",
+      ref: hoje,
+      inicio: "2000-01-01",
+      fim,
+      label: "todo o período",
+      custom: false,
+      todos: true,
+    };
+  }
+
   // Intervalo personalizado (de/até) tem prioridade sobre a granularidade.
   const deOk =
     searchParams.de && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.de)

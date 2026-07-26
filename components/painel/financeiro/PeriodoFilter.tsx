@@ -27,6 +27,7 @@ export default function PeriodoFilter({ periodo }: { periodo: Periodo }) {
     const p = new URLSearchParams(params.toString());
     p.delete("de");
     p.delete("ate");
+    p.delete("periodo"); // sai de "todo o período" ao escolher uma granularidade
     if (patch.gran) p.set("gran", patch.gran);
     if (patch.ref) p.set("ref", patch.ref);
     startTransition(() => router.push(`${pathname}?${p.toString()}`));
@@ -37,6 +38,7 @@ export default function PeriodoFilter({ periodo }: { periodo: Periodo }) {
     const p = new URLSearchParams(params.toString());
     p.delete("gran");
     p.delete("ref");
+    p.delete("periodo");
     p.set("de", de);
     p.set("ate", ate);
     startTransition(() => router.push(`${pathname}?${p.toString()}`));
@@ -85,7 +87,7 @@ export default function PeriodoFilter({ periodo }: { periodo: Periodo }) {
         </div>
 
         {/* Navegação anterior/seguinte (só nas granularidades fixas) */}
-        {!periodo.custom ? (
+        {!periodo.custom && !periodo.todos ? (
           <div className="inline-flex items-center gap-2">
             <button
               onClick={() => irGran({ ref: deslocar(periodo, -1) })}
@@ -106,7 +108,9 @@ export default function PeriodoFilter({ periodo }: { periodo: Periodo }) {
             </button>
           </div>
         ) : (
-          <span className="text-sm font-semibold text-white">{periodo.label}</span>
+          <span className="text-sm font-semibold capitalize text-white">
+            {periodo.label}
+          </span>
         )}
       </div>
 

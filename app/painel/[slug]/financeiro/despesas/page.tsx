@@ -12,7 +12,8 @@ export default async function DespesasPage({
 }: {
   params: { slug: string };
   searchParams: {
-    gran?: string; ref?: string; de?: string; ate?: string; pagamento?: string;
+    gran?: string; ref?: string; de?: string; ate?: string; periodo?: string;
+    pagamento?: string;
   };
 }) {
   const sessao = await requireSessao(params.slug);

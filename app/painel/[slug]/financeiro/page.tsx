@@ -1,17 +1,10 @@
-import {
-  AlertTriangle,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  BarChart3,
-  Scale,
-  TrendingUp,
-  Wallet,
-} from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Scale, Wallet } from "lucide-react";
 import Link from "next/link";
 import Ajuda from "@/components/ui/Ajuda";
 import StatTile from "@/components/painel/StatTile";
-import { GraficoFinanceiroMensal } from "@/components/painel/DashboardCharts";
+import AvisoLancamentosSemData from "@/components/painel/financeiro/AvisoLancamentosSemData";
 import DREResumo from "@/components/painel/financeiro/DREResumo";
+import GraficoFinanceiro from "@/components/painel/financeiro/GraficoFinanceiro";
 import PeriodoFilter from "@/components/painel/financeiro/PeriodoFilter";
 import SaldoInicialCard from "@/components/painel/financeiro/SaldoInicialCard";
 import UpgradeGuard from "@/components/ui/UpgradeGuard";
@@ -31,7 +24,7 @@ import {
   saldoDoResumo,
 } from "@/lib/financeiro";
 import { resolverPeriodo } from "@/lib/periodo";
-import { formatBRL } from "@/lib/utils";
+import { cn, formatBRL } from "@/lib/utils";
 import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +34,9 @@ export default async function FinanceiroOverviewPage({
   searchParams,
 }: {
   params: { slug: string };
-  searchParams: { gran?: string; ref?: string; de?: string; ate?: string };
+  searchParams: {
+    gran?: string; ref?: string; de?: string; ate?: string; periodo?: string;
+  };
 }) {
   const sessao = await requireSessao(params.slug);
 
@@ -90,52 +85,26 @@ export default async function FinanceiroOverviewPage({
     <div className="space-y-6">
       <PeriodoFilter periodo={periodo} />
 
-      {(incompletos.receitas > 0 || incompletos.despesas > 0) && (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
-          <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
-          <div className="space-y-1.5">
-            {incompletos.receitas > 0 && (
-              <p>
-                <b>{incompletos.receitas}</b> receita(s) paga(s) sem data de pagamento
-                ({formatBRL(incompletos.receitasValor)}) ficam de fora do dinheiro
-                realizado.{" "}
-                <Link
-                  href={`/painel/${params.slug}/financeiro/receitas?status=pago&pagamento=sem_data`}
-                  className="font-medium text-amber-100 underline underline-offset-2 hover:text-white"
-                >
-                  Corrigir agora
-                </Link>
-              </p>
-            )}
-            {incompletos.despesas > 0 && (
-              <p>
-                <b>{incompletos.despesas}</b> despesa(s) paga(s) sem data de pagamento
-                ({formatBRL(incompletos.despesasValor)}) ficam de fora do dinheiro
-                realizado.{" "}
-                <Link
-                  href={`/painel/${params.slug}/financeiro/despesas?pagamento=sem_data`}
-                  className="font-medium text-amber-100 underline underline-offset-2 hover:text-white"
-                >
-                  Corrigir agora
-                </Link>
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+      <AvisoLancamentosSemData
+        slug={params.slug}
+        receitas={incompletos.receitas}
+        receitasValor={incompletos.receitasValor}
+        despesas={incompletos.despesas}
+        despesasValor={incompletos.despesasValor}
+      />
 
-      {/* ---------- A. Dinheiro realizado no período ---------- */}
+      {/* ---------- Os quatro números que importam ---------- */}
       <section>
         <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-white">
-          Dinheiro realizado · {periodo.label}
-          <Ajuda texto="Só o que de fato entrou e saiu no período escolhido, pela data em que o pagamento aconteceu. O vencimento não conta aqui." />
+          Dinheiro que entrou e saiu · <span className="capitalize">{periodo.label}</span>
+          <Ajuda texto="Conta pela data em que o pagamento aconteceu. Uma mensalidade que venceu em julho mas foi paga em agosto aparece em agosto." />
         </h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatTile
             icon={ArrowUpCircle}
             label="Receita recebida"
             value={formatBRL(caixa.receitaRecebida, { compacto: true })}
-            hint="entrou no período"
+            hint="entrou"
             accent="volt"
             ajuda="Dinheiro que realmente entrou no período."
           />
@@ -143,15 +112,15 @@ export default async function FinanceiroOverviewPage({
             icon={ArrowDownCircle}
             label="Despesa paga"
             value={formatBRL(caixa.despesaPaga, { compacto: true })}
-            hint="saiu no período"
+            hint="saiu"
             accent="magenta"
             ajuda="Dinheiro que realmente saiu no período."
           />
           <StatTile
             icon={Scale}
-            label="Resultado do período"
+            label="Resultado"
             value={formatBRL(caixa.resultado, { compacto: true })}
-            hint="recebido − pago"
+            hint="sobrou no período"
             accent={caixa.resultado >= 0 ? "volt" : "magenta"}
             ajuda="Receita recebida menos despesa paga, dentro do período selecionado."
           />
@@ -165,95 +134,86 @@ export default async function FinanceiroOverviewPage({
                 : "no GestAcad"
             }
             accent="cyan"
-            ajuda="Saldo calculado com os lançamentos conhecidos pelo GestAcad. Não é o saldo da sua conta bancária."
+            ajuda="O que o GestAcad conhece de caixa acumulado. Não é o saldo da sua conta no banco."
           />
         </div>
       </section>
 
-      {/* ---------- B. Contas em aberto ---------- */}
+      {/* ---------- O que está em atraso ---------- */}
       <section>
         <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-white">
-          Contas em aberto
-          <Ajuda texto="Tudo que ainda não foi pago, independente do período escolhido: uma dívida antiga continua em aberto hoje. Canceladas não entram." />
-        </h2>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-          <StatTile
-            icon={ArrowUpCircle}
-            label="Vencido a receber"
-            value={formatBRL(aReceber.vencido, { compacto: true })}
-            hint={`${aReceber.qtdVencido} cobrança(s)`}
-            accent={aReceber.vencido > 0 ? "magenta" : "slate"}
-            ajuda="Cobranças pendentes cujo vencimento já passou."
-          />
-          <StatTile
-            icon={ArrowUpCircle}
-            label="Futuro a receber"
-            value={formatBRL(aReceber.futuro, { compacto: true })}
-            hint={`${aReceber.qtdFuturo} a vencer`}
-            accent="volt"
-            ajuda="Cobranças pendentes que ainda vão vencer."
-          />
-          <StatTile
-            icon={ArrowDownCircle}
-            label="Vencido a pagar"
-            value={formatBRL(aPagar.vencido, { compacto: true })}
-            hint={`${aPagar.qtdVencido} conta(s)`}
-            accent={aPagar.vencido > 0 ? "magenta" : "slate"}
-            ajuda="Contas suas que já venceram e ainda não foram pagas."
-          />
-          <StatTile
-            icon={ArrowDownCircle}
-            label="Futuro a pagar"
-            value={formatBRL(aPagar.futuro, { compacto: true })}
-            hint={`${aPagar.qtdFuturo} a vencer`}
-            accent="amber"
-            ajuda="Contas suas que ainda vão vencer."
-          />
-          <StatTile
-            icon={TrendingUp}
-            label="Saldo projetado"
-            value={formatBRL(projecao.projetado, { compacto: true })}
-            hint="se tudo for pago"
-            accent={projecao.projetado >= 0 ? "cyan" : "magenta"}
-            ajuda="Saldo registrado + valores a receber − valores a pagar. É uma projeção: depende de todas as pendências serem recebidas e pagas."
-          />
-        </div>
-        <p className="mt-2 text-xs text-slate-500">
-          {formatBRL(projecao.saldoRegistrado)} registrado{" "}
-          <span className="text-volt-300">+ {formatBRL(projecao.aReceber)}</span> a
-          receber{" "}
-          <span className="text-magenta-400">− {formatBRL(projecao.aPagar)}</span> a
-          pagar =<b className="text-white"> {formatBRL(projecao.projetado)}</b>
-        </p>
-      </section>
-
-      {/* ---------- C. Análise ---------- */}
-      <section className="space-y-4">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-white">
-          Análise
-          <Ajuda texto="Visões mais detalhadas: a evolução no tempo, o ponto de partida do saldo e o resultado por competência." />
+          O que está em atraso
+          <Ajuda texto="Não depende do período escolhido: uma conta de março que ninguém pagou continua em atraso hoje. Cobranças canceladas não entram." />
         </h2>
 
-        <div className="surface rounded-2xl p-5">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-volt-300" />
-            <h3 className="font-semibold text-white">Entradas e saídas no período</h3>
-            <Ajuda texto="As barras mostram o dinheiro que entrou e saiu de fato, pela data de pagamento. A linha tracejada soma a esse resultado o que ainda está pendente com vencimento dentro do período." />
-          </div>
-          <div className="mt-3">
-            <GraficoFinanceiroMensal dados={dadosPeriodo} />
+        <div className="surface grid gap-4 rounded-2xl p-5 sm:grid-cols-3">
+          <Link
+            href={`/painel/${params.slug}/financeiro/receitas?status=pendente`}
+            className="group"
+          >
+            <p className="label-muted">Mensalidades vencidas</p>
+            <p
+              className={cn(
+                "mt-1 text-xl font-bold tabular-nums transition group-hover:underline sm:text-2xl",
+                aReceber.vencido > 0 ? "text-magenta-400" : "text-slate-400"
+              )}
+            >
+              {formatBRL(aReceber.vencido, { compacto: true })}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {aReceber.qtdVencido} cobrança(s) · {formatBRL(aReceber.futuro, { compacto: true })} ainda a vencer
+            </p>
+          </Link>
+
+          <Link
+            href={`/painel/${params.slug}/financeiro/despesas`}
+            className="group"
+          >
+            <p className="label-muted">Contas vencidas</p>
+            <p
+              className={cn(
+                "mt-1 text-xl font-bold tabular-nums transition group-hover:underline sm:text-2xl",
+                aPagar.vencido > 0 ? "text-magenta-400" : "text-slate-400"
+              )}
+            >
+              {formatBRL(aPagar.vencido, { compacto: true })}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {aPagar.qtdVencido} conta(s) · {formatBRL(aPagar.futuro, { compacto: true })} ainda a vencer
+            </p>
+          </Link>
+
+          <div className="sm:border-l sm:border-ink-700 sm:pl-4">
+            <p className="label-muted flex items-center gap-1">
+              Saldo projetado
+              <Ajuda texto="Saldo registrado + tudo a receber − tudo a pagar. Só chega nesse número se todas as pendências forem realmente pagas." />
+            </p>
+            <p
+              className={cn(
+                "mt-1 text-xl font-bold tabular-nums sm:text-2xl",
+                projecao.projetado >= 0 ? "text-cyanx-400" : "text-magenta-400"
+              )}
+            >
+              {formatBRL(projecao.projetado, { compacto: true })}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              se todo mundo pagar em dia
+            </p>
           </div>
         </div>
-
-        <SaldoInicialCard
-          slug={params.slug}
-          saldoInicial={Number(sessao.academia.saldo_inicial ?? 0)}
-          dataSaldoInicial={sessao.academia.data_saldo_inicial ?? null}
-          desdeEfetivo={saldo.desde}
-        />
-
-        <DREResumo dre={dre} periodo={periodo.label} />
       </section>
+
+      {/* ---------- Análise ---------- */}
+      <GraficoFinanceiro dados={dadosPeriodo} periodo={periodo.label} />
+
+      <DREResumo dre={dre} periodo={periodo.label} />
+
+      <SaldoInicialCard
+        slug={params.slug}
+        saldoInicial={Number(sessao.academia.saldo_inicial ?? 0)}
+        dataSaldoInicial={sessao.academia.data_saldo_inicial ?? null}
+        desdeEfetivo={saldo.desde}
+      />
     </div>
   );
 }

@@ -444,6 +444,8 @@ export type PontoFinanceiroMensal = {
   mes: string;
   receita: number;
   despesa: number;
+  /** Receita − despesa do próprio bucket (caixa realizado). */
+  resultado?: number;
   /** Resultado de caixa do bucket somado às pendências que vencem nele. */
   projetado?: number;
 };

@@ -1,4 +1,5 @@
 import { FileText } from "lucide-react";
+import Ajuda from "@/components/ui/Ajuda";
 import { DRE } from "@/lib/financeiro";
 import {
   CATEGORIAS_DESPESA,
@@ -12,18 +13,22 @@ export default function DREResumo({ dre, periodo }: { dre: DRE; periodo: string 
     <div className="surface rounded-2xl p-5">
       <div className="flex items-center gap-2">
         <FileText className="h-4 w-4 text-volt-300" />
-        <h2 className="font-semibold text-white">DRE — regime de competência</h2>
+        <h2 className="font-semibold text-white">Resultado do período</h2>
+        <Ajuda texto="Também chamado de DRE ou regime de competência. Enquanto os cards do topo mostram o dinheiro que passou pelo caixa, aqui cada valor é contado no mês a que se refere — a mensalidade de julho conta em julho, mesmo se o aluno pagar em agosto ou ainda não tiver pago. Lançamentos cancelados ficam de fora." />
       </div>
       <p className="mb-3 text-xs text-slate-500">
-        {periodo} · O regime de competência considera o período ao qual o
-        lançamento pertence, mesmo que o pagamento ainda não tenha ocorrido.
-        Canceladas ficam de fora.
+        <span className="capitalize">{periodo}</span> · o que a academia{" "}
+        <b className="text-slate-400">gerou</b> no período, mesmo que ainda não
+        tenha entrado no caixa.{" "}
+        <span className="text-slate-600">
+          Não é o dinheiro disponível — para isso, veja o saldo registrado.
+        </span>
         {dre.semCompetencia > 0 && (
           <>
             {" "}
             <span className="text-amber-300/80">
-              {dre.semCompetencia} lançamento(s) histórico(s) sem competência
-              definida usaram o mês da data do lançamento.
+              {dre.semCompetencia} lançamento(s) antigo(s) sem mês de referência
+              foram contados pela data do lançamento.
             </span>
           </>
         )}
@@ -32,26 +37,26 @@ export default function DREResumo({ dre, periodo }: { dre: DRE; periodo: string 
       <div className="mb-4 grid gap-2 sm:grid-cols-2">
         <div className="rounded-xl border border-ink-600 bg-ink-900/40 px-3 py-2 text-xs">
           <p className="text-slate-400">
-            Receita por competência:{" "}
+            Receita do período:{" "}
             <b className="text-white">{formatBRL(dre.totalReceita)}</b>
           </p>
           <p className="mt-0.5 text-slate-500">
-            <span className="text-volt-300">{formatBRL(dre.receitaRecebida)}</span>{" "}
-            recebido ·{" "}
+            <span className="text-volt-300">{formatBRL(dre.receitaRecebida)}</span> já
+            recebeu ·{" "}
             <span className="text-amber-300">{formatBRL(dre.receitaAReceber)}</span>{" "}
-            ainda a receber
+            ainda vai receber
           </p>
         </div>
         <div className="rounded-xl border border-ink-600 bg-ink-900/40 px-3 py-2 text-xs">
           <p className="text-slate-400">
-            Despesa por competência:{" "}
+            Despesa do período:{" "}
             <b className="text-white">{formatBRL(dre.totalDespesa)}</b>
           </p>
           <p className="mt-0.5 text-slate-500">
-            <span className="text-magenta-400">{formatBRL(dre.despesaPaga)}</span>{" "}
-            pago ·{" "}
+            <span className="text-magenta-400">{formatBRL(dre.despesaPaga)}</span> já
+            pagou ·{" "}
             <span className="text-amber-300">{formatBRL(dre.despesaAPagar)}</span>{" "}
-            ainda a pagar
+            ainda vai pagar
           </p>
         </div>
       </div>
@@ -119,9 +124,10 @@ export default function DREResumo({ dre, periodo }: { dre: DRE; periodo: string 
       {/* Lucro / margem */}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink-600 bg-ink-900/40 p-4">
         <span className="text-sm font-medium text-slate-300">
-          Resultado por competência
+          Resultado gerado no período
           <span className="mt-0.5 block text-xs font-normal text-slate-500">
-            Não é dinheiro em caixa — parte pode estar a receber.
+            Receita gerada menos despesa gerada. Pode incluir valores ainda não
+            recebidos ou não pagos.
           </span>
         </span>
         <div className="flex items-baseline gap-3">

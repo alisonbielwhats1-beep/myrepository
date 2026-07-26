@@ -343,6 +343,8 @@ export function agruparFinanceiro(
       mes: label,
       receita: paraReais(rc),
       despesa: paraReais(dc),
+      // Caixa realizado do bucket.
+      resultado: paraReais(rc - dc),
       // Resultado de caixa do bucket + o que ainda pode entrar/sair nele.
       projetado: paraReais(rc - dc + rp - dp),
     };
@@ -610,6 +612,7 @@ export function montarSerie(
       mes: diario ? `${dia}/${mes}` : NOMES_MES[Number(mes) - 1] ?? `${mes}/${ano}`,
       receita: paraReais(rc),
       despesa: paraReais(dc),
+      resultado: paraReais(rc - dc),
       projetado: paraReais(rc - dc + rp - dp),
     };
   });

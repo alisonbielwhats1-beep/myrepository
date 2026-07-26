@@ -38,6 +38,7 @@ import { agruparFinanceiro, ultimosMeses } from "@/lib/financeiro";
 import { resolverJanelaDashboard } from "@/lib/periodo";
 import {
   classificarRetencao,
+  cn,
   configRetencaoDe,
   formatBRL,
   hojeSaoPaulo,
@@ -245,23 +246,21 @@ export default async function DashboardOverviewPage({
           hint={`${alunosAtivos} ativos`}
           accent="volt"
         />
-        {verFinanceiro ? (
-          <StatTile
-            icon={AlertTriangle}
-            label="Inadimplentes"
-            value={String(inadimplentes.length)}
-            hint="mensalidade vencida"
-            accent={inadimplentes.length > 0 ? "magenta" : "slate"}
-          />
-        ) : (
-          <StatTile
-            icon={UserX}
-            label="Alunos sumidos"
-            value={String(sumidos.length)}
-            hint={`sem acesso há ${configRetencao.diasSumido}+ dias`}
-            accent={sumidos.length > 0 ? "magenta" : "slate"}
-          />
-        )}
+        <StatTile
+          icon={UserPlus}
+          label="Novos alunos"
+          value={String(novosAlunos)}
+          hint={hintPeriodo}
+          accent="cyan"
+          delta={{ pct: variacao(novosAlunos, novosAlunosAnt) }}
+        />
+        <StatTile
+          icon={UserX}
+          label="Alunos sumidos"
+          value={String(sumidos.length)}
+          hint={`sem acesso há ${configRetencao.diasSumido}+ dias`}
+          accent={sumidos.length > 0 ? "magenta" : "slate"}
+        />
         {verFinanceiro && (
           <StatTile
             icon={UserRound}
@@ -271,63 +270,59 @@ export default async function DashboardOverviewPage({
             accent="cyan"
           />
         )}
-        {verFinanceiro ? (
-          <StatTile
-            icon={Scale}
-            label="Lucro no período"
-            value={formatBRL(lucroPeriodo, { compacto: true })}
-            hint={hintPeriodo}
-            accent={lucroPeriodo >= 0 ? "volt" : "magenta"}
-            href={financeiroHref}
-            delta={{ pct: variacao(lucroPeriodo, lucroAnt) }}
-          />
-        ) : (
-          <StatTile
-            icon={UserPlus}
-            label="Novos alunos"
-            value={String(novosAlunos)}
-            hint={hintPeriodo}
-            accent="cyan"
-            delta={{ pct: variacao(novosAlunos, novosAlunosAnt) }}
-          />
-        )}
       </div>
 
-      {/* KPIs — linha 2 (só para quem vê financeiro) */}
+      {/* Mini resumo financeiro — o detalhe mora no módulo Financeiro */}
       {verFinanceiro && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatTile
-            icon={DollarSign}
-            label="Receita no período"
-            value={formatBRL(receitaPeriodo, { compacto: true })}
-            hint="recebido"
-            accent="volt"
-            href={financeiroHref}
-            delta={{ pct: variacao(receitaPeriodo, receitaAnt) }}
-          />
-          <StatTile
-            icon={TrendingUp}
-            label="Despesa no período"
-            value={formatBRL(despesaPeriodo, { compacto: true })}
-            hint="pago"
-            accent="magenta"
-            href={financeiroHref}
-            delta={{ pct: variacao(despesaPeriodo, despesaAnt), positivoBom: false }}
-          />
-          <StatTile
-            icon={UserPlus}
-            label="Novos alunos"
-            value={String(novosAlunos)}
-            hint={hintPeriodo}
-            accent="cyan"
-          />
-          <StatTile
-            icon={UserX}
-            label="Alunos sumidos"
-            value={String(sumidos.length)}
-            hint={`sem acesso há ${configRetencao.diasSumido}+ dias`}
-            accent={sumidos.length > 0 ? "magenta" : "slate"}
-          />
+        <div className="surface rounded-2xl p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <DollarSign className="h-4 w-4 text-volt-300" />
+              <h2 className="font-semibold text-white">Resumo financeiro</h2>
+              <span className="text-xs text-slate-500">{hintPeriodo}</span>
+            </div>
+            <Link href={financeiroHref} className="btn-ghost">
+              Ver Financeiro completo <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div>
+              <p className="label-muted">Receita</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-volt-300 [overflow-wrap:anywhere] sm:text-2xl">
+                {formatBRL(receitaPeriodo, { compacto: true })}
+              </p>
+            </div>
+            <div>
+              <p className="label-muted">Despesa</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-magenta-400 [overflow-wrap:anywhere] sm:text-2xl">
+                {formatBRL(despesaPeriodo, { compacto: true })}
+              </p>
+            </div>
+            <div>
+              <p className="label-muted">Resultado</p>
+              <p
+                className={cn(
+                  "mt-1 text-xl font-bold tabular-nums [overflow-wrap:anywhere] sm:text-2xl",
+                  lucroPeriodo >= 0 ? "text-white" : "text-magenta-400"
+                )}
+              >
+                {formatBRL(lucroPeriodo, { compacto: true })}
+              </p>
+            </div>
+            <div>
+              <p className="label-muted">Inadimplentes</p>
+              <p
+                className={cn(
+                  "mt-1 text-xl font-bold tabular-nums sm:text-2xl",
+                  inadimplentes.length > 0 ? "text-magenta-400" : "text-slate-400"
+                )}
+              >
+                {inadimplentes.length}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">com mensalidade vencida</p>
+            </div>
+          </div>
         </div>
       )}
 

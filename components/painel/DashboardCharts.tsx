@@ -198,11 +198,15 @@ export function GraficoFaturamento({ dados }: { dados: PontoFaturamento[] }) {
 /** Barras lado a lado: receita paga vs. despesa paga por mês. */
 export function GraficoFinanceiroMensal({
   dados,
+  mostrarProjetado = false,
 }: {
   dados: PontoFinanceiroMensal[];
+  /** Linha de saldo projetado — desligada por padrão para não poluir a leitura. */
+  mostrarProjetado?: boolean;
 }) {
   const volt = useCorTema("--volt-300", "#adff42");
-  const temProjetado = dados.some((d) => d.projetado !== undefined);
+  const temResultado = dados.some((d) => d.resultado !== undefined);
+  const temProjetado = mostrarProjetado && dados.some((d) => d.projetado !== undefined);
   return (
     <ResponsiveContainer width="100%" height={280}>
       <ComposedChart data={dados} margin={{ left: -8, right: 8, top: 8 }}>
@@ -230,14 +234,24 @@ export function GraficoFinanceiroMensal({
         <ReferenceLine y={0} stroke="#334155" />
         <Bar dataKey="receita" name="Receita" radius={[6, 6, 0, 0]} fill={volt} />
         <Bar dataKey="despesa" name="Despesa" radius={[6, 6, 0, 0]} fill="#f81cc0" />
+        {temResultado && (
+          <Line
+            type="monotone"
+            dataKey="resultado"
+            name="Resultado"
+            stroke="#e2e8f0"
+            strokeWidth={2.5}
+            dot={{ r: 3, fill: "#e2e8f0" }}
+          />
+        )}
         {temProjetado && (
           <Line
             type="monotone"
             dataKey="projetado"
             name="Saldo projetado"
             stroke="#22d3ee"
-            strokeWidth={2.5}
-            dot={{ r: 3, fill: "#22d3ee" }}
+            strokeWidth={2}
+            dot={{ r: 2.5, fill: "#22d3ee" }}
             strokeDasharray="5 4"
           />
         )}
