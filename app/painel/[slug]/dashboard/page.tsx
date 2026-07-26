@@ -90,6 +90,8 @@ export default async function RelatoriosPage({
   for (const a of acessos) {
     const dia = a.data_hora_entrada.slice(0, 10);
     if (dia < seteDiasAtras) continue;
+    // Acesso negado não entra no faturamento de repasse.
+    if (a.status_liberacao === "negado") continue;
     repassePorDia.set(dia, (repassePorDia.get(dia) ?? 0) + (a.valor_repasse ?? 0));
   }
   const receitaPorDia = new Map<string, number>();

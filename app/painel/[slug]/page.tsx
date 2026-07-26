@@ -36,7 +36,7 @@ import {
 } from "@/lib/data";
 import { agruparFinanceiro, ultimosMeses } from "@/lib/financeiro";
 import { resolverJanelaDashboard } from "@/lib/periodo";
-import { formatBRL } from "@/lib/utils";
+import { formatBRL, hojeSaoPaulo } from "@/lib/utils";
 import { planoPodeAcessar } from "@/lib/planos";
 
 export default async function DashboardOverviewPage({
@@ -60,8 +60,12 @@ export default async function DashboardOverviewPage({
     getAlunosSumidos(sessao.academia.id, 14),
   ]);
 
-  const hojeIso = new Date().toISOString().slice(0, 10);
-  const em14dias = new Date(Date.now() + 14 * 86400_000).toISOString().slice(0, 10);
+  // Vencimento sempre comparado em America/Sao_Paulo, igual à ficha do aluno,
+  // às notificações e à decisão de acesso da recepção.
+  const hojeIso = hojeSaoPaulo();
+  const em14dias = new Date(`${hojeIso}T00:00:00Z`);
+  em14dias.setUTCDate(em14dias.getUTCDate() + 14);
+  const em14diasIso = em14dias.toISOString().slice(0, 10);
   const nomePorAlunoId = new Map(alunos.map((a) => [a.id, a.nome]));
   const alunosAtivos = alunos.filter((a) => a.status_matricula === "ativa").length;
   const funcionariosAtivos = funcionarios.filter((f) => f.status === "ativo").length;
@@ -103,7 +107,7 @@ export default async function DashboardOverviewPage({
 
     proximosVencimentos.push(
       ...receitas
-        .filter((r) => r.status === "pendente" && r.data >= hojeIso && r.data <= em14dias)
+        .filter((r) => r.status === "pendente" && r.data >= hojeIso && r.data <= em14diasIso)
         .sort((a, b) => a.data.localeCompare(b.data))
         .slice(0, 8)
     );

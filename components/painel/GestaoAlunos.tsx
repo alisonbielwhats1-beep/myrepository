@@ -31,7 +31,12 @@ import {
   StatusMatricula,
   Treino,
 } from "@/lib/types";
-import { badgeStatusFinanceiro, badgeStatusMatricula, cn } from "@/lib/utils";
+import {
+  badgeStatusFinanceiro,
+  badgeStatusMatricula,
+  cn,
+  hojeSaoPaulo,
+} from "@/lib/utils";
 import { origemPublica } from "@/lib/site-url";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
@@ -574,7 +579,8 @@ function SituacaoFinanceira({
   mensalidades: MensalidadeDetalhe[];
   statusFinanceiro: StatusFinanceiro | undefined;
 }) {
-  const hoje = new Date().toISOString().slice(0, 10);
+  // Mesma referência de data da regra financeira e da decisão de acesso.
+  const hoje = hojeSaoPaulo();
   const pendentes = mensalidades.filter((m) => m.status === "pendente");
   const totalAberto = pendentes.reduce((s, m) => s + Number(m.valor), 0);
   const vencMaisAntigo = pendentes.length

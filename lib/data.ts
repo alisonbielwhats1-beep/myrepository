@@ -3,6 +3,7 @@
 // banco garante que só os dados da academia do admin autenticado voltam.
 
 import { createClient } from "./supabase/server";
+import { hojeSaoPaulo } from "./utils";
 import {
   AcademiaPublica,
   AcessoCatraca,
@@ -341,7 +342,8 @@ export async function getNotificacoes(
   academiaId: string
 ): Promise<Notificacoes> {
   const supabase = createClient();
-  const hoje = new Date().toISOString().slice(0, 10);
+  // Mesma referência de data usada na ficha do aluno e na recepção.
+  const hoje = hojeSaoPaulo();
 
   const [inadRes, feedRes, prodRes] = await Promise.all([
     supabase

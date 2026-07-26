@@ -1,4 +1,12 @@
-import { OrigemAcesso, StatusFinanceiro, StatusMatricula } from "./types";
+import {
+  DecisaoAcesso,
+  MensalidadeParaAcesso,
+  OrigemAcesso,
+  PoliticaInadimplencia,
+  ResultadoAcesso,
+  StatusFinanceiro,
+  StatusMatricula,
+} from "./types";
 
 /** Formata um número como moeda brasileira (BRL).
  *  compacto=true → sem casas decimais (para KPIs e totais de dashboard). */
@@ -69,19 +77,37 @@ export function badgeStatusMatricula(status: StatusMatricula): string {
 }
 
 /**
+ * Data de hoje (YYYY-MM-DD) no fuso da academia.
+ *
+ * HELPER CENTRAL DE DATA. Toda comparação de vencimento — ficha do aluno,
+ * financeiro, notificações e recepção — precisa passar por aqui. Usar
+ * `new Date().toISOString()` compara em UTC e, entre 21h e meia-noite no
+ * horário de Brasília, já contabiliza o dia seguinte: uma cobrança que vence
+ * hoje apareceria como vencida antes do fim do dia.
+ */
+export function hojeSaoPaulo(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/**
  * Calcula o status financeiro do aluno a partir de suas mensalidades.
  * Recebe apenas os campos necessários para evitar over-fetch.
  *
- * Regra MVP (Fase 5 adicionará tolerância configurável):
+ * Datas comparadas sempre em America/Sao_Paulo (ver `hojeSaoPaulo`):
  *  - Sem mensalidades → "em_dia"
  *  - Existe pendente com data > hoje → "em_dia"  (ainda não venceu)
- *  - Existe pendente com data === hoje → "pendente"
+ *  - Existe pendente com data === hoje → "pendente" (vence hoje, não é atraso)
  *  - Existe pendente com data < hoje → "inadimplente"
  */
 export function calcularStatusFinanceiro(
   mensalidades: Array<{ status: string; data: string }>
 ): StatusFinanceiro {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeSaoPaulo();
   const pendentes = mensalidades.filter((m) => m.status === "pendente");
   if (pendentes.length === 0) return "em_dia";
   const vencidas = pendentes.filter((m) => m.data < hoje);
@@ -90,28 +116,115 @@ export function calcularStatusFinanceiro(
   return venceHoje ? "pendente" : "em_dia";
 }
 
+const MOTIVOS_CADASTRAIS: Record<string, string> = {
+  pendente: "Matrícula pendente — plano não confirmado",
+  trancada: "Matrícula trancada",
+  cancelada: "Matrícula cancelada",
+  inativa: "Matrícula inativa",
+};
+
 /**
- * Decide se o acesso deve ser liberado com base no status cadastral.
- * Fase 5 receberá statusFinanceiro + política configurável como parâmetros.
- * Por enquanto: apenas status_matricula === "ativa" libera.
+ * ÚNICO lugar que decide acesso. Recepção manual, Gympass/Wellhub e TotalPass
+ * apenas reúnem os dados, chamam esta função e gravam o retorno — nenhuma rota
+ * reimplementa a regra.
+ *
+ * Ordem da decisão:
+ *   1. Status cadastral. Qualquer coisa diferente de "ativa" bloqueia, e a
+ *      política financeira nem chega a ser consultada — cadastro e finanças
+ *      permanecem separados.
+ *   2. Só com matrícula ativa a situação financeira é avaliada.
+ *   3. Conta como vencida apenas mensalidade com status "pendente" e vencimento
+ *      anterior a hoje em America/Sao_Paulo. Paga, cancelada e futura ficam de
+ *      fora por construção.
+ *   4. Havendo vencidas, a mais antiga vira a referência (dias de atraso,
+ *      competência e vencimento) e a política da academia decide o resultado.
+ *
+ * Nenhuma cobrança é alterada aqui — a função é somente de leitura.
  */
-export function decidirAcesso(statusCadastral: StatusMatricula): {
-  liberado: boolean;
-  observacao: string | null;
-} {
-  if (statusCadastral === "ativa") {
-    return { liberado: true, observacao: null };
+export function decidirAcesso(
+  statusCadastral: StatusMatricula,
+  politica: PoliticaInadimplencia = "liberar",
+  mensalidades: MensalidadeParaAcesso[] = []
+): DecisaoAcesso {
+  const semFinanceiro = {
+    politicaAplicada: null,
+    mensalidadeId: null,
+    competencia: null,
+    vencimento: null,
+    diasAtraso: 0,
+    quantidadeVencida: 0,
+    totalVencido: 0,
+  } as const;
+
+  // 1. Regra cadastral, inalterada desde a Fase 4.
+  if (statusCadastral !== "ativa") {
+    return {
+      resultado: "bloqueado",
+      motivo: MOTIVOS_CADASTRAIS[statusCadastral] ?? "Matrícula não está ativa",
+      ...semFinanceiro,
+    };
   }
-  const motivos: Record<string, string> = {
-    pendente: "Matrícula pendente — plano não confirmado",
-    trancada: "Matrícula trancada",
-    cancelada: "Matrícula cancelada",
-    inativa: "Matrícula inativa",
+
+  // 2 e 3. Só mensalidade pendente e já vencida entra na conta.
+  const hoje = hojeSaoPaulo();
+  const vencidas = mensalidades
+    .filter((m) => m.status === "pendente" && m.data < hoje)
+    .sort((a, b) => a.data.localeCompare(b.data));
+
+  if (vencidas.length === 0) {
+    return { resultado: "liberado", motivo: null, ...semFinanceiro };
+  }
+
+  // 4. A mais antiga é a referência.
+  const maisAntiga = vencidas[0];
+  const diasAtraso = Math.floor(
+    (Date.parse(`${hoje}T00:00:00Z`) - Date.parse(`${maisAntiga.data}T00:00:00Z`)) /
+      86_400_000
+  );
+  const totalVencido = vencidas.reduce((s, m) => s + Number(m.valor), 0);
+
+  const financeiro = {
+    politicaAplicada: politica,
+    mensalidadeId: maisAntiga.id,
+    competencia: maisAntiga.competencia,
+    vencimento: maisAntiga.data,
+    diasAtraso,
+    quantidadeVencida: vencidas.length,
+    totalVencido,
   };
+
+  const resumo =
+    `${vencidas.length} mensalidade(s) vencida(s) — ` +
+    `${formatBRL(totalVencido)}, ${diasAtraso} dia(s) de atraso`;
+
+  if (politica === "bloquear") {
+    return {
+      resultado: "bloqueado",
+      motivo: `Acesso bloqueado pela política da academia: ${resumo}`,
+      ...financeiro,
+    };
+  }
+
+  if (politica === "alertar") {
+    return { resultado: "alerta", motivo: resumo, ...financeiro };
+  }
+
+  // "liberar": entra normalmente; o motivo fica no histórico apenas como registro.
   return {
-    liberado: false,
-    observacao: motivos[statusCadastral] ?? "Matrícula não está ativa",
+    resultado: "liberado",
+    motivo: `Liberado pela política da academia: ${resumo}`,
+    ...financeiro,
   };
+}
+
+/** Mapeia o resultado da decisão para o enum gravado em acessos_catraca. */
+export function statusLiberacaoDe(resultado: ResultadoAcesso):
+  | "liberado"
+  | "alerta"
+  | "negado" {
+  if (resultado === "liberado") return "liberado";
+  if (resultado === "alerta") return "alerta";
+  return "negado";
 }
 
 /** Classe de badge por status financeiro. */

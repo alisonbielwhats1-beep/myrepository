@@ -5,7 +5,7 @@ import { requireSecao } from "@/lib/auth"
 import type { EstadoAcao } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { OrigemAcesso } from "@/lib/types";
-import { decidirAcesso } from "@/lib/utils";
+import { decidirAcesso, statusLiberacaoDe } from "@/lib/utils";
 
 const REPASSE_POR_ORIGEM: Record<OrigemAcesso, number> = {
   Direto: 0,
@@ -35,20 +35,42 @@ export async function registrarAcesso(
 
   if (!aluno) return { erro: "Aluno não encontrado." };
 
-  const { liberado, observacao } = decidirAcesso(aluno.status_matricula);
+  // Mensalidades pendentes do aluno. A filtragem do que conta como vencido
+  // (e o que é futuro, pago ou cancelado) é responsabilidade de decidirAcesso.
+  const { data: mensalidades } = await supabase
+    .from("receitas")
+    .select("id, competencia, data, valor, status")
+    .eq("academia_id", sessao.academia.id)
+    .eq("aluno_id", alunoId)
+    .eq("tipo", "mensalidade")
+    .eq("status", "pendente");
+
+  const decisao = decidirAcesso(
+    aluno.status_matricula,
+    sessao.academia.politica_inadimplencia ?? "liberar",
+    mensalidades ?? []
+  );
 
   const { error } = await supabase.from("acessos_catraca").insert({
     academia_id: sessao.academia.id,
     aluno_id: alunoId,
     origem,
-    valor_repasse: REPASSE_POR_ORIGEM[origem],
-    status_liberacao: liberado ? "liberado" : "negado",
-    observacao,
+    // Entrada bloqueada fica no histórico, mas sem efeito financeiro: não houve
+    // uso da academia, logo não há repasse a receber. "alerta" é entrada
+    // permitida e mantém o repasse normal.
+    valor_repasse:
+      decisao.resultado === "bloqueado" ? 0 : REPASSE_POR_ORIGEM[origem],
+    status_liberacao: statusLiberacaoDe(decisao.resultado),
+    observacao: decisao.motivo,
+    politica_aplicada: decisao.politicaAplicada,
+    mensalidade_id: decisao.mensalidadeId,
+    dias_atraso: decisao.diasAtraso,
+    registrado_por: sessao.userId,
   });
 
   if (error) return { erro: `Falha ao registrar acesso: ${error.message}` };
 
   revalidatePath(`/painel/${slug}/recepcao`);
   revalidatePath(`/painel/${slug}`);
-  return { ok: true, savedAt: Date.now() };
+  return { ok: true, savedAt: Date.now(), decisao };
 }

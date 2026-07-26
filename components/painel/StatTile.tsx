@@ -15,7 +15,7 @@ export default function StatTile({
   label: string;
   value: string;
   hint?: string;
-  accent?: "volt" | "magenta" | "cyan" | "slate";
+  accent?: "volt" | "magenta" | "cyan" | "slate" | "amber";
   /** Se informado, o card vira um link clicável para esta rota. */
   href?: string;
   /** Comparativo vs período anterior. `pct` em %, `positivoBom` inverte a cor
@@ -27,6 +27,7 @@ export default function StatTile({
     magenta: "text-magenta-400 bg-magenta-500/10",
     cyan: "text-cyanx-400 bg-cyanx-500/10",
     slate: "text-slate-300 bg-ink-700",
+    amber: "text-amber-300 bg-amber-500/10",
   } as const;
 
   const conteudo = (

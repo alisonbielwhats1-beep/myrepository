@@ -1,4 +1,4 @@
-import { Clock3, DoorOpen, UserCheck, Wallet } from "lucide-react";
+import { Clock3, DoorOpen, ShieldAlert, UserCheck, Wallet } from "lucide-react";
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import CatracaLog from "@/components/painel/CatracaLog";
 import StatTile from "@/components/painel/StatTile";
@@ -21,11 +21,20 @@ export default async function RecepcaoPage({
   const acessosHoje = acessos.filter(
     (a) => new Date(a.data_hora_entrada).toDateString() === hoje
   );
-  const liberadosHoje = acessosHoje.filter(
-    (a) => a.status_liberacao === "liberado"
+  // "alerta" é entrada PERMITIDA — conta como liberado e ainda tem contagem própria.
+  const alertasHoje = acessosHoje.filter(
+    (a) => a.status_liberacao === "alerta"
   ).length;
+  const permitidosHoje = acessosHoje.filter(
+    (a) => a.status_liberacao === "liberado" || a.status_liberacao === "alerta"
+  ).length;
+  const negadosHoje = acessosHoje.filter(
+    (a) => a.status_liberacao === "negado"
+  ).length;
+  // Acesso negado não gera repasse. O filtro também protege o número de
+  // registros antigos, gravados antes de o bloqueio zerar o valor na escrita.
   const repasseHoje = acessosHoje.reduce(
-    (acc, a) => acc + (a.valor_repasse ?? 0),
+    (acc, a) => acc + (a.status_liberacao === "negado" ? 0 : a.valor_repasse ?? 0),
     0
   );
   const ativos = alunos.filter((a) => a.status_matricula === "ativa").length;
@@ -55,13 +64,20 @@ export default async function RecepcaoPage({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatTile
           icon={DoorOpen}
           label="Acessos hoje"
           value={String(acessosHoje.length)}
-          hint={`${liberadosHoje} liberados`}
+          hint={`${permitidosHoje} permitidos · ${negadosHoje} negados`}
           accent="volt"
+        />
+        <StatTile
+          icon={ShieldAlert}
+          label="Com alerta hoje"
+          value={String(alertasHoje)}
+          hint="entraram devendo"
+          accent="amber"
         />
         <StatTile
           icon={UserCheck}

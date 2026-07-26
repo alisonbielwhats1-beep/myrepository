@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import Image from "next/image";
 import {
+  AlertTriangle,
   CheckCircle2,
   DoorOpen,
   Loader2,
@@ -13,8 +14,8 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { AcessoCatraca, Aluno } from "@/lib/types";
-import { CORES_ORIGEM, cn, formatHora, timeAgo } from "@/lib/utils";
+import { AcessoCatraca, Aluno, DecisaoAcesso } from "@/lib/types";
+import { CORES_ORIGEM, cn, formatBRL, formatHora, timeAgo } from "@/lib/utils";
 import { registrarAcesso } from "@/app/painel/[slug]/recepcao/actions";
 
 /** Log de acessos da catraca — lista real, com registro manual de entrada. */
@@ -64,7 +65,9 @@ export default function CatracaLog({
 
       <ul className="divide-y divide-ink-700/70">
         {acessosIniciais.map((a) => {
-          const liberado = a.status_liberacao === "liberado";
+          const alerta = a.status_liberacao === "alerta";
+          // "alerta" é entrada permitida — não pode aparecer como negada.
+          const liberado = a.status_liberacao === "liberado" || alerta;
           return (
             <li
               key={a.id}
@@ -108,24 +111,37 @@ export default function CatracaLog({
                 </div>
               </div>
 
-              <span
-                className={cn(
-                  "chip",
-                  liberado
-                    ? "border-volt-500/30 bg-volt-500/10 text-volt-300"
-                    : "border-red-500/30 bg-red-500/10 text-red-400"
-                )}
-              >
-                {liberado ? (
-                  <>
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Liberado
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-3.5 w-3.5" /> Negado
-                  </>
-                )}
-              </span>
+              <div className="flex flex-col items-end gap-1">
+                <span
+                  className={cn(
+                    "chip",
+                    alerta
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                      : liberado
+                      ? "border-volt-500/30 bg-volt-500/10 text-volt-300"
+                      : "border-red-500/30 bg-red-500/10 text-red-400"
+                  )}
+                >
+                  {alerta ? (
+                    <>
+                      <AlertTriangle className="h-3.5 w-3.5" /> Alerta
+                    </>
+                  ) : liberado ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Liberado
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-3.5 w-3.5" /> Negado
+                    </>
+                  )}
+                </span>
+                {a.dias_atraso ? (
+                  <span className="text-[10px] text-slate-500">
+                    {a.dias_atraso} dia(s) de atraso
+                  </span>
+                ) : null}
+              </div>
             </li>
           );
         })}
@@ -153,8 +169,10 @@ function FormularioAcesso({
   const acao = registrarAcesso.bind(null, slug);
   const [estado, formAction] = useFormState(acao, {});
 
+  // Só fecha o formulário quando a entrada foi liberada sem ressalva. Com alerta
+  // ou bloqueio, o painel permanece aberto para a recepção ler o motivo.
   useEffect(() => {
-    if (estado.ok) onSalvo();
+    if (estado.ok && estado.decisao?.resultado === "liberado") onSalvo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado.savedAt]);
 
@@ -168,6 +186,8 @@ function FormularioAcesso({
           {estado.erro}
         </p>
       )}
+
+      {estado.decisao && <PainelDecisao decisao={estado.decisao} />}
       <label className="min-w-[220px] flex-1">
         <span className="mb-1 block text-xs font-medium text-slate-400">
           Aluno
@@ -195,6 +215,97 @@ function FormularioAcesso({
       </label>
       <BotaoRegistrar />
     </form>
+  );
+}
+
+/**
+ * Resultado da tentativa de entrada. Verde = liberado, amarelo = liberado com
+ * pendência financeira, vermelho = bloqueado pela política da academia.
+ */
+function PainelDecisao({ decisao }: { decisao: DecisaoAcesso }) {
+  const { resultado } = decisao;
+
+  const estilo =
+    resultado === "liberado"
+      ? "border-volt-500/30 bg-volt-500/10 text-volt-300"
+      : resultado === "alerta"
+      ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+      : "border-red-500/40 bg-red-500/10 text-red-300";
+
+  const Icone =
+    resultado === "liberado"
+      ? CheckCircle2
+      : resultado === "alerta"
+      ? AlertTriangle
+      : XCircle;
+
+  const titulo =
+    resultado === "liberado"
+      ? "Acesso permitido"
+      : resultado === "alerta"
+      ? "Acesso permitido — aluno com mensalidade vencida"
+      : "Acesso bloqueado";
+
+  // Só há detalhamento financeiro quando a decisão passou pela política.
+  const temFinanceiro = decisao.quantidadeVencida > 0;
+
+  return (
+    <div className={cn("w-full rounded-xl border px-4 py-3", estilo)}>
+      <p className="flex items-center gap-2 text-sm font-semibold">
+        <Icone className="h-4 w-4 flex-none" />
+        {titulo}
+      </p>
+
+      {resultado === "bloqueado" && decisao.politicaAplicada === null && decisao.motivo && (
+        <p className="mt-1 text-xs opacity-90">{decisao.motivo}</p>
+      )}
+
+      {temFinanceiro && (
+        <>
+          <div className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs sm:grid-cols-4">
+            <div>
+              <span className="block opacity-70">Total vencido</span>
+              <span className="font-semibold tabular-nums">
+                {formatBRL(decisao.totalVencido)}
+              </span>
+            </div>
+            <div>
+              <span className="block opacity-70">Mensalidades</span>
+              <span className="font-semibold tabular-nums">
+                {decisao.quantidadeVencida}
+              </span>
+            </div>
+            <div>
+              <span className="block opacity-70">Competência mais antiga</span>
+              <span className="font-semibold">
+                {decisao.competencia
+                  ? new Date(decisao.competencia + "T00:00:00").toLocaleDateString(
+                      "pt-BR",
+                      { month: "2-digit", year: "numeric" }
+                    )
+                  : "—"}
+              </span>
+            </div>
+            <div>
+              <span className="block opacity-70">Vencimento</span>
+              <span className="font-semibold">
+                {decisao.vencimento
+                  ? new Date(decisao.vencimento + "T00:00:00").toLocaleDateString("pt-BR")
+                  : "—"}
+                {decisao.diasAtraso > 0 && ` · ${decisao.diasAtraso} dia(s)`}
+              </span>
+            </div>
+          </div>
+
+          {resultado === "bloqueado" && (
+            <p className="mt-2.5 text-xs opacity-90">
+              O bloqueio ocorreu pela política de inadimplência configurada nas
+              Configurações da academia. A tentativa ficou registrada no histórico.
+            </p>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

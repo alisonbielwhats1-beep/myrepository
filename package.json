@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
     "criar-academia": "node scripts/criar-academia.mjs",
     "criar-usuario": "node scripts/criar-usuario.mjs",
     "seed-demo": "node scripts/seed-demo.mjs",

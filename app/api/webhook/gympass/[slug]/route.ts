@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { DecisaoAcesso } from "@/lib/types";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { decidirAcesso } from "@/lib/utils";
+import { decidirAcesso, statusLiberacaoDe } from "@/lib/utils";
 
 const REPASSE_GYMPASS = 12.5;
 
@@ -33,7 +34,7 @@ export async function POST(
   // 1. Buscar academia pelo slug
   const { data: academia } = await supabase
     .from("academias")
-    .select("id, gympass_webhook_secret")
+    .select("id, gympass_webhook_secret, politica_inadimplencia")
     .eq("slug_url", params.slug)
     .maybeSingle();
 
@@ -75,8 +76,8 @@ export async function POST(
 
   // 5. Buscar aluno pelo CPF (opcional — acesso é registrado mesmo sem match)
   let alunoId: string | null = null;
-  let liberado = true;
   let observacao: string | null = null;
+  let decisao: DecisaoAcesso | null = null;
 
   if (cpf) {
     const { data: aluno } = await supabase
@@ -88,9 +89,22 @@ export async function POST(
 
     if (aluno) {
       alunoId = aluno.id;
-      const acesso = decidirAcesso(aluno.status_matricula);
-      liberado = acesso.liberado;
-      observacao = acesso.observacao;
+
+      const { data: mensalidades } = await supabase
+        .from("receitas")
+        .select("id, competencia, data, valor, status")
+        .eq("academia_id", academia.id)
+        .eq("aluno_id", aluno.id)
+        .eq("tipo", "mensalidade")
+        .eq("status", "pendente");
+
+      // Mesma decisão central da recepção — sem regra paralela nesta rota.
+      decisao = decidirAcesso(
+        aluno.status_matricula,
+        academia.politica_inadimplencia ?? "liberar",
+        mensalidades ?? []
+      );
+      observacao = decisao.motivo;
     } else {
       observacao = "CPF não encontrado no cadastro";
     }
@@ -101,10 +115,15 @@ export async function POST(
     academia_id: academia.id,
     aluno_id: alunoId,
     origem: "Gympass",
-    valor_repasse: REPASSE_GYMPASS,
-    status_liberacao: liberado ? "liberado" : "negado",
+    // Check-in bloqueado permanece registrado, mas sem repasse: a entrada não
+    // aconteceu. "alerta" é entrada permitida e mantém o repasse.
+    valor_repasse: decisao?.resultado === "bloqueado" ? 0 : REPASSE_GYMPASS,
+    status_liberacao: decisao ? statusLiberacaoDe(decisao.resultado) : "liberado",
     evento_externo_id: eventoId,
     observacao,
+    politica_aplicada: decisao?.politicaAplicada ?? null,
+    mensalidade_id: decisao?.mensalidadeId ?? null,
+    dias_atraso: decisao?.diasAtraso ?? null,
   });
 
   if (error) {

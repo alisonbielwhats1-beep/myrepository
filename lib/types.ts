@@ -8,7 +8,35 @@ export type StatusMatricula = "ativa" | "inativa" | "trancada" | "pendente" | "c
  *  Não é persistido — derivado em tempo de execução. */
 export type StatusFinanceiro = "em_dia" | "pendente" | "inadimplente";
 export type OrigemAcesso = "Direto" | "Gympass" | "TotalPass";
-export type StatusLiberacao = "liberado" | "negado" | "pendente";
+export type StatusLiberacao = "liberado" | "negado" | "pendente" | "alerta";
+
+/** Como a academia trata o acesso de aluno com mensalidade vencida (Fase 5). */
+export type PoliticaInadimplencia = "liberar" | "alertar" | "bloquear";
+
+export const POLITICAS_INADIMPLENCIA: {
+  value: PoliticaInadimplencia;
+  label: string;
+  descricao: string;
+}[] = [
+  {
+    value: "liberar",
+    label: "Liberar normalmente",
+    descricao:
+      "A entrada é registrada sem aviso financeiro. A cobrança continua no Financeiro.",
+  },
+  {
+    value: "alertar",
+    label: "Liberar com alerta",
+    descricao:
+      "A entrada é permitida, mas a recepção vê um aviso com o valor e os dias de atraso.",
+  },
+  {
+    value: "bloquear",
+    label: "Bloquear acesso",
+    descricao:
+      "A entrada é negada enquanto houver mensalidade vencida. A tentativa fica registrada.",
+  },
+];
 export type StatusFuncionario = "ativo" | "inativo";
 export type TipoReceita = "mensalidade" | "matricula" | "venda_produto" | "outra";
 export type StatusPagamento = "pago" | "pendente" | "cancelada";
@@ -137,6 +165,8 @@ export interface Academia {
   plano_saas: PlanoSaas;
   is_demo: boolean;
   meta_faturamento_mensal: number | null;
+  /** Fase 5 — default 'liberar' preserva o comportamento anterior à migration 028. */
+  politica_inadimplencia: PoliticaInadimplencia;
   criado_em: string;
   atualizado_em: string;
 }
@@ -292,7 +322,12 @@ export interface AcessoCatraca {
   valor_repasse: number | null;
   data_hora_entrada: string;
   status_liberacao: StatusLiberacao;
+  /** Motivo da decisão — campo já existente, reaproveitado na Fase 5. */
   observacao: string | null;
+  politica_aplicada: PoliticaInadimplencia | null;
+  mensalidade_id: string | null;
+  dias_atraso: number | null;
+  registrado_por: string | null;
   aluno?: Pick<Aluno, "id" | "nome" | "foto_perfil_url"> | null;
 }
 
@@ -391,7 +426,40 @@ export interface Feedback {
 
 /** Retorno padrão de Server Actions: erro, sucesso e timestamp para forçar re-render.
  *  `id` traz o registro criado/atualizado, para o cliente selecioná-lo após salvar. */
-export type EstadoAcao = { erro?: string; ok?: boolean; savedAt?: number; id?: string };
+/** Mensalidade como chega do banco para a decisão de acesso (Fase 5). */
+export type MensalidadeParaAcesso = {
+  id: string;
+  competencia: string | null;
+  /** Vencimento. */
+  data: string;
+  valor: number;
+  status: string;
+};
+
+export type ResultadoAcesso = "liberado" | "alerta" | "bloqueado";
+
+/** Retorno de decidirAcesso — tudo que a recepção precisa mostrar e gravar. */
+export type DecisaoAcesso = {
+  resultado: ResultadoAcesso;
+  motivo: string | null;
+  /** null quando a decisão veio do cadastro, sem consultar o financeiro. */
+  politicaAplicada: PoliticaInadimplencia | null;
+  mensalidadeId: string | null;
+  competencia: string | null;
+  vencimento: string | null;
+  diasAtraso: number;
+  quantidadeVencida: number;
+  totalVencido: number;
+};
+
+export type EstadoAcao = {
+  erro?: string;
+  ok?: boolean;
+  savedAt?: number;
+  id?: string;
+  /** Preenchido por registrarAcesso para a recepção exibir o resultado. */
+  decisao?: DecisaoAcesso;
+};
 
 export type Papel = "dono" | "gerente" | "recepcao" | "instrutor";
 

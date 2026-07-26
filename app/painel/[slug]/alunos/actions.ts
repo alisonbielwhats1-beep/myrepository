@@ -6,26 +6,21 @@ import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { StatusMatricula } from "@/lib/types";
+import { hojeSaoPaulo } from "@/lib/utils";
 import { normalizarCpf, validarUrl } from "@/lib/validacoes";
 
 // ---------------------------------------------------------------------------
 // Helpers de data no fuso America/Sao_Paulo
 // ---------------------------------------------------------------------------
 
+/** Deriva ano/mês/dia a partir do helper central de data (lib/utils). */
 function spHoje(): { ano: number; mes: number; dia: number } {
-  const partes = new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const v = (t: string) => parseInt(partes.find((p) => p.type === t)!.value, 10);
-  return { ano: v("year"), mes: v("month"), dia: v("day") };
+  const [ano, mes, dia] = hojeSaoPaulo().split("-").map(Number);
+  return { ano, mes, dia };
 }
 
 function spHojeISO(): string {
-  const { ano, mes, dia } = spHoje();
-  return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+  return hojeSaoPaulo();
 }
 
 function spCompetencia(): string {

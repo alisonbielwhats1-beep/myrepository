@@ -12,6 +12,7 @@ import {
   StatusPagamento,
   TipoReceita,
 } from "@/lib/types";
+import { hojeSaoPaulo } from "@/lib/utils";
 
 
 /**
@@ -147,19 +148,12 @@ export async function marcarPago(
   const sessao = await requireSecao(slug, "financeiro");
   const supabase = createClient();
 
-  // Data do pagamento = hoje no fuso da academia.
-  const partes = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-
   const { error } = await supabase
     .from("receitas")
     .update({
       status: "pago",
-      data_pagamento: partes,
+      // Data do pagamento = hoje no fuso da academia (helper central).
+      data_pagamento: hojeSaoPaulo(),
       forma_pagamento: formaPagamento?.trim() || null,
     })
     .eq("id", receitaId)

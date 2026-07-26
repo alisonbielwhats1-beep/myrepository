@@ -1,8 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useFormState } from "react-dom";
-import { ExternalLink, Globe, MessageCircle } from "lucide-react";
-import { Academia } from "@/lib/types";
+import { ExternalLink, Globe, MessageCircle, ShieldAlert } from "lucide-react";
+import {
+  Academia,
+  POLITICAS_INADIMPLENCIA,
+  PoliticaInadimplencia,
+} from "@/lib/types";
+import { cn } from "@/lib/utils";
 import FormActions from "@/components/ui/FormActions";
 import { atualizarAcademia } from "@/app/painel/[slug]/configuracoes/actions";
 
@@ -15,6 +21,9 @@ export default function ConfiguracoesAcademia({
 }) {
   const acao = atualizarAcademia.bind(null, slug);
   const [estado, formAction] = useFormState(acao, {});
+  const [politica, setPolitica] = useState<PoliticaInadimplencia>(
+    academia.politica_inadimplencia ?? "liberar"
+  );
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -102,6 +111,43 @@ export default function ConfiguracoesAcademia({
         <p className="-mt-1 text-xs text-slate-500">
           A meta aparece no Dashboard como barra de progresso (recebido no mês vs. meta).
         </p>
+
+        <div className="border-t border-ink-700 pt-4">
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <ShieldAlert className="h-3.5 w-3.5 text-amber-400" /> Acesso de aluno inadimplente
+          </p>
+          <p className="mt-1.5 text-xs text-slate-500">
+            Vale para mensalidade <b>vencida</b>. Cobrança futura, paga ou cancelada
+            nunca entra nessa conta. Matrícula trancada, cancelada ou inativa continua
+            sendo barrada pela regra de cadastro, independente da opção abaixo.
+          </p>
+          <div className="mt-3 space-y-2">
+            {POLITICAS_INADIMPLENCIA.map((p) => (
+              <label
+                key={p.value}
+                className={cn(
+                  "flex cursor-pointer gap-3 rounded-xl border px-3 py-2.5 transition",
+                  politica === p.value
+                    ? "border-volt-500/50 bg-volt-500/5"
+                    : "border-ink-600 bg-ink-800/40 hover:border-ink-500"
+                )}
+              >
+                <input
+                  type="radio"
+                  name="politica_inadimplencia"
+                  value={p.value}
+                  checked={politica === p.value}
+                  onChange={() => setPolitica(p.value)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-volt-400"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-white">{p.label}</span>
+                  <span className="mt-0.5 block text-xs text-slate-400">{p.descricao}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
 
         <FormActions salvarLabel="Salvar dados" />
       </form>
