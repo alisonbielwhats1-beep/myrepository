@@ -176,6 +176,24 @@ export async function getFuncionarios(
 }
 
 /**
+ * Retorna status e data de todas as mensalidades da academia — apenas os campos
+ * necessários para calcular o statusFinanceiro por aluno, sem over-fetch.
+ */
+export async function getMensalidadesResumidas(
+  academiaId: string
+): Promise<Array<{ aluno_id: string; status: string; data: string }>> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("receitas")
+    .select("aluno_id, status, data")
+    .eq("academia_id", academiaId)
+    .eq("tipo", "mensalidade")
+    .not("aluno_id", "is", null);
+  if (error) throw new Error(`Falha ao carregar mensalidades: ${error.message}`);
+  return (data as Array<{ aluno_id: string; status: string; data: string }>) ?? [];
+}
+
+/**
  * Receitas mais recentes primeiro. Filtra por `desde` (>= data) e/ou `ate`
  * (<= data), ambos ISO "YYYY-MM-DD".
  */

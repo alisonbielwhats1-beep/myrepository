@@ -2,7 +2,11 @@
 
 export type PlanoSaas = "basico" | "profissional" | "premium";
 
-export type StatusMatricula = "ativa" | "inativa" | "trancada" | "pendente";
+export type StatusMatricula = "ativa" | "inativa" | "trancada" | "pendente" | "cancelada";
+
+/** Status financeiro calculado pelas mensalidades do aluno.
+ *  Não é persistido — derivado em tempo de execução. */
+export type StatusFinanceiro = "em_dia" | "pendente" | "inadimplente";
 export type OrigemAcesso = "Direto" | "Gympass" | "TotalPass";
 export type StatusLiberacao = "liberado" | "negado" | "pendente";
 export type StatusFuncionario = "ativo" | "inativo";
@@ -153,6 +157,7 @@ export interface Aluno {
   status_matricula: StatusMatricula;
   plano_id: string | null;
   matricula_codigo: string | null;
+  dia_vencimento: number | null;
   objetivo: string | null;
   condicoes_medicas: string | null;
   contato_emergencia_nome: string | null;
@@ -402,6 +407,8 @@ export interface HistoricoPlano {
   valor: number;
   recorrencia_meses: number;
   data_inicio: string;
+  data_fim: string | null;
+  motivo: string | null;
   criado_em: string;
 }
 

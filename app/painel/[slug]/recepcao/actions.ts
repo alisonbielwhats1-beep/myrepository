@@ -5,6 +5,7 @@ import { requireSecao } from "@/lib/auth"
 import type { EstadoAcao } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { OrigemAcesso } from "@/lib/types";
+import { decidirAcesso } from "@/lib/utils";
 
 const REPASSE_POR_ORIGEM: Record<OrigemAcesso, number> = {
   Direto: 0,
@@ -34,7 +35,7 @@ export async function registrarAcesso(
 
   if (!aluno) return { erro: "Aluno não encontrado." };
 
-  const liberado = aluno.status_matricula === "ativa";
+  const { liberado, observacao } = decidirAcesso(aluno.status_matricula);
 
   const { error } = await supabase.from("acessos_catraca").insert({
     academia_id: sessao.academia.id,
@@ -42,7 +43,7 @@ export async function registrarAcesso(
     origem,
     valor_repasse: REPASSE_POR_ORIGEM[origem],
     status_liberacao: liberado ? "liberado" : "negado",
-    observacao: liberado ? null : "Matrícula não está ativa",
+    observacao,
   });
 
   if (error) return { erro: `Falha ao registrar acesso: ${error.message}` };

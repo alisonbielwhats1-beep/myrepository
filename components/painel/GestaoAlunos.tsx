@@ -22,10 +22,11 @@ import {
   HistoricoPlano,
   Plano,
   ProgressoAluno as TipoProgresso,
+  StatusFinanceiro,
   StatusMatricula,
   Treino,
 } from "@/lib/types";
-import { badgeStatusMatricula, cn } from "@/lib/utils";
+import { badgeStatusFinanceiro, badgeStatusMatricula, cn } from "@/lib/utils";
 import { origemPublica } from "@/lib/site-url";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
@@ -48,6 +49,7 @@ export default function GestaoAlunos({
   catalogo,
   progresso,
   historico,
+  statusFinanceiroMap = {},
 }: {
   slug: string;
   alunosIniciais: Aluno[];
@@ -56,6 +58,7 @@ export default function GestaoAlunos({
   catalogo: CatalogoExercicio[];
   progresso: TipoProgresso[];
   historico: HistoricoPlano[];
+  statusFinanceiroMap?: Record<string, StatusFinanceiro>;
 }) {
   const alunos = alunosIniciais;
   const treinos = treinosIniciais;
@@ -129,6 +132,7 @@ export default function GestaoAlunos({
                     slug={slug}
                     aluno={a}
                     ativo={selecionadoId === a.id}
+                    statusFinanceiro={statusFinanceiroMap[a.id]}
                     onSelecionar={() => setSelecionadoId(a.id)}
                     onEditar={() => setEditandoId(a.id)}
                   />
@@ -267,12 +271,14 @@ function LinhaAluno({
   slug,
   aluno,
   ativo,
+  statusFinanceiro,
   onSelecionar,
   onEditar,
 }: {
   slug: string;
   aluno: Aluno;
   ativo: boolean;
+  statusFinanceiro?: StatusFinanceiro;
   onSelecionar: () => void;
   onEditar: () => void;
 }) {
@@ -331,14 +337,26 @@ function LinhaAluno({
             {aluno.matricula_codigo}
           </p>
         </div>
-        <span
-          className={cn(
-            "chip text-[10px]",
-            badgeStatusMatricula(aluno.status_matricula)
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={cn(
+              "chip text-[10px]",
+              badgeStatusMatricula(aluno.status_matricula)
+            )}
+          >
+            {aluno.status_matricula}
+          </span>
+          {statusFinanceiro && statusFinanceiro !== "em_dia" && (
+            <span
+              className={cn(
+                "chip text-[10px]",
+                badgeStatusFinanceiro(statusFinanceiro)
+              )}
+            >
+              {statusFinanceiro === "inadimplente" ? "inadimplente" : "vence hoje"}
+            </span>
           )}
-        >
-          {aluno.status_matricula}
-        </span>
+        </div>
         <button
           type="button"
           onClick={copiarLink}
@@ -449,6 +467,7 @@ function FormularioAluno({
               <option value="pendente">Pendente</option>
               <option value="trancada">Trancada</option>
               <option value="inativa">Inativa</option>
+              <option value="cancelada">Cancelada</option>
             </select>
           </Field>
         </div>

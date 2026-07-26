@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { decidirAcesso } from "@/lib/utils";
 
 const REPASSE_TOTALPASS = 10;
 
@@ -74,6 +75,7 @@ export async function POST(
   // 5. Buscar aluno pelo CPF
   let alunoId: string | null = null;
   let liberado = true;
+  let observacao: string | null = null;
 
   if (cpf) {
     const { data: aluno } = await supabase
@@ -85,7 +87,11 @@ export async function POST(
 
     if (aluno) {
       alunoId = aluno.id;
-      liberado = aluno.status_matricula === "ativa";
+      const acesso = decidirAcesso(aluno.status_matricula);
+      liberado = acesso.liberado;
+      observacao = acesso.observacao;
+    } else {
+      observacao = "CPF não encontrado no cadastro";
     }
   }
 
@@ -97,11 +103,7 @@ export async function POST(
     valor_repasse: REPASSE_TOTALPASS,
     status_liberacao: liberado ? "liberado" : "negado",
     evento_externo_id: eventoId,
-    observacao: !alunoId
-      ? "CPF não encontrado no cadastro"
-      : !liberado
-      ? "Matrícula não está ativa"
-      : null,
+    observacao,
   });
 
   if (error) {
