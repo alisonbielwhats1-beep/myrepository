@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useFormState } from "react-dom";
 import { CalendarClock, Loader2, Pencil, Plus } from "lucide-react";
 import { Aluno, FORMAS_PAGAMENTO, Receita, TIPOS_RECEITA } from "@/lib/types";
-import { cn, formatBRL } from "@/lib/utils";
+import { cn, formatBRL, hojeSaoPaulo } from "@/lib/utils";
 import { baixarCSV } from "@/lib/csv";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
@@ -120,14 +120,22 @@ export default function ReceitasView({
           onExportarCSV={() =>
             baixarCSV(
               "receitas",
-              ["Descrição", "Tipo", "Aluno", "Valor", "Data", "Status"],
-              receitas.map((r) => [
+              [
+                "Descrição", "Tipo", "Aluno", "Valor", "Vencimento",
+                "Competência", "Status", "Data do pagamento", "Forma de pagamento",
+              ],
+              // Exporta exatamente o que a tabela mostra — o filtro por aluno
+              // e o período selecionado valem também para o CSV.
+              receitasFiltradas.map((r) => [
                 r.descricao,
                 TIPOS_RECEITA.find((t) => t.value === r.tipo)?.label ?? r.tipo,
                 r.aluno?.nome ?? "",
                 r.valor,
                 r.data,
-                r.status === "pago" ? "Pago" : "Pendente",
+                r.competencia ?? "",
+                r.status === "pago" ? "Pago" : r.status === "cancelada" ? "Cancelada" : "Pendente",
+                r.data_pagamento ?? "",
+                r.forma_pagamento ?? "",
               ])
             )
           }
@@ -256,7 +264,7 @@ function FormularioReceita({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado.savedAt]);
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeSaoPaulo();
 
   return (
     <form action={formAction} className="surface rounded-2xl p-5">

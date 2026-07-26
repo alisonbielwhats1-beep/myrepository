@@ -5,6 +5,7 @@ import { requireSecao } from "@/lib/auth"
 import type { EstadoAcao } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { CategoriaProduto } from "@/lib/types";
+import { hojeSaoPaulo } from "@/lib/utils";
 
 const CATEGORIAS_VALIDAS: CategoriaProduto[] = [
   "suplemento",
@@ -138,7 +139,11 @@ export async function registrarVendaProduto(
     tipo: "venda_produto",
     descricao: `Venda - ${produto.nome}${qtd > 1 ? ` (x${qtd})` : ""}`,
     valor: Number(produto.preco) * qtd,
-    data: new Date().toISOString().slice(0, 10),
+    // Data, competência e pagamento no fuso da academia: a venda é à vista, o
+    // dinheiro entra no mesmo dia e pertence ao mês em que aconteceu.
+    data: hojeSaoPaulo(),
+    competencia: `${hojeSaoPaulo().slice(0, 7)}-01`,
+    data_pagamento: hojeSaoPaulo(),
     status: "pago",
     observacoes: "Baixa de estoque na loja",
   });

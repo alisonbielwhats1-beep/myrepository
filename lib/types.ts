@@ -172,6 +172,10 @@ export interface Academia {
   dias_risco_sem_acesso: number;
   dias_sumido_sem_acesso: number;
   tolerancia_novo_aluno_dias: number;
+  /** Fase 7A — ponto de partida do saldo registrado (migration 031). */
+  saldo_inicial: number;
+  /** null = contar desde o primeiro lançamento pago com data_pagamento. */
+  data_saldo_inicial: string | null;
   criado_em: string;
   atualizado_em: string;
 }
@@ -380,11 +384,15 @@ export interface Despesa {
   descricao: string;
   categoria: CategoriaDespesa;
   valor: number;
+  /** Vencimento. A data em que o dinheiro saiu fica em data_pagamento. */
   data: string;
   status: StatusPagamento;
   observacoes: string | null;
   funcionario_id: string | null;
   competencia: string | null;
+  /** Fase 7A (migration 031) — quando foi efetivamente paga. */
+  data_pagamento: string | null;
+  forma_pagamento: string | null;
   criado_em: string;
   atualizado_em: string;
 }
@@ -431,6 +439,15 @@ export interface Feedback {
 
 /** Retorno padrão de Server Actions: erro, sucesso e timestamp para forçar re-render.
  *  `id` traz o registro criado/atualizado, para o cliente selecioná-lo após salvar. */
+/** Ponto da série financeira (gráfico Receita x Despesa x Projetado). */
+export type PontoFinanceiroMensal = {
+  mes: string;
+  receita: number;
+  despesa: number;
+  /** Resultado de caixa do bucket somado às pendências que vencem nele. */
+  projetado?: number;
+};
+
 // ---------------------------------------------------------------------------
 // Fase 6 — retenção
 // ---------------------------------------------------------------------------

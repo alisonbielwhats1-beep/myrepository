@@ -58,14 +58,10 @@ export type PontoFaturamento = {
   mensalidades: number;
   parcerias: number;
 };
-export type PontoFinanceiroMensal = {
-  mes: string;
-  receita: number;
-  despesa: number;
-  /** Saldo previsto do período: (receitas previstas) - (despesas previstas),
-   *  incluindo o que ainda está pendente (a receber / a pagar). */
-  projetado?: number;
-};
+// Definido em lib/types.ts: é um tipo de domínio consumido por lib/financeiro.ts,
+// que não pode depender de um componente. Reexportado aqui por compatibilidade.
+import type { PontoFinanceiroMensal } from "@/lib/types";
+export type { PontoFinanceiroMensal };
 export type PontoEvolucaoAlunos = { mes: string; alunos: number };
 export type PontoPeso = { data: string; peso: number };
 

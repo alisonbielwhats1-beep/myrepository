@@ -3,8 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { useFormState } from "react-dom";
 import { CalendarClock, Loader2, Lock, Pencil, Plus } from "lucide-react";
-import { CATEGORIAS_DESPESA, Despesa } from "@/lib/types";
-import { cn, formatBRL } from "@/lib/utils";
+import { CATEGORIAS_DESPESA, Despesa, FORMAS_PAGAMENTO } from "@/lib/types";
+import { cn, formatBRL, hojeSaoPaulo } from "@/lib/utils";
 import { baixarCSV } from "@/lib/csv";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
@@ -87,14 +87,20 @@ export default function DespesasView({
           onExportarCSV={() =>
             baixarCSV(
               "despesas",
-              ["Descrição", "Categoria", "Valor", "Data", "Status"],
+              [
+                "Descrição", "Categoria", "Valor", "Vencimento", "Competência",
+                "Status", "Data do pagamento", "Forma de pagamento",
+              ],
               despesas.map((d) => [
                 d.descricao,
                 CATEGORIAS_DESPESA.find((c) => c.value === d.categoria)?.label ??
                   d.categoria,
                 d.valor,
                 d.data,
-                d.status === "pago" ? "Pago" : "Pendente",
+                d.competencia ?? "",
+                d.status === "pago" ? "Pago" : d.status === "cancelada" ? "Cancelada" : "Pendente",
+                d.data_pagamento ?? "",
+                d.forma_pagamento ?? "",
               ])
             )
           }
@@ -215,13 +221,14 @@ function FormularioDespesa({
     ? atualizarDespesa.bind(null, slug, despesaExistente.id)
     : criarDespesa.bind(null, slug);
   const [estado, formAction] = useFormState(acao, {});
+  const [status, setStatus] = useState<string>(despesaExistente?.status ?? "pendente");
 
   useEffect(() => {
     if (estado.ok) onSalvo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado.savedAt]);
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeSaoPaulo();
 
   return (
     <form action={formAction} className="surface rounded-2xl p-5">
@@ -278,13 +285,40 @@ function FormularioDespesa({
         <Field label="Status">
           <select
             name="status"
-            defaultValue={despesaExistente?.status ?? "pendente"}
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
             className="inp"
           >
             <option value="pago">Pago</option>
             <option value="pendente">Pendente</option>
           </select>
         </Field>
+        {status === "pago" && (
+          <>
+            <Field label="Forma de pagamento">
+              <select
+                name="forma_pagamento"
+                defaultValue={despesaExistente?.forma_pagamento ?? ""}
+                className="inp"
+              >
+                <option value="">—</option>
+                {FORMAS_PAGAMENTO.map((f) => (
+                  <option key={f.value} value={f.label}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Data do pagamento">
+              <input
+                name="data_pagamento"
+                type="date"
+                defaultValue={despesaExistente?.data_pagamento ?? hoje}
+                className="inp"
+              />
+            </Field>
+          </>
+        )}
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-400">
             Observações

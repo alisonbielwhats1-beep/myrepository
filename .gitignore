@@ -6,6 +6,7 @@
 # testing
 /coverage
 /.test-build
+/.test-build-fin
 
 # next.js
 /.next/

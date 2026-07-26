@@ -1,5 +1,8 @@
 // Resolução de período para os filtros do Financeiro (dia / semana / mês / ano).
-// Trabalha só com strings ISO "YYYY-MM-DD" para evitar problemas de fuso.
+// Trabalha só com strings ISO "YYYY-MM-DD" para evitar problemas de fuso, e
+// ancora "hoje" em America/Sao_Paulo via hojeSaoPaulo().
+
+import { hojeSaoPaulo } from "./utils";
 
 export type Granularidade = "dia" | "semana" | "mes" | "ano";
 
@@ -30,8 +33,10 @@ function parse(s?: string): Date {
     const [y, m, d] = s.split("-").map(Number);
     return new Date(y, m - 1, d);
   }
-  const hoje = new Date();
-  return new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  // Sem referência explícita, "hoje" é o dia no fuso da academia — não o do
+  // servidor. Em UTC, depois das 21h em Brasília o período pularia um dia.
+  const [y, m, d] = hojeSaoPaulo().split("-").map(Number);
+  return new Date(y, m - 1, d);
 }
 
 const NOMES_MES = [
@@ -137,8 +142,9 @@ export function resolverJanelaDashboard(sp?: {
   de?: string;
   ate?: string;
 }): JanelaDashboard {
-  const hoje = new Date();
-  const hojeIso = iso(hoje);
+  const hojeIso = hojeSaoPaulo();
+  const [hy, hm, hd] = hojeIso.split("-").map(Number);
+  const hoje = new Date(hy, hm - 1, hd);
 
   // Intervalo personalizado (de/até) tem prioridade.
   const deOk = sp?.de && /^\d{4}-\d{2}-\d{2}$/.test(sp.de) ? sp.de : null;

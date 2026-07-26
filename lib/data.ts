@@ -224,6 +224,97 @@ export async function getMensalidadesDetalhadas(
   return (data as MensalidadeDetalhe[]) ?? [];
 }
 
+// ---------------------------------------------------------------------------
+// Financeiro — agregações no banco (migration 031)
+//
+// As três funções abaixo devolvem SÓ os totais. O histórico detalhado nunca
+// trafega inteiro para o Node: as tabelas continuam usando getReceitas /
+// getDespesas, que já filtram por período.
+// ---------------------------------------------------------------------------
+
+export type ResumoFinanceiro = {
+  receita_recebida: number;
+  despesa_paga: number;
+  resultado: number;
+  receber_vencido: number;
+  receber_futuro: number;
+  receber_qtd_vencido: number;
+  receber_qtd_futuro: number;
+  pagar_vencido: number;
+  pagar_futuro: number;
+  pagar_qtd_vencido: number;
+  pagar_qtd_futuro: number;
+  saldo_inicial: number;
+  saldo_desde: string | null;
+  saldo_recebido: number;
+  saldo_pago: number;
+  saldo: number;
+  incompletas_receitas: number;
+  incompletas_receitas_valor: number;
+  incompletas_despesas: number;
+  incompletas_despesas_valor: number;
+};
+
+export type LinhaDreBanco = {
+  escopo: "receita" | "despesa";
+  chave: string;
+  total: number;
+  realizado: number;
+  em_aberto: number;
+  sem_competencia: number;
+};
+
+export type PontoSerieBanco = {
+  bucket: string;
+  receita: number;
+  despesa: number;
+  receita_pend: number;
+  despesa_pend: number;
+};
+
+/** Caixa do período, pendências, saldo e incompletos — uma linha só. */
+export async function getResumoFinanceiro(
+  inicio: string,
+  fim: string
+): Promise<ResumoFinanceiro | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .rpc("financeiro_resumo", { p_inicio: inicio, p_fim: fim })
+    .maybeSingle();
+  if (error) throw new Error(`Falha ao carregar resumo financeiro: ${error.message}`);
+  return (data as ResumoFinanceiro) ?? null;
+}
+
+/** DRE por competência, com realizado e em aberto separados. */
+export async function getDreFinanceiro(
+  inicio: string,
+  fim: string
+): Promise<LinhaDreBanco[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("financeiro_dre", {
+    p_inicio: inicio,
+    p_fim: fim,
+  });
+  if (error) throw new Error(`Falha ao carregar DRE: ${error.message}`);
+  return (data as LinhaDreBanco[]) ?? [];
+}
+
+/** Série do gráfico, agregada por dia ou por mês no banco. */
+export async function getSerieFinanceira(
+  inicio: string,
+  fim: string,
+  diario: boolean
+): Promise<PontoSerieBanco[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("financeiro_serie", {
+    p_inicio: inicio,
+    p_fim: fim,
+    p_diario: diario,
+  });
+  if (error) throw new Error(`Falha ao carregar série financeira: ${error.message}`);
+  return (data as PontoSerieBanco[]) ?? [];
+}
+
 /**
  * Receitas mais recentes primeiro. Filtra por `desde` (>= data) e/ou `ate`
  * (<= data), ambos ISO "YYYY-MM-DD".

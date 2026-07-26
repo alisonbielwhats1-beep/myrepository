@@ -12,9 +12,49 @@ export default function DREResumo({ dre, periodo }: { dre: DRE; periodo: string 
     <div className="surface rounded-2xl p-5">
       <div className="flex items-center gap-2">
         <FileText className="h-4 w-4 text-volt-300" />
-        <h2 className="font-semibold text-white">Resultado (DRE)</h2>
+        <h2 className="font-semibold text-white">DRE — regime de competência</h2>
       </div>
-      <p className="mb-4 text-xs text-slate-500">{periodo}, valores pagos</p>
+      <p className="mb-3 text-xs text-slate-500">
+        {periodo} · O regime de competência considera o período ao qual o
+        lançamento pertence, mesmo que o pagamento ainda não tenha ocorrido.
+        Canceladas ficam de fora.
+        {dre.semCompetencia > 0 && (
+          <>
+            {" "}
+            <span className="text-amber-300/80">
+              {dre.semCompetencia} lançamento(s) histórico(s) sem competência
+              definida usaram o mês da data do lançamento.
+            </span>
+          </>
+        )}
+      </p>
+
+      <div className="mb-4 grid gap-2 sm:grid-cols-2">
+        <div className="rounded-xl border border-ink-600 bg-ink-900/40 px-3 py-2 text-xs">
+          <p className="text-slate-400">
+            Receita por competência:{" "}
+            <b className="text-white">{formatBRL(dre.totalReceita)}</b>
+          </p>
+          <p className="mt-0.5 text-slate-500">
+            <span className="text-volt-300">{formatBRL(dre.receitaRecebida)}</span>{" "}
+            recebido ·{" "}
+            <span className="text-amber-300">{formatBRL(dre.receitaAReceber)}</span>{" "}
+            ainda a receber
+          </p>
+        </div>
+        <div className="rounded-xl border border-ink-600 bg-ink-900/40 px-3 py-2 text-xs">
+          <p className="text-slate-400">
+            Despesa por competência:{" "}
+            <b className="text-white">{formatBRL(dre.totalDespesa)}</b>
+          </p>
+          <p className="mt-0.5 text-slate-500">
+            <span className="text-magenta-400">{formatBRL(dre.despesaPaga)}</span>{" "}
+            pago ·{" "}
+            <span className="text-amber-300">{formatBRL(dre.despesaAPagar)}</span>{" "}
+            ainda a pagar
+          </p>
+        </div>
+      </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
         {/* Receitas por tipo */}
@@ -79,7 +119,10 @@ export default function DREResumo({ dre, periodo }: { dre: DRE; periodo: string 
       {/* Lucro / margem */}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink-600 bg-ink-900/40 p-4">
         <span className="text-sm font-medium text-slate-300">
-          Lucro do período
+          Resultado por competência
+          <span className="mt-0.5 block text-xs font-normal text-slate-500">
+            Não é dinheiro em caixa — parte pode estar a receber.
+          </span>
         </span>
         <div className="flex items-baseline gap-3">
           <span
