@@ -38,6 +38,27 @@ export async function atualizarAcademia(
     : 0;
   const meta = Number.isFinite(metaNum) && metaNum > 0 ? metaNum : 0;
 
+  // Limites de retenção: inteiros vindos do navegador nunca são confiáveis.
+  // Cada campo cai no default da migration 029 se vier vazio ou inválido, e a
+  // ordem atenção < risco < sumido é imposta aqui, não só pelo CHECK do banco.
+  const inteiro = (campo: string, padrao: number) => {
+    const n = parseInt(String(formData.get(campo) ?? ""), 10);
+    return Number.isFinite(n) && n >= 1 && n <= 365 ? n : padrao;
+  };
+
+  const diasAtencao = inteiro("dias_atencao_sem_acesso", 7);
+  const diasRisco = inteiro("dias_risco_sem_acesso", 10);
+  const diasSumido = inteiro("dias_sumido_sem_acesso", 14);
+  const toleranciaNovo = inteiro("tolerancia_novo_aluno_dias", 7);
+
+  if (!(diasAtencao < diasRisco && diasRisco < diasSumido)) {
+    return {
+      erro:
+        "Os limites de retenção devem ser crescentes: atenção menor que risco, " +
+        "e risco menor que sumido.",
+    };
+  }
+
   const { error } = await supabase
     .from("academias")
     .update({
@@ -49,6 +70,10 @@ export async function atualizarAcademia(
       cor_primaria: String(formData.get("cor_primaria") ?? "").trim() || "#adff42",
       meta_faturamento_mensal: meta,
       politica_inadimplencia: politica,
+      dias_atencao_sem_acesso: diasAtencao,
+      dias_risco_sem_acesso: diasRisco,
+      dias_sumido_sem_acesso: diasSumido,
+      tolerancia_novo_aluno_dias: toleranciaNovo,
     })
     .eq("id", sessao.academia.id);
 
@@ -56,6 +81,7 @@ export async function atualizarAcademia(
 
   revalidatePath(`/painel/${slug}/configuracoes`);
   revalidatePath(`/painel/${slug}/recepcao`);
+  revalidatePath(`/painel/${slug}/retencao`);
   revalidatePath(`/painel/${slug}`);
   revalidatePath(`/aluno/${slug}`);
   return { ok: true, savedAt: Date.now() };

@@ -10,8 +10,15 @@ import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import StatTile from "@/components/painel/StatTile";
 import UpgradeGuard from "@/components/ui/UpgradeGuard";
 import { requireSecao } from "@/lib/auth";
-import { getAcessos, getAlunos } from "@/lib/data";
+import { getAlunos, getRetencaoAlunos } from "@/lib/data";
 import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
+import {
+  ROTULOS_RETENCAO as ROTULOS,
+  badgeRetencao,
+  classificarRetencao,
+  cn,
+  configRetencaoDe,
+} from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -40,50 +47,53 @@ export default async function RetencaoPage({
     );
   }
 
-  const [alunos, acessos] = await Promise.all([
+  // Mesma consulta agregada do painel: uma chamada, agregação no banco, sem
+  // limite arbitrário de acessos e sem trazer histórico para o frontend.
+  const [alunos, retencao] = await Promise.all([
     getAlunos(sessao.academia.id),
-    getAcessos(sessao.academia.id, 3000),
+    getRetencaoAlunos(30),
   ]);
 
-  const ativos = alunos.filter((a) => a.status_matricula === "ativa");
-  const agora = Date.now();
-  const ha30 = agora - 30 * 86400_000;
+  const configRetencao = configRetencaoDe(sessao.academia);
 
-  // Frequência (últimos 30 dias) + último acesso por aluno.
-  const freq = new Map<string, number>();
-  const ultimo = new Map<string, number>();
-  for (const ac of acessos) {
-    if (!ac.aluno_id) continue;
-    const t = new Date(ac.data_hora_entrada).getTime();
-    if (!ultimo.has(ac.aluno_id) || t > ultimo.get(ac.aluno_id)!) {
-      ultimo.set(ac.aluno_id, t);
-    }
-    if (t >= ha30) freq.set(ac.aluno_id, (freq.get(ac.aluno_id) ?? 0) + 1);
-  }
+  // A RPC já devolve somente matrícula ativa; classificarRetencao reforça a
+  // regra e devolve null para qualquer status que não seja "ativa".
+  const classificados = retencao
+    .map((r) => {
+      const c = classificarRetencao(
+        { criado_em: r.criado_em, status_matricula: "ativa" },
+        r.ultimo_acesso,
+        configRetencao
+      );
+      return c ? { ...r, ...c } : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
 
-  const totalCheckins30 = Array.from(freq.values()).reduce((a, b) => a + b, 0);
-  const frequentaram = ativos.filter((a) => (freq.get(a.id) ?? 0) > 0).length;
-  const taxaFrequencia = ativos.length
-    ? Math.round((frequentaram / ativos.length) * 100)
+  const totalCheckins30 = retencao.reduce((s, r) => s + r.acessos_periodo, 0);
+  const frequentaram = retencao.filter((r) => r.acessos_periodo > 0).length;
+  const taxaFrequencia = retencao.length
+    ? Math.round((frequentaram / retencao.length) * 100)
     : 0;
 
   // Ranking de mais assíduos (30 dias).
-  const ranking = ativos
-    .map((a) => ({ nome: a.nome, id: a.id, visitas: freq.get(a.id) ?? 0 }))
-    .filter((x) => x.visitas > 0)
-    .sort((a, b) => b.visitas - a.visitas)
-    .slice(0, 8);
+  const ranking = retencao
+    .filter((r) => r.acessos_periodo > 0)
+    .sort((a, b) => b.acessos_periodo - a.acessos_periodo)
+    .slice(0, 8)
+    .map((r) => ({ id: r.aluno_id, nome: r.nome, visitas: r.acessos_periodo }));
 
-  // Em risco: ativos sem acesso há 10+ dias (ou nunca).
-  const emRisco = ativos
-    .map((a) => ({
-      id: a.id,
-      nome: a.nome,
-      ultimo: ultimo.get(a.id) ?? null,
-    }))
-    .filter((a) => !a.ultimo || a.ultimo < agora - 10 * 86400_000)
-    .sort((a, b) => (a.ultimo ?? 0) - (b.ultimo ?? 0))
-    .slice(0, 12);
+  // Atenção, em risco e sumido — os três aparecem, do mais grave ao mais leve.
+  const PESO: Record<string, number> = { sumido: 0, em_risco: 1, atencao: 2 };
+  const emRisco = classificados
+    .filter((r) => r.classificacao !== "normal")
+    .sort(
+      (a, b) =>
+        PESO[a.classificacao] - PESO[b.classificacao] ||
+        (b.diasSemAcesso ?? b.diasDesdeMatricula) -
+          (a.diasSemAcesso ?? a.diasDesdeMatricula)
+    );
+
+  const totalSumidos = classificados.filter((r) => r.classificacao === "sumido").length;
 
   // Aniversariantes do mês.
   const mesAtual = new Date().getMonth();
@@ -113,7 +123,7 @@ export default async function RetencaoPage({
           icon={HeartPulse}
           label="Frequência (30d)"
           value={`${taxaFrequencia}%`}
-          hint={`${frequentaram}/${ativos.length} ativos treinaram`}
+          hint={`${frequentaram}/${retencao.length} ativos treinaram`}
           accent="volt"
         />
         <StatTile
@@ -125,9 +135,9 @@ export default async function RetencaoPage({
         />
         <StatTile
           icon={TrendingDown}
-          label="Em risco"
+          label="Precisam de contato"
           value={String(emRisco.length)}
-          hint="sem vir há 10+ dias"
+          hint={`${totalSumidos} já sumido(s)`}
           accent={emRisco.length > 0 ? "magenta" : "slate"}
         />
         <StatTile
@@ -196,10 +206,13 @@ export default async function RetencaoPage({
       {/* Em risco */}
       <div className="surface rounded-2xl p-5">
         <h2 className="flex items-center gap-2 font-semibold text-white">
-          <TrendingDown className="h-4 w-4 text-magenta-400" /> Em risco de sair
+          <TrendingDown className="h-4 w-4 text-magenta-400" /> Precisam de contato
         </h2>
         <p className="mb-3 text-xs text-slate-500">
-          Alunos ativos sem check-in há 10 dias ou mais — vale um contato.
+          Atenção a partir de {configRetencao.diasAtencao} dias, em risco a partir
+          de {configRetencao.diasRisco} e sumido a partir de{" "}
+          {configRetencao.diasSumido}. Recém-matriculado tem{" "}
+          {configRetencao.toleranciaNovoAluno} dias de tolerância.
         </p>
         {emRisco.length === 0 ? (
           <p className="text-sm text-slate-500">
@@ -208,17 +221,21 @@ export default async function RetencaoPage({
         ) : (
           <ul className="divide-y divide-ink-700/70">
             {emRisco.map((a) => (
-              <li key={a.id} className="flex items-center justify-between gap-2 py-2.5">
+              <li
+                key={a.aluno_id}
+                className="flex items-center justify-between gap-3 py-2.5"
+              >
                 <Link
                   href={`/painel/${params.slug}/alunos`}
                   className="truncate text-sm font-medium text-white hover:text-volt-300"
                 >
                   {a.nome}
                 </Link>
-                <span className="flex-none text-xs text-slate-500">
-                  {a.ultimo
-                    ? `há ${Math.floor((agora - a.ultimo) / 86400_000)} dias`
-                    : "nunca veio"}
+                <span className="flex flex-none items-center gap-2">
+                  <span className="text-xs text-slate-500">{a.explicacao}</span>
+                  <span className={cn("chip text-[10px]", badgeRetencao(a.classificacao))}>
+                    {ROTULOS[a.classificacao]}
+                  </span>
                 </span>
               </li>
             ))}

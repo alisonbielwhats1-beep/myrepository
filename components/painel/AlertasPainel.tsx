@@ -16,6 +16,8 @@ export interface AlertaSumido {
   alunoId: string;
   nome: string;
   ultimoAcesso: string | null; // ISO date, null = nunca veio
+  /** Texto vindo de classificarRetencao — evita repetir a regra aqui. */
+  explicacao: string;
 }
 
 /** Painel de alertas: inadimplência e alunos que sumiram da academia. */
@@ -95,7 +97,7 @@ export default function AlertasPainel({
           <h2 className="font-semibold text-white">Alunos sumidos</h2>
         </div>
         <p className="mb-3 text-xs text-slate-500">
-          Ativos, sem acesso registrado há 14+ dias
+          Ativos, conforme o limite configurado nas Configurações
         </p>
 
         {sumidos.length === 0 ? (
@@ -105,13 +107,9 @@ export default function AlertasPainel({
         ) : (
           <ul className="divide-y divide-ink-700/70">
             {sumidos.slice(0, 8).map((a) => (
-              <li key={a.alunoId} className="flex items-center justify-between py-3">
+              <li key={a.alunoId} className="flex items-center justify-between gap-3 py-3">
                 <p className="truncate text-sm font-medium text-white">{a.nome}</p>
-                <span className="text-xs text-slate-500">
-                  {a.ultimoAcesso
-                    ? `última vez em ${new Date(a.ultimoAcesso).toLocaleDateString("pt-BR")}`
-                    : "nunca veio"}
-                </span>
+                <span className="flex-none text-xs text-slate-500">{a.explicacao}</span>
               </li>
             ))}
           </ul>

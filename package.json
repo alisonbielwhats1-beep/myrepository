@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test:retencao": "tsc lib/utils.ts lib/types.ts --outDir .test-build --module esnext --target es2020 --moduleResolution node --skipLibCheck && node tests/retencao.test.mjs",
     "criar-academia": "node scripts/criar-academia.mjs",
     "criar-usuario": "node scripts/criar-usuario.mjs",
     "seed-demo": "node scripts/seed-demo.mjs",

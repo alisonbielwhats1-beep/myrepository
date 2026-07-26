@@ -29,14 +29,19 @@ import AlertasPainel, {
 import { requireSessao } from "@/lib/auth";
 import {
   getAlunos,
-  getAlunosSumidos,
+  getRetencaoAlunos,
   getDespesas,
   getFuncionarios,
   getReceitas,
 } from "@/lib/data";
 import { agruparFinanceiro, ultimosMeses } from "@/lib/financeiro";
 import { resolverJanelaDashboard } from "@/lib/periodo";
-import { formatBRL, hojeSaoPaulo } from "@/lib/utils";
+import {
+  classificarRetencao,
+  configRetencaoDe,
+  formatBRL,
+  hojeSaoPaulo,
+} from "@/lib/utils";
 import { planoPodeAcessar } from "@/lib/planos";
 
 export default async function DashboardOverviewPage({
@@ -52,13 +57,34 @@ export default async function DashboardOverviewPage({
   // Dono e gerente veem dados financeiros; recepção e instrutor não.
   const verFinanceiro = sessao.papel === "dono" || sessao.papel === "gerente";
 
-  const [alunos, funcionarios, receitas, despesas, sumidos] = await Promise.all([
+  const [alunos, funcionarios, receitas, despesas, retencao] = await Promise.all([
     getAlunos(sessao.academia.id),
     verFinanceiro ? getFuncionarios(sessao.academia.id) : Promise.resolve([]),
     verFinanceiro ? getReceitas(sessao.academia.id) : Promise.resolve([]),
     verFinanceiro ? getDespesas(sessao.academia.id) : Promise.resolve([]),
-    getAlunosSumidos(sessao.academia.id, 14),
+    getRetencaoAlunos(),
   ]);
+
+  // Mesma consulta agregada e mesma função de classificação da tela de Retenção.
+  // O card "Alunos sumidos" conta somente a classificação "sumido".
+  const configRetencao = configRetencaoDe(sessao.academia);
+  const sumidos = retencao
+    .map((r) => {
+      const c = classificarRetencao(
+        { criado_em: r.criado_em, status_matricula: "ativa" },
+        r.ultimo_acesso,
+        configRetencao
+      );
+      return c ? { linha: r, ...c } : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+    .filter((x) => x.classificacao === "sumido")
+    .map((x) => ({
+      alunoId: x.linha.aluno_id,
+      nome: x.linha.nome,
+      ultimoAcesso: x.ultimoAcesso,
+      explicacao: x.explicacao,
+    }));
 
   // Vencimento sempre comparado em America/Sao_Paulo, igual à ficha do aluno,
   // às notificações e à decisão de acesso da recepção.
@@ -232,7 +258,7 @@ export default async function DashboardOverviewPage({
             icon={UserX}
             label="Alunos sumidos"
             value={String(sumidos.length)}
-            hint="sem acesso há 14+ dias"
+            hint={`sem acesso há ${configRetencao.diasSumido}+ dias`}
             accent={sumidos.length > 0 ? "magenta" : "slate"}
           />
         )}
@@ -299,7 +325,7 @@ export default async function DashboardOverviewPage({
             icon={UserX}
             label="Alunos sumidos"
             value={String(sumidos.length)}
-            hint="sem acesso há 14+ dias"
+            hint={`sem acesso há ${configRetencao.diasSumido}+ dias`}
             accent={sumidos.length > 0 ? "magenta" : "slate"}
           />
         </div>
@@ -453,7 +479,7 @@ export default async function DashboardOverviewPage({
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
             {[
               { icon: DollarSign, label: "Financeiro", desc: "Receitas, despesas e DRE" },
-              { icon: HeartPulse, label: "Retenção", desc: `${sumidos.length} alunos sumidos esta semana` },
+              { icon: HeartPulse, label: "Retenção", desc: `${sumidos.length} aluno(s) sumido(s)` },
               { icon: UserRound, label: "Equipe", desc: "Adicione recepcionistas e instrutores" },
             ].map(({ icon: Icon, label, desc }) => (
               <div key={label} className="flex items-start gap-3 rounded-xl border border-ink-600 bg-ink-800/50 p-3">

@@ -167,6 +167,11 @@ export interface Academia {
   meta_faturamento_mensal: number | null;
   /** Fase 5 — default 'liberar' preserva o comportamento anterior à migration 028. */
   politica_inadimplencia: PoliticaInadimplencia;
+  /** Fase 6 — limites de retenção (migration 029). */
+  dias_atencao_sem_acesso: number;
+  dias_risco_sem_acesso: number;
+  dias_sumido_sem_acesso: number;
+  tolerancia_novo_aluno_dias: number;
   criado_em: string;
   atualizado_em: string;
 }
@@ -426,6 +431,43 @@ export interface Feedback {
 
 /** Retorno padrão de Server Actions: erro, sucesso e timestamp para forçar re-render.
  *  `id` traz o registro criado/atualizado, para o cliente selecioná-lo após salvar. */
+// ---------------------------------------------------------------------------
+// Fase 6 — retenção
+// ---------------------------------------------------------------------------
+
+export type ClassificacaoRetencao = "normal" | "atencao" | "em_risco" | "sumido";
+
+/** Limites de ausência configurados pela academia (migration 029). */
+export type ConfigRetencao = {
+  diasAtencao: number;
+  diasRisco: number;
+  diasSumido: number;
+  toleranciaNovoAluno: number;
+};
+
+/** Retorno de classificarRetencao — mesma base para Dashboard e Retenção. */
+export type ResultadoRetencao = {
+  classificacao: ClassificacaoRetencao;
+  ultimoAcesso: string | null;
+  /** Dias desde o último acesso. null quando o aluno nunca acessou. */
+  diasSemAcesso: number | null;
+  nuncaAcessou: boolean;
+  diasDesdeMatricula: number;
+  explicacao: string;
+};
+
+/** Uma linha da RPC retencao_alunos, já agregada no banco. */
+export type LinhaRetencao = {
+  aluno_id: string;
+  nome: string;
+  criado_em: string;
+  ultimo_acesso: string | null;
+  acessos_periodo: number;
+};
+
+/** Aluno com a classificação já aplicada, pronto para as telas. */
+export type AlunoRetencao = LinhaRetencao & ResultadoRetencao;
+
 /** Mensalidade como chega do banco para a decisão de acesso (Fase 5). */
 export type MensalidadeParaAcesso = {
   id: string;

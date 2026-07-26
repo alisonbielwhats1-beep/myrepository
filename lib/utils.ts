@@ -1,9 +1,12 @@
 import {
+  ClassificacaoRetencao,
+  ConfigRetencao,
   DecisaoAcesso,
   MensalidadeParaAcesso,
   OrigemAcesso,
   PoliticaInadimplencia,
   ResultadoAcesso,
+  ResultadoRetencao,
   StatusFinanceiro,
   StatusMatricula,
 } from "./types";
@@ -86,12 +89,24 @@ export function badgeStatusMatricula(status: StatusMatricula): string {
  * hoje apareceria como vencida antes do fim do dia.
  */
 export function hojeSaoPaulo(): string {
+  return dataSaoPaulo(new Date());
+}
+
+/** Converte um instante (ISO ou Date) para a data-calendário YYYY-MM-DD em SP. */
+export function dataSaoPaulo(instante: string | Date): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Sao_Paulo",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  }).format(typeof instante === "string" ? new Date(instante) : instante);
+}
+
+/** Dias inteiros entre duas datas YYYY-MM-DD (ate - de). */
+export function diasEntre(de: string, ate: string): number {
+  return Math.floor(
+    (Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86_400_000
+  );
 }
 
 /**
@@ -214,6 +229,140 @@ export function decidirAcesso(
     resultado: "liberado",
     motivo: `Liberado pela política da academia: ${resumo}`,
     ...financeiro,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Fase 6 — retenção
+// ---------------------------------------------------------------------------
+
+const ROTULO_RETENCAO: Record<ClassificacaoRetencao, string> = {
+  normal: "normal",
+  atencao: "atenção",
+  em_risco: "em risco",
+  sumido: "sumido",
+};
+
+/** Aplica os limites da academia a uma quantidade de dias de ausência. */
+function faixaPorDias(dias: number, config: ConfigRetencao): ClassificacaoRetencao {
+  if (dias >= config.diasSumido) return "sumido";
+  if (dias >= config.diasRisco) return "em_risco";
+  if (dias >= config.diasAtencao) return "atencao";
+  return "normal";
+}
+
+/**
+ * ÚNICA função que classifica retenção. Dashboard e Retenção consomem esta
+ * função e a mesma consulta agregada — nenhuma página recalcula por conta.
+ *
+ * Regras:
+ *   • Só matrícula ativa entra. Trancada, inativa, pendente e cancelada
+ *     retornam null (fora da retenção), sem virar "normal" por engano.
+ *   • Nunca acessou e dentro da tolerância → normal. A tolerância evita a
+ *     classificação precoce do recém-matriculado.
+ *   • Nunca acessou e tolerância vencida → classifica pelos dias TOTAIS desde
+ *     a matrícula. A tolerância adia a avaliação, não desloca os limites.
+ *   • Já acessou → conta desde o último acesso.
+ *   • Inadimplência não entra aqui: dívida é informação complementar e não
+ *     altera classificação de ausência.
+ *
+ * Todas as comparações em America/Sao_Paulo.
+ */
+export function classificarRetencao(
+  aluno: { criado_em: string; status_matricula: StatusMatricula },
+  ultimoAcesso: string | null,
+  config: ConfigRetencao
+): ResultadoRetencao | null {
+  if (aluno.status_matricula !== "ativa") return null;
+
+  const hoje = hojeSaoPaulo();
+  const diasDesdeMatricula = Math.max(
+    0,
+    diasEntre(dataSaoPaulo(aluno.criado_em), hoje)
+  );
+
+  // --- Nunca acessou ---
+  if (!ultimoAcesso) {
+    if (diasDesdeMatricula <= config.toleranciaNovoAluno) {
+      return {
+        classificacao: "normal",
+        ultimoAcesso: null,
+        diasSemAcesso: null,
+        nuncaAcessou: true,
+        diasDesdeMatricula,
+        explicacao: `Nunca acessou — matriculado há ${diasDesdeMatricula} dia(s)`,
+      };
+    }
+
+    // Tolerância vencida: os limites valem sobre o tempo total de matrícula.
+    const classificacao = faixaPorDias(diasDesdeMatricula, config);
+    const desdeFimTolerancia = diasDesdeMatricula - config.toleranciaNovoAluno;
+    return {
+      classificacao,
+      ultimoAcesso: null,
+      diasSemAcesso: null,
+      nuncaAcessou: true,
+      diasDesdeMatricula,
+      explicacao:
+        `Nunca acessou — tolerância encerrada há ${desdeFimTolerancia} dia(s)` +
+        (classificacao === "normal" ? "" : ` — ${ROTULO_RETENCAO[classificacao]}`),
+    };
+  }
+
+  // --- Já acessou alguma vez ---
+  const diasSemAcesso = Math.max(0, diasEntre(dataSaoPaulo(ultimoAcesso), hoje));
+  const classificacao = faixaPorDias(diasSemAcesso, config);
+
+  const explicacao =
+    diasSemAcesso === 0
+      ? "Acessou hoje"
+      : `Sem acesso há ${diasSemAcesso} dia(s)` +
+        (classificacao === "normal" ? "" : ` — ${ROTULO_RETENCAO[classificacao]}`);
+
+  return {
+    classificacao,
+    ultimoAcesso,
+    diasSemAcesso,
+    nuncaAcessou: false,
+    diasDesdeMatricula,
+    explicacao,
+  };
+}
+
+/** Rótulo curto de cada classificação, para chips e listas. */
+export const ROTULOS_RETENCAO: Record<ClassificacaoRetencao, string> = {
+  normal: "Normal",
+  atencao: "Atenção",
+  em_risco: "Em risco",
+  sumido: "Sumido",
+};
+
+/** Classe de badge por classificação de retenção. */
+export function badgeRetencao(classificacao: ClassificacaoRetencao): string {
+  switch (classificacao) {
+    case "sumido":
+      return "border-red-500/30 bg-red-500/10 text-red-400";
+    case "em_risco":
+      return "border-magenta-500/30 bg-magenta-500/10 text-magenta-400";
+    case "atencao":
+      return "border-amber-500/30 bg-amber-500/10 text-amber-300";
+    default:
+      return "border-volt-500/30 bg-volt-500/10 text-volt-300";
+  }
+}
+
+/** Lê os limites da academia com fallback nos defaults da migration 029. */
+export function configRetencaoDe(academia: {
+  dias_atencao_sem_acesso?: number | null;
+  dias_risco_sem_acesso?: number | null;
+  dias_sumido_sem_acesso?: number | null;
+  tolerancia_novo_aluno_dias?: number | null;
+}): ConfigRetencao {
+  return {
+    diasAtencao: academia.dias_atencao_sem_acesso ?? 7,
+    diasRisco: academia.dias_risco_sem_acesso ?? 10,
+    diasSumido: academia.dias_sumido_sem_acesso ?? 14,
+    toleranciaNovoAluno: academia.tolerancia_novo_aluno_dias ?? 7,
   };
 }
 

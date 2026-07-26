@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { useFormState } from "react-dom";
-import { ExternalLink, Globe, MessageCircle, ShieldAlert } from "lucide-react";
+import {
+  ExternalLink,
+  Globe,
+  HeartPulse,
+  MessageCircle,
+  ShieldAlert,
+} from "lucide-react";
 import {
   Academia,
   POLITICAS_INADIMPLENCIA,
@@ -146,6 +152,71 @@ export default function ConfiguracoesAcademia({
                 </span>
               </label>
             ))}
+          </div>
+        </div>
+
+        <div className="border-t border-ink-700 pt-4">
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <HeartPulse className="h-3.5 w-3.5 text-magenta-400" /> Retenção — dias sem acesso
+          </p>
+          <p className="mt-1.5 text-xs text-slate-500">
+            Define quando um aluno <b>ativo</b> aparece como atenção, em risco ou
+            sumido, no Dashboard e na tela de Retenção. Os valores precisam ser
+            crescentes.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <Field label="Atenção a partir de (dias)">
+              <input
+                name="dias_atencao_sem_acesso"
+                type="number"
+                min={1}
+                max={365}
+                defaultValue={academia.dias_atencao_sem_acesso ?? 7}
+                className="inp"
+              />
+              <span className="mt-1 block text-[11px] text-slate-500">
+                Primeiro sinal de afastamento.
+              </span>
+            </Field>
+            <Field label="Em risco a partir de (dias)">
+              <input
+                name="dias_risco_sem_acesso"
+                type="number"
+                min={1}
+                max={365}
+                defaultValue={academia.dias_risco_sem_acesso ?? 10}
+                className="inp"
+              />
+              <span className="mt-1 block text-[11px] text-slate-500">
+                Vale um contato ativo da equipe.
+              </span>
+            </Field>
+            <Field label="Sumido a partir de (dias)">
+              <input
+                name="dias_sumido_sem_acesso"
+                type="number"
+                min={1}
+                max={365}
+                defaultValue={academia.dias_sumido_sem_acesso ?? 14}
+                className="inp"
+              />
+              <span className="mt-1 block text-[11px] text-slate-500">
+                Alimenta o card &quot;Alunos sumidos&quot; do painel.
+              </span>
+            </Field>
+            <Field label="Tolerância do aluno novo (dias)">
+              <input
+                name="tolerancia_novo_aluno_dias"
+                type="number"
+                min={1}
+                max={365}
+                defaultValue={academia.tolerancia_novo_aluno_dias ?? 7}
+                className="inp"
+              />
+              <span className="mt-1 block text-[11px] text-slate-500">
+                Recém-matriculado que ainda não veio não entra em risco nesse prazo.
+              </span>
+            </Field>
           </div>
         </div>
 

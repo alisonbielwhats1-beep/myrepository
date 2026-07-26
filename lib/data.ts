@@ -14,6 +14,7 @@ import {
   FichaAlunoPublica,
   Funcionario,
   HistoricoPlano,
+  LinhaRetencao,
   PerfilEquipe,
   Plano,
   PlanoPublico,
@@ -566,58 +567,26 @@ export async function getTodoProgresso(
 }
 
 /**
- * Alunos ativos sem acesso registrado nos últimos `dias` dias (nunca vieram
- * OU sumiram), com a data do último acesso (quando existir) — para o
- * painel de alertas do Dashboard.
+ * Retenção: uma linha por aluno ATIVO, com último acesso e contagem de acessos
+ * no período, agregados no banco pela RPC `retencao_alunos` (migration 029).
+ *
+ * Substitui o antigo getAlunosSumidos e o cálculo inline da tela de Retenção.
+ * Nenhum histórico de acessos trafega para o frontend, não há limite arbitrário
+ * de linhas e não há uma consulta por aluno: é uma chamada só, com a agregação
+ * feita pelo Postgres usando idx_acessos_academia_aluno_data.
+ *
+ * A classificação NÃO acontece aqui — quem classifica é `classificarRetencao`
+ * em lib/utils.ts, para Dashboard e Retenção compartilharem a mesma regra.
  */
-export async function getAlunosSumidos(
-  academiaId: string,
-  dias = 14
-): Promise<{ alunoId: string; nome: string; ultimoAcesso: string | null }[]> {
+export async function getRetencaoAlunos(
+  diasFrequencia = 30
+): Promise<LinhaRetencao[]> {
   const supabase = createClient();
-  const corte = new Date(Date.now() - dias * 86400_000).toISOString();
-
-  // Busca alunos ativos e os acessos da academia (mais recentes primeiro). Com
-  // uma varredura só conseguimos tanto quem veio depois do corte quanto a DATA
-  // do último acesso de quem sumiu — antes isso vinha fixo como "nunca veio".
-  const [{ data: alunos, error: e1 }, { data: acessos, error: e2 }] =
-    await Promise.all([
-      supabase
-        .from("alunos")
-        .select("id, nome")
-        .eq("academia_id", academiaId)
-        .eq("status_matricula", "ativa"),
-      supabase
-        .from("acessos_catraca")
-        .select("aluno_id, data_hora_entrada")
-        .eq("academia_id", academiaId)
-        .not("aluno_id", "is", null)
-        .order("data_hora_entrada", { ascending: false })
-        .limit(20000),
-    ]);
-
-  if (e1) throw new Error(`Falha ao carregar alunos: ${e1.message}`);
-  if (e2) throw new Error(`Falha ao carregar acessos: ${e2.message}`);
-
-  // Como os acessos vêm em ordem decrescente, o primeiro que aparece de cada
-  // aluno é o mais recente.
-  const ultimoPorAluno = new Map<string, string>();
-  for (const a of (acessos as { aluno_id: string; data_hora_entrada: string }[]) ?? []) {
-    if (!ultimoPorAluno.has(a.aluno_id)) {
-      ultimoPorAluno.set(a.aluno_id, a.data_hora_entrada);
-    }
-  }
-
-  return ((alunos as { id: string; nome: string }[]) ?? [])
-    .filter((a) => {
-      const ultimo = ultimoPorAluno.get(a.id);
-      return !ultimo || ultimo < corte; // sumido = nunca veio ou último acesso antes do corte
-    })
-    .map((a) => ({
-      alunoId: a.id,
-      nome: a.nome,
-      ultimoAcesso: ultimoPorAluno.get(a.id) ?? null,
-    }));
+  const { data, error } = await supabase.rpc("retencao_alunos", {
+    p_dias_frequencia: diasFrequencia,
+  });
+  if (error) throw new Error(`Falha ao carregar retenção: ${error.message}`);
+  return (data as LinhaRetencao[]) ?? [];
 }
 
 export interface SecretsWebhook {
