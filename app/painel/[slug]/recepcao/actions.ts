@@ -24,6 +24,8 @@ export async function registrarAcesso(
 
   const alunoId = String(formData.get("aluno_id") ?? "").trim();
   const origem = (formData.get("origem") as OrigemAcesso) || "Direto";
+  // Gerada uma vez por tentativa de envio (não por aluno) — ver FormularioAcesso.
+  const chaveIdempotencia = String(formData.get("chave_idempotencia") ?? "").trim() || null;
   if (!alunoId) return { erro: "Selecione um aluno." };
 
   const { data: aluno } = await supabase
@@ -66,9 +68,18 @@ export async function registrarAcesso(
     mensalidade_id: decisao.mensalidadeId,
     dias_atraso: decisao.diasAtraso,
     registrado_por: sessao.userId,
+    chave_idempotencia: chaveIdempotencia,
   });
 
-  if (error) return { erro: `Falha ao registrar acesso: ${error.message}` };
+  if (error) {
+    // 23505 = mesma chave de idempotência já gravada: é um reenvio da mesma
+    // tentativa (duplo clique, retry de rede). A decisão recém-calculada é a
+    // mesma que gerou a linha original, então devolvemos ok sem duplicar.
+    if (error.code === "23505") {
+      return { ok: true, savedAt: Date.now(), decisao };
+    }
+    return { erro: `Falha ao registrar acesso: ${error.message}` };
+  }
 
   revalidatePath(`/painel/${slug}/recepcao`);
   revalidatePath(`/painel/${slug}`);

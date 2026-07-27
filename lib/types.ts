@@ -337,8 +337,26 @@ export interface AcessoCatraca {
   mensalidade_id: string | null;
   dias_atraso: number | null;
   registrado_por: string | null;
+  /** Chave de idempotência da tentativa de registro manual (Fase 8). */
+  chave_idempotencia: string | null;
   aluno?: Pick<Aluno, "id" | "nome" | "foto_perfil_url"> | null;
 }
+
+/** Filtros do histórico paginado de acessos (Recepção, Fase 8). */
+export type FiltroAcessos = {
+  pagina: number;
+  tamanhoPagina: number;
+  dataIni?: string;
+  dataFim?: string;
+  resultado?: StatusLiberacao;
+  origem?: OrigemAcesso;
+  alunoId?: string;
+};
+
+export type AcessosPaginados = {
+  acessos: AcessoCatraca[];
+  total: number;
+};
 
 export interface Funcionario {
   id: string;

@@ -42,3 +42,20 @@ export function podeAcessar(papel: Papel, secao: Secao): boolean {
   const p = PERMISSOES[papel];
   return p === "all" || p.includes(secao);
 }
+
+/**
+ * Verdadeiro se trocar o papel de alguém (ou removê-la) deixaria a academia
+ * sem nenhum "dono". `papelNovo` é `null` no caso de remoção.
+ *
+ * `totalDonosAtual` é a contagem de perfis com papel "dono" na academia
+ * ANTES da ação (inclui a própria pessoa, se ela já for dono).
+ */
+export function removeriaUltimoDono(
+  papelAtual: Papel,
+  papelNovo: Papel | null,
+  totalDonosAtual: number
+): boolean {
+  if (papelAtual !== "dono") return false; // não é dono: não afeta a contagem
+  if (papelNovo === "dono") return false; // continua dono: não é rebaixamento/remoção
+  return totalDonosAtual <= 1;
+}

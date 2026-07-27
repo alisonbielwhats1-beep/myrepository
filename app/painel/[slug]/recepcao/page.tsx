@@ -1,21 +1,76 @@
 import { Clock3, DoorOpen, ShieldAlert, UserCheck, Wallet } from "lucide-react";
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import CatracaLog from "@/components/painel/CatracaLog";
+import HistoricoAcessos from "@/components/painel/HistoricoAcessos";
 import StatTile from "@/components/painel/StatTile";
 import { requireSecao } from "@/lib/auth";
-import { getAcessos, getAlunos } from "@/lib/data";
-import { formatBRL } from "@/lib/utils";
+import {
+  getAcessos,
+  getAcessosPaginado,
+  getAlunos,
+  getMensalidadesDetalhadas,
+  getPlanos,
+  getUltimosAcessosPorAluno,
+} from "@/lib/data";
+import { calcularStatusFinanceiro, formatBRL } from "@/lib/utils";
+import type { OrigemAcesso, StatusFinanceiro, StatusLiberacao } from "@/lib/types";
+
+const TAMANHO_PAGINA = 20;
 
 export default async function RecepcaoPage({
   params,
+  searchParams,
 }: {
   params: { slug: string };
+  searchParams: {
+    pagina?: string;
+    de?: string;
+    ate?: string;
+    resultado?: string;
+    origem?: string;
+    alunoId?: string;
+  };
 }) {
   const sessao = await requireSecao(params.slug, "recepcao");
-  const [acessos, alunos] = await Promise.all([
-    getAcessos(sessao.academia.id),
-    getAlunos(sessao.academia.id),
-  ]);
+
+  const pagina = Math.max(1, Number(searchParams.pagina) || 1);
+  const resultadoValido: StatusLiberacao[] = ["liberado", "alerta", "negado", "pendente"];
+  const origemValida: OrigemAcesso[] = ["Direto", "Gympass", "TotalPass"];
+  const resultado = resultadoValido.includes(searchParams.resultado as StatusLiberacao)
+    ? (searchParams.resultado as StatusLiberacao)
+    : undefined;
+  const origem = origemValida.includes(searchParams.origem as OrigemAcesso)
+    ? (searchParams.origem as OrigemAcesso)
+    : undefined;
+
+  const [acessos, alunos, planos, mensalidades, ultimosAcessos, historico] =
+    await Promise.all([
+      getAcessos(sessao.academia.id),
+      getAlunos(sessao.academia.id),
+      getPlanos(sessao.academia.id),
+      getMensalidadesDetalhadas(sessao.academia.id),
+      getUltimosAcessosPorAluno(sessao.academia.id),
+      getAcessosPaginado(sessao.academia.id, {
+        pagina,
+        tamanhoPagina: TAMANHO_PAGINA,
+        dataIni: searchParams.de,
+        dataFim: searchParams.ate,
+        resultado,
+        origem,
+        alunoId: searchParams.alunoId || undefined,
+      }),
+    ]);
+
+  // Situação financeira resumida por aluno — mesma regra usada na ficha do
+  // aluno (calcularStatusFinanceiro), reaproveitada aqui para o preview de busca.
+  const mensalidadesPorAluno: Record<string, { status: string; data: string }[]> = {};
+  for (const m of mensalidades) {
+    (mensalidadesPorAluno[m.aluno_id] ??= []).push(m);
+  }
+  const statusFinanceiroMap: Record<string, StatusFinanceiro> = {};
+  for (const [alunoId, mens] of Object.entries(mensalidadesPorAluno)) {
+    statusFinanceiroMap[alunoId] = calcularStatusFinanceiro(mens);
+  }
 
   const hoje = new Date().toDateString();
   const acessosHoje = acessos.filter(
@@ -102,7 +157,21 @@ export default async function RecepcaoPage({
         />
       </div>
 
-      <CatracaLog acessosIniciais={acessos} alunos={alunos} slug={params.slug} />
+      <CatracaLog
+        alunos={alunos}
+        planos={planos}
+        statusFinanceiroMap={statusFinanceiroMap}
+        ultimosAcessos={ultimosAcessos}
+        slug={params.slug}
+      />
+
+      <HistoricoAcessos
+        acessos={historico.acessos}
+        total={historico.total}
+        pagina={pagina}
+        tamanhoPagina={TAMANHO_PAGINA}
+        alunos={alunos}
+      />
     </div>
   );
 }

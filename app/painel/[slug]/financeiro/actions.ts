@@ -3,7 +3,7 @@
 import type { EstadoAcao } from "@/lib/types";
 
 import { revalidatePath } from "next/cache";
-import { requireSecao } from "@/lib/auth";
+import { requireSecao, requireSessao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
   CATEGORIAS_DESPESA,
@@ -373,40 +373,47 @@ export async function atualizarReceita(
  * Registra também quando e como foi pago — `data` continua sendo o vencimento,
  * intocado, para não perder a informação de atraso.
  */
+/**
+ * Marca uma cobrança (mensalidade) como paga hoje. Chamada tanto da ficha do
+ * aluno quanto do Financeiro — por isso o papel é checado aqui, e não com
+ * requireSecao(slug, "financeiro"): recepção precisa registrar pagamento sem
+ * ganhar a seção inteira (DRE, saldo inicial, despesas, configurações
+ * financeiras seguem exclusivas do dono).
+ *
+ * A escrita em si não é um UPDATE direto na tabela: recepção não tem (nem
+ * pode ter) permissão de RLS para isso, porque UPDATE de linha não segura
+ * coluna — liberar isso deixaria valor/vencimento/competência/aluno/tipo/
+ * descrição da mensalidade editáveis via REST direto. A gravação passa pela
+ * RPC `registrar_pagamento_mensalidade` (migration 034), SECURITY DEFINER,
+ * que só toca status/data_pagamento/forma_pagamento.
+ */
 export async function marcarPago(
   slug: string,
   receitaId: string,
   formaPagamento?: string
 ): Promise<EstadoAcao> {
-  const sessao = await requireSecao(slug, "financeiro");
+  const sessao = await requireSessao(slug);
+  if (sessao.papel !== "dono" && sessao.papel !== "recepcao") {
+    return { erro: "Você não tem permissão para registrar pagamentos." };
+  }
   const supabase = createClient();
 
-  // UPDATE condicional em uma única ida ao banco: a condição status <> 'pago'
-  // é avaliada pelo Postgres, então duas requisições simultâneas não disputam.
-  // A segunda simplesmente não encontra linha e a primeira data_pagamento /
-  // forma_pagamento — o registro do que de fato aconteceu — fica preservada.
-  const { data: alteradas, error } = await supabase
-    .from("receitas")
-    .update({
-      status: "pago",
-      data_pagamento: hojeSaoPaulo(),
-      forma_pagamento: formaPagamento?.trim() || null,
-    })
-    .eq("id", receitaId)
-    .eq("academia_id", sessao.academia.id)
-    .neq("status", "pago")
-    .select("id");
+  const { data: pagas, error } = await supabase.rpc(
+    "registrar_pagamento_mensalidade",
+    { p_receita_id: receitaId, p_forma_pagamento: formaPagamento?.trim() || null }
+  );
 
   if (error) return { erro: `Falha ao marcar como pago: ${error.message}` };
 
   // Zero linhas: ou já estava paga (idempotente, sucesso) ou não existe / é de
-  // outra academia (erro genérico, sem revelar qual dos dois é o caso).
-  if (!alteradas || alteradas.length === 0) {
+  // outra academia / não é mensalidade (erro genérico, sem revelar qual caso).
+  if (!pagas || pagas.length === 0) {
     const { count } = await supabase
       .from("receitas")
       .select("id", { count: "exact", head: true })
       .eq("id", receitaId)
-      .eq("academia_id", sessao.academia.id);
+      .eq("academia_id", sessao.academia.id)
+      .eq("tipo", "mensalidade");
 
     if (!count) return { erro: "Cobrança não encontrada." };
     return { ok: true, savedAt: Date.now() };

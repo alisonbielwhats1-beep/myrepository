@@ -8,6 +8,7 @@
 /.test-build
 /.test-build-fin
 /.test-build-cob
+/.test-build-perm
 
 # next.js
 /.next/

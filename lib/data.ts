@@ -7,11 +7,13 @@ import { hojeSaoPaulo } from "./utils";
 import {
   AcademiaPublica,
   AcessoCatraca,
+  AcessosPaginados,
   Aluno,
   CatalogoExercicio,
   Despesa,
   Feedback,
   FichaAlunoPublica,
+  FiltroAcessos,
   Funcionario,
   HistoricoPlano,
   LinhaRetencao,
@@ -162,6 +164,70 @@ export async function getAcessos(
     .limit(limite);
   if (error) throw new Error(`Falha ao carregar acessos: ${error.message}`);
   return (data as AcessoCatraca[]) ?? [];
+}
+
+/**
+ * Histórico de acessos da Recepção com paginação e filtros no servidor
+ * (Fase 8). Sem limite silencioso: o total real vem de `count: "exact"` e a
+ * página é sempre um recorte explícito via `.range()`.
+ */
+export async function getAcessosPaginado(
+  academiaId: string,
+  filtro: FiltroAcessos
+): Promise<AcessosPaginados> {
+  const supabase = createClient();
+  const tamanho = Math.min(Math.max(filtro.tamanhoPagina, 1), 100);
+  const pagina = Math.max(filtro.pagina, 1);
+  const de = (pagina - 1) * tamanho;
+  const ate = de + tamanho - 1;
+
+  let query = supabase
+    .from("acessos_catraca")
+    .select("*, aluno:alunos(id, nome, foto_perfil_url)", { count: "exact" })
+    .eq("academia_id", academiaId);
+
+  if (filtro.dataIni) query = query.gte("data_hora_entrada", `${filtro.dataIni}T00:00:00`);
+  if (filtro.dataFim) query = query.lte("data_hora_entrada", `${filtro.dataFim}T23:59:59.999`);
+  if (filtro.resultado) query = query.eq("status_liberacao", filtro.resultado);
+  if (filtro.origem) query = query.eq("origem", filtro.origem);
+  if (filtro.alunoId) query = query.eq("aluno_id", filtro.alunoId);
+
+  const { data, error, count } = await query
+    .order("data_hora_entrada", { ascending: false })
+    .range(de, ate);
+  if (error) throw new Error(`Falha ao carregar histórico de acessos: ${error.message}`);
+  return { acessos: (data as AcessoCatraca[]) ?? [], total: count ?? 0 };
+}
+
+/**
+ * Último acesso efetivo (liberado/alerta) de cada aluno, para a busca da
+ * Recepção mostrar "último acesso" antes de registrar uma nova entrada.
+ * Olha só as entradas mais recentes da academia (ordenadas por data), então
+ * cobre com folga o uso do dia a dia sem precisar de uma função agregada
+ * própria — `retencao_alunos` (migration 030) já cobre o caso de retenção,
+ * que só precisa de aluno ATIVO; aqui a busca precisa achar qualquer aluno.
+ */
+export async function getUltimosAcessosPorAluno(
+  academiaId: string,
+  limite = 1000
+): Promise<Record<string, string>> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("acessos_catraca")
+    .select("aluno_id, data_hora_entrada")
+    .eq("academia_id", academiaId)
+    .in("status_liberacao", ["liberado", "alerta"])
+    .not("aluno_id", "is", null)
+    .order("data_hora_entrada", { ascending: false })
+    .limit(limite);
+  if (error) throw new Error(`Falha ao carregar últimos acessos: ${error.message}`);
+
+  const ultimos: Record<string, string> = {};
+  for (const row of (data as { aluno_id: string; data_hora_entrada: string }[]) ?? []) {
+    // Primeira ocorrência de cada aluno = a mais recente, já que veio ordenado desc.
+    if (!ultimos[row.aluno_id]) ultimos[row.aluno_id] = row.data_hora_entrada;
+  }
+  return ultimos;
 }
 
 export async function getFuncionarios(

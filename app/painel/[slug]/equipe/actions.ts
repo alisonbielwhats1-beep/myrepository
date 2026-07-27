@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth"
 import type { EstadoAcao } from "@/lib/types";
-import { LIMITE_MEMBROS_EQUIPE } from "@/lib/permissoes";
+import { LIMITE_MEMBROS_EQUIPE, removeriaUltimoDono } from "@/lib/permissoes";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { Papel } from "@/lib/types";
 
@@ -96,11 +96,18 @@ export async function removerMembroEquipe(
   const supabase = createClient();
   const { data: perfil } = await supabase
     .from("perfis_admin")
-    .select("id")
+    .select("id, papel")
     .eq("id", perfilId)
     .eq("academia_id", sessao.academia.id)
     .maybeSingle();
   if (!perfil) return { erro: "Membro não encontrado." };
+
+  if (perfil.papel === "dono") {
+    const totalDonos = await contarDonos(supabase, sessao.academia.id);
+    if (removeriaUltimoDono(perfil.papel as Papel, null, totalDonos)) {
+      return { erro: "Não é possível remover o último dono da academia." };
+    }
+  }
 
   const admin = createServiceRoleClient();
   const { error } = await admin.auth.admin.deleteUser(perfilId);
@@ -108,6 +115,19 @@ export async function removerMembroEquipe(
 
   revalidatePath(`/painel/${slug}/equipe`);
   return { ok: true };
+}
+
+/** Quantos perfis com papel "dono" a academia tem hoje. */
+async function contarDonos(
+  supabase: ReturnType<typeof createClient>,
+  academiaId: string
+): Promise<number> {
+  const { count } = await supabase
+    .from("perfis_admin")
+    .select("id", { count: "exact", head: true })
+    .eq("academia_id", academiaId)
+    .eq("papel", "dono");
+  return count ?? 0;
 }
 
 /** Altera o papel de um membro da equipe. Só o dono pode fazer isso. */
@@ -128,6 +148,21 @@ export async function alterarPapel(
   }
 
   const supabase = createClient();
+
+  const { data: atual } = await supabase
+    .from("perfis_admin")
+    .select("papel")
+    .eq("id", perfilId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+
+  if (atual?.papel === "dono") {
+    const totalDonos = await contarDonos(supabase, sessao.academia.id);
+    if (removeriaUltimoDono(atual.papel as Papel, papel as Papel, totalDonos)) {
+      return { erro: "Não é possível rebaixar o último dono da academia." };
+    }
+  }
+
   const { error } = await supabase
     .from("perfis_admin")
     .update({ papel })

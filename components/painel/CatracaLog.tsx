@@ -1,31 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import Image from "next/image";
 import {
   AlertTriangle,
   CheckCircle2,
-  DoorOpen,
-  Loader2,
+  Clock3,
   Plus,
+  Search,
   UserRound,
   X,
   XCircle,
-  Zap,
 } from "lucide-react";
-import { AcessoCatraca, Aluno, DecisaoAcesso } from "@/lib/types";
-import { CORES_ORIGEM, cn, formatBRL, formatHora, timeAgo } from "@/lib/utils";
+import { Aluno, DecisaoAcesso, Plano, StatusFinanceiro } from "@/lib/types";
+import {
+  badgeStatusFinanceiro,
+  badgeStatusMatricula,
+  cn,
+  formatBRL,
+  timeAgo,
+} from "@/lib/utils";
 import { registrarAcesso } from "@/app/painel/[slug]/recepcao/actions";
 
-/** Log de acessos da catraca — lista real, com registro manual de entrada. */
+/** Cartão de registro de entrada da Recepção: busca o aluno e mostra o resultado. */
 export default function CatracaLog({
-  acessosIniciais,
   alunos,
+  planos,
+  statusFinanceiroMap,
+  ultimosAcessos,
   slug,
 }: {
-  acessosIniciais: AcessoCatraca[];
   alunos: Aluno[];
+  planos: Plano[];
+  statusFinanceiroMap: Record<string, StatusFinanceiro>;
+  ultimosAcessos: Record<string, string>;
   slug: string;
 }) {
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -38,7 +47,7 @@ export default function CatracaLog({
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-volt-400 opacity-75" />
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-volt-300" />
           </span>
-          <h2 className="font-semibold text-white">Acessos</h2>
+          <h2 className="font-semibold text-white">Registrar entrada</h2>
         </div>
         <button
           onClick={() => setMostrarForm((v) => !v)}
@@ -46,175 +55,252 @@ export default function CatracaLog({
           disabled={alunos.length === 0}
           title={alunos.length === 0 ? "Cadastre um aluno primeiro" : undefined}
         >
-          {mostrarForm ? (
-            <X className="h-4 w-4" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}
+          {mostrarForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
           {mostrarForm ? "Fechar" : "Registrar entrada"}
         </button>
       </div>
 
-      {mostrarForm && (
+      {mostrarForm ? (
         <FormularioAcesso
           slug={slug}
           alunos={alunos}
+          planos={planos}
+          statusFinanceiroMap={statusFinanceiroMap}
+          ultimosAcessos={ultimosAcessos}
           onSalvo={() => setMostrarForm(false)}
         />
+      ) : (
+        <p className="px-5 py-4 text-sm text-slate-400">
+          Busque o aluno por nome, matrícula ou telefone para liberar a entrada.
+        </p>
       )}
-
-      <ul className="divide-y divide-ink-700/70">
-        {acessosIniciais.map((a) => {
-          const alerta = a.status_liberacao === "alerta";
-          // "alerta" é entrada permitida — não pode aparecer como negada.
-          const liberado = a.status_liberacao === "liberado" || alerta;
-          return (
-            <li
-              key={a.id}
-              className="flex items-center gap-4 px-5 py-3.5 transition hover:bg-ink-700/30"
-            >
-              {/* Foto do aluno — sem retângulo de fundo poluindo a mídia */}
-              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-1 ring-ink-600">
-                {a.aluno?.foto_perfil_url ? (
-                  <Image
-                    src={a.aluno.foto_perfil_url}
-                    alt={a.aluno?.nome ?? "Aluno"}
-                    fill
-                    sizes="48px"
-                    className="media-native object-cover"
-                  />
-                ) : (
-                  <div className="grid h-full place-items-center bg-ink-700 text-slate-500">
-                    <UserRound className="h-5 w-5" />
-                  </div>
-                )}
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-white">
-                  {a.aluno?.nome ?? "Visitante"}
-                </p>
-                <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-400">
-                  <span
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
-                    style={{
-                      color: CORES_ORIGEM[a.origem],
-                      backgroundColor: `${CORES_ORIGEM[a.origem]}1f`,
-                    }}
-                  >
-                    <Zap className="h-3 w-3" />
-                    {a.origem}
-                  </span>
-                  <span>{formatHora(a.data_hora_entrada)}</span>
-                  <span className="text-slate-600">·</span>
-                  <span>{timeAgo(a.data_hora_entrada)}</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-end gap-1">
-                <span
-                  className={cn(
-                    "chip",
-                    alerta
-                      ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                      : liberado
-                      ? "border-volt-500/30 bg-volt-500/10 text-volt-300"
-                      : "border-red-500/30 bg-red-500/10 text-red-400"
-                  )}
-                >
-                  {alerta ? (
-                    <>
-                      <AlertTriangle className="h-3.5 w-3.5" /> Alerta
-                    </>
-                  ) : liberado ? (
-                    <>
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Liberado
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="h-3.5 w-3.5" /> Negado
-                    </>
-                  )}
-                </span>
-                {a.dias_atraso ? (
-                  <span className="text-[10px] text-slate-500">
-                    {a.dias_atraso} dia(s) de atraso
-                  </span>
-                ) : null}
-              </div>
-            </li>
-          );
-        })}
-
-        {acessosIniciais.length === 0 && (
-          <li className="flex flex-col items-center gap-2 px-5 py-12 text-slate-500">
-            <DoorOpen className="h-8 w-8" />
-            Nenhum acesso registrado ainda.
-          </li>
-        )}
-      </ul>
     </div>
   );
+}
+
+/** Normaliza para comparação: minúsculas, sem acento, só dígitos p/ telefone. */
+function normalizar(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(new RegExp("[\\u0300-\\u036f]", "g"), "");
+}
+function apenasDigitos(s: string): string {
+  return s.replace(/\D/g, "");
 }
 
 function FormularioAcesso({
   slug,
   alunos,
+  planos,
+  statusFinanceiroMap,
+  ultimosAcessos,
   onSalvo,
 }: {
   slug: string;
   alunos: Aluno[];
+  planos: Plano[];
+  statusFinanceiroMap: Record<string, StatusFinanceiro>;
+  ultimosAcessos: Record<string, string>;
   onSalvo: () => void;
 }) {
   const acao = registrarAcesso.bind(null, slug);
   const [estado, formAction] = useFormState(acao, {});
+  const [busca, setBusca] = useState("");
+  const [alunoId, setAlunoId] = useState<string>("");
+  // Uma chave por tentativa de envio — não por aluno. Duplo clique/reenvio
+  // reaproveita a mesma chave e é barrado pelo índice único no servidor; uma
+  // nova tentativa legítima (após o envio anterior terminar) ganha chave nova.
+  const [chave, setChave] = useState(() => gerarChave());
 
   // Só fecha o formulário quando a entrada foi liberada sem ressalva. Com alerta
   // ou bloqueio, o painel permanece aberto para a recepção ler o motivo.
   useEffect(() => {
+    if (!estado.savedAt) return;
+    setChave(gerarChave());
     if (estado.ok && estado.decisao?.resultado === "liberado") onSalvo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado.savedAt]);
 
+  const alunoSelecionado = alunos.find((a) => a.id === alunoId) ?? null;
+
+  const resultados = useMemo(() => {
+    const termo = busca.trim();
+    if (!termo) return [];
+    const termoNorm = normalizar(termo);
+    const termoDigitos = apenasDigitos(termo);
+    return alunos
+      .filter((a) => {
+        if (normalizar(a.nome).includes(termoNorm)) return true;
+        if (a.matricula_codigo && normalizar(a.matricula_codigo).includes(termoNorm)) return true;
+        if (termoDigitos && a.telefone && apenasDigitos(a.telefone).includes(termoDigitos)) return true;
+        return false;
+      })
+      .slice(0, 8);
+  }, [alunos, busca]);
+
+  const selecionar = (id: string) => {
+    setAlunoId(id);
+    setBusca("");
+  };
+
   return (
     <form
       action={formAction}
-      className="flex flex-wrap items-end gap-3 border-b border-ink-700 bg-ink-900/40 px-5 py-4"
+      className="space-y-3 border-b border-ink-700 bg-ink-900/40 px-5 py-4"
     >
       {estado.erro && (
-        <p className="w-full rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
           {estado.erro}
         </p>
       )}
 
       {estado.decisao && <PainelDecisao decisao={estado.decisao} />}
-      <label className="min-w-[220px] flex-1">
-        <span className="mb-1 block text-xs font-medium text-slate-400">
-          Aluno
-        </span>
-        <select name="aluno_id" className="inp" required defaultValue="">
-          <option value="" disabled>
-            Selecione...
-          </option>
-          {alunos.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.nome}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <span className="mb-1 block text-xs font-medium text-slate-400">
-          Origem
-        </span>
-        <select name="origem" className="inp" defaultValue="Direto">
-          <option value="Direto">Direto</option>
-          <option value="Gympass">Gympass</option>
-          <option value="TotalPass">TotalPass</option>
-        </select>
-      </label>
-      <BotaoRegistrar />
+
+      <input type="hidden" name="aluno_id" value={alunoId} />
+      <input type="hidden" name="chave_idempotencia" value={chave} />
+
+      {alunoSelecionado ? (
+        <CartaoAlunoSelecionado
+          aluno={alunoSelecionado}
+          plano={planos.find((p) => p.id === alunoSelecionado.plano_id) ?? null}
+          statusFinanceiro={statusFinanceiroMap[alunoSelecionado.id]}
+          ultimoAcesso={ultimosAcessos[alunoSelecionado.id]}
+          onTrocar={() => setAlunoId("")}
+        />
+      ) : (
+        <div className="relative">
+          <label className="mb-1 block text-xs font-medium text-slate-400">
+            Buscar aluno por nome, matrícula ou telefone
+          </label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Ex: Maria, 0231 ou 11999999999"
+              className="inp pl-9"
+              autoComplete="off"
+            />
+          </div>
+          {busca.trim() && (
+            <ul className="absolute z-10 mt-1 max-h-80 w-full overflow-y-auto rounded-xl border border-ink-600 bg-ink-800 shadow-xl">
+              {resultados.length === 0 && (
+                <li className="px-4 py-3 text-sm text-slate-500">Nenhum aluno encontrado.</li>
+              )}
+              {resultados.map((a) => (
+                <li key={a.id}>
+                  <button
+                    type="button"
+                    onClick={() => selecionar(a.id)}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-ink-700/50"
+                  >
+                    <FotoAluno aluno={a} tamanho={36} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-white">{a.nome}</p>
+                      <p className="truncate text-xs text-slate-500">
+                        {a.matricula_codigo ?? "sem matrícula"}
+                        {a.telefone ? ` · ${a.telefone}` : ""}
+                      </p>
+                    </div>
+                    <span className={cn("chip text-[10px]", badgeStatusMatricula(a.status_matricula))}>
+                      {a.status_matricula}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-end gap-3">
+        <label>
+          <span className="mb-1 block text-xs font-medium text-slate-400">Origem</span>
+          <select name="origem" className="inp" defaultValue="Direto">
+            <option value="Direto">Direto</option>
+            <option value="Gympass">Gympass</option>
+            <option value="TotalPass">TotalPass</option>
+          </select>
+        </label>
+        <BotaoRegistrar disabled={!alunoId} />
+      </div>
     </form>
+  );
+}
+
+function gerarChave(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function FotoAluno({ aluno, tamanho }: { aluno: Aluno; tamanho: number }) {
+  return (
+    <div
+      className="relative shrink-0 overflow-hidden rounded-full ring-1 ring-ink-600"
+      style={{ height: tamanho, width: tamanho }}
+    >
+      {aluno.foto_perfil_url ? (
+        <Image
+          src={aluno.foto_perfil_url}
+          alt={aluno.nome}
+          fill
+          sizes={`${tamanho}px`}
+          className="media-native object-cover"
+        />
+      ) : (
+        <div className="grid h-full place-items-center bg-ink-700 text-slate-500">
+          <UserRound className="h-4 w-4" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Resumo do aluno escolhido: foto, plano, status da matrícula, financeiro e último acesso. */
+function CartaoAlunoSelecionado({
+  aluno,
+  plano,
+  statusFinanceiro,
+  ultimoAcesso,
+  onTrocar,
+}: {
+  aluno: Aluno;
+  plano: Plano | null;
+  statusFinanceiro?: StatusFinanceiro;
+  ultimoAcesso?: string;
+  onTrocar: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-ink-600 bg-ink-800/60 px-4 py-3">
+      <FotoAluno aluno={aluno} tamanho={44} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium text-white">{aluno.nome}</p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+          <span>{plano?.nome ?? "sem plano"}</span>
+          <span className="text-slate-600">·</span>
+          <span className={cn("chip text-[10px]", badgeStatusMatricula(aluno.status_matricula))}>
+            {aluno.status_matricula}
+          </span>
+          {statusFinanceiro && (
+            <span className={cn("chip text-[10px]", badgeStatusFinanceiro(statusFinanceiro))}>
+              {statusFinanceiro === "inadimplente"
+                ? "inadimplente"
+                : statusFinanceiro === "pendente"
+                ? "vence hoje"
+                : "em dia"}
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1 text-slate-500">
+            <Clock3 className="h-3 w-3" />
+            {ultimoAcesso ? `último acesso ${timeAgo(ultimoAcesso)}` : "nunca acessou"}
+          </span>
+        </div>
+      </div>
+      <button type="button" onClick={onTrocar} className="btn-ghost !py-1.5 text-xs">
+        Trocar
+      </button>
+    </div>
   );
 }
 
@@ -309,12 +395,12 @@ function PainelDecisao({ decisao }: { decisao: DecisaoAcesso }) {
   );
 }
 
-function BotaoRegistrar() {
+function BotaoRegistrar({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className="btn-volt">
+    <button type="submit" disabled={disabled || pending} className="btn-volt disabled:opacity-50">
       {pending ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
       ) : (
         <Plus className="h-4 w-4" />
       )}
