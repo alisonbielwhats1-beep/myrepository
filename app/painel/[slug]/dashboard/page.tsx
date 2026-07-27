@@ -18,7 +18,7 @@ import {
 } from "@/components/painel/DashboardCharts";
 import UpgradeGuard from "@/components/ui/UpgradeGuard";
 import { requireSecao } from "@/lib/auth";
-import { getAcessos, getAlunos, getReceitas } from "@/lib/data";
+import { getAcessosPeriodo, getContagemAlunos, getReceitas } from "@/lib/data";
 import { OrigemAcesso } from "@/lib/types";
 import { formatBRL } from "@/lib/utils";
 import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
@@ -49,9 +49,18 @@ export default async function RelatoriosPage({
     .toISOString()
     .slice(0, 10);
 
-  const [acessos, alunos, receitas] = await Promise.all([
-    getAcessos(sessao.academia.id, 500),
-    getAlunos(sessao.academia.id),
+  // Fase 13: antes lia getAcessos(id, 500) — um teto fixo de linhas, não de
+  // tempo. Numa academia grande, os 500 mais recentes podem não cobrir nem
+  // os últimos 7 dias (cards abaixo, que se dizem "do período", ficariam
+  // errados); numa academia pequena, podem cobrir meses (o gráfico "7 dias"
+  // misturaria períodos). Delimitar por data resolve os dois casos.
+  const [acessos, contagemAlunos, receitas] = await Promise.all([
+    getAcessosPeriodo(
+      sessao.academia.id,
+      `${seteDiasAtras}T00:00:00.000Z`,
+      new Date().toISOString()
+    ),
+    getContagemAlunos(sessao.academia.id),
     getReceitas(sessao.academia.id, seteDiasAtras),
   ]);
 
@@ -116,7 +125,7 @@ export default async function RelatoriosPage({
     (acc, p) => acc + p.mensalidades + p.parcerias,
     0
   );
-  const ativos = alunos.filter((a) => a.status_matricula === "ativa").length;
+  const ativos = contagemAlunos.ativos;
   const pctGympass = acessos.length
     ? Math.round((contagemOrigem.Gympass / acessos.length) * 100)
     : 0;
@@ -159,7 +168,7 @@ export default async function RelatoriosPage({
           icon={Users}
           label="Alunos ativos"
           value={String(ativos)}
-          hint={`${alunos.length} cadastrados`}
+          hint={`${contagemAlunos.total} cadastrados`}
           accent="slate"
         />
       </div>

@@ -11,6 +11,7 @@
 /.test-build-perm
 /.test-build-val
 /.test-build-aluno
+/.test-build-pag
 
 # next.js
 /.next/

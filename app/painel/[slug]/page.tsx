@@ -28,11 +28,17 @@ import AlertasPainel, {
 } from "@/components/painel/AlertasPainel";
 import { requireSessao } from "@/lib/auth";
 import {
-  getAlunos,
   getRetencaoAlunos,
-  getDespesas,
-  getFuncionarios,
   getReceitas,
+  getDespesas,
+  getReceitasJanela,
+  getDespesasJanela,
+  getContagemAlunos,
+  getContagemAlunosCriadosEntre,
+  getEvolucaoAlunosContagem,
+  getMensalidadesVencidas,
+  getProximosVencimentos,
+  getFuncionarios,
 } from "@/lib/data";
 import { agruparFinanceiro, ultimosMeses } from "@/lib/financeiro";
 import { resolverJanelaDashboard } from "@/lib/periodo";
@@ -58,12 +64,74 @@ export default async function DashboardOverviewPage({
   // Dono e gerente veem dados financeiros; recepção e instrutor não.
   const verFinanceiro = sessao.papel === "dono" || sessao.papel === "gerente";
 
-  const [alunos, funcionarios, receitas, despesas, retencao] = await Promise.all([
-    getAlunos(sessao.academia.id),
+  // Vencimento sempre comparado em America/Sao_Paulo, igual à ficha do aluno,
+  // às notificações e à decisão de acesso da recepção.
+  const hojeIso = hojeSaoPaulo();
+  const em14dias = new Date(`${hojeIso}T00:00:00Z`);
+  em14dias.setUTCDate(em14dias.getUTCDate() + 14);
+  const em14diasIso = em14dias.toISOString().slice(0, 10);
+
+  // Período anterior (mesma duração, imediatamente antes) para o comparativo.
+  const umDia = 86400_000;
+  const spanDias =
+    Math.round(
+      (new Date(janela.ate + "T00:00:00").getTime() -
+        new Date(janela.desde + "T00:00:00").getTime()) /
+        umDia
+    ) + 1;
+  const antAte = new Date(new Date(janela.desde + "T00:00:00").getTime() - umDia)
+    .toISOString()
+    .slice(0, 10);
+  const antDesde = new Date(
+    new Date(antAte + "T00:00:00").getTime() - (spanDias - 1) * umDia
+  )
+    .toISOString()
+    .slice(0, 10);
+
+  // Mês atual (mesma referência que o código já usava: UTC via toISOString()).
+  const mesAtualChave = new Date().toISOString().slice(0, 7);
+  const [mesAno, mesNum] = mesAtualChave.split("-").map(Number);
+  const mesIni = `${mesAtualChave}-01`;
+  const mesFim = new Date(Date.UTC(mesAno, mesNum, 0)).toISOString().slice(0, 10);
+
+  // Cortes mensais para "Evolução de alunos" — "-31" como teto é seguro
+  // porque nenhuma data válida ultrapassa esse dia, sem precisar calcular o
+  // último dia real de cada mês (igual ao código anterior).
+  const cortesEvolucao = ultimosMeses(6).map(({ chave }) => `${chave}-31`);
+
+  // Fase 13: nada de carregar a base inteira de alunos/receitas/despesas para
+  // somar em memória. Cada consulta abaixo já vem do banco recortada pelo
+  // período que ela realmente precisa (ver comentários em lib/data.ts).
+  const [
+    contagemAlunos,
+    funcionarios,
+    receitasJanela,
+    despesasJanela,
+    receitasAnt,
+    despesasAnt,
+    receitasMes,
+    novosAlunosCount,
+    novosAlunosAntCount,
+    evolucaoCounts,
+    retencao,
+    vencidas,
+    proximosVencimentosRows,
+  ] = await Promise.all([
+    getContagemAlunos(sessao.academia.id),
     verFinanceiro ? getFuncionarios(sessao.academia.id) : Promise.resolve([]),
-    verFinanceiro ? getReceitas(sessao.academia.id) : Promise.resolve([]),
-    verFinanceiro ? getDespesas(sessao.academia.id) : Promise.resolve([]),
+    verFinanceiro ? getReceitasJanela(sessao.academia.id, janela.desde, janela.ate) : Promise.resolve([]),
+    verFinanceiro ? getDespesasJanela(sessao.academia.id, janela.desde, janela.ate) : Promise.resolve([]),
+    verFinanceiro ? getReceitas(sessao.academia.id, antDesde, antAte) : Promise.resolve([]),
+    verFinanceiro ? getDespesas(sessao.academia.id, antDesde, antAte) : Promise.resolve([]),
+    verFinanceiro ? getReceitas(sessao.academia.id, mesIni, mesFim) : Promise.resolve([]),
+    getContagemAlunosCriadosEntre(sessao.academia.id, janela.desde, janela.ate),
+    getContagemAlunosCriadosEntre(sessao.academia.id, antDesde, antAte),
+    getEvolucaoAlunosContagem(sessao.academia.id, cortesEvolucao),
     getRetencaoAlunos(),
+    verFinanceiro ? getMensalidadesVencidas(sessao.academia.id, hojeIso) : Promise.resolve([]),
+    verFinanceiro
+      ? getProximosVencimentos(sessao.academia.id, hojeIso, em14diasIso, 8)
+      : Promise.resolve([]),
   ]);
 
   // Mesma consulta agregada e mesma função de classificação da tela de Retenção.
@@ -87,24 +155,15 @@ export default async function DashboardOverviewPage({
       explicacao: x.explicacao,
     }));
 
-  // Vencimento sempre comparado em America/Sao_Paulo, igual à ficha do aluno,
-  // às notificações e à decisão de acesso da recepção.
-  const hojeIso = hojeSaoPaulo();
-  const em14dias = new Date(`${hojeIso}T00:00:00Z`);
-  em14dias.setUTCDate(em14dias.getUTCDate() + 14);
-  const em14diasIso = em14dias.toISOString().slice(0, 10);
-  const nomePorAlunoId = new Map(alunos.map((a) => [a.id, a.nome]));
-  const alunosAtivos = alunos.filter((a) => a.status_matricula === "ativa").length;
+  const totalAlunos = contagemAlunos.total;
+  const alunosAtivos = contagemAlunos.ativos;
   const funcionariosAtivos = funcionarios.filter((f) => f.status === "ativo").length;
 
   // ---- Inadimplência (só para quem vê financeiro) ----
   const inadimplentes: AlertaInadimplente[] = [];
-  const proximosVencimentos: typeof receitas = [];
+  const proximosVencimentos = proximosVencimentosRows;
 
   if (verFinanceiro) {
-    const vencidas = receitas.filter(
-      (r) => r.tipo === "mensalidade" && r.status === "pendente" && r.data < hojeIso
-    );
     const inadimplentesMap = new Map<string, AlertaInadimplente>();
     for (const r of vencidas) {
       if (!r.aluno_id) continue;
@@ -120,7 +179,7 @@ export default async function DashboardOverviewPage({
       } else {
         inadimplentesMap.set(r.aluno_id, {
           alunoId: r.aluno_id,
-          nome: r.aluno?.nome ?? nomePorAlunoId.get(r.aluno_id) ?? "Aluno",
+          nome: r.aluno?.nome ?? "Aluno",
           valorTotal: Number(r.valor),
           diasAtraso,
           telefone: r.aluno?.telefone ?? null,
@@ -131,53 +190,25 @@ export default async function DashboardOverviewPage({
     inadimplentes.push(
       ...Array.from(inadimplentesMap.values()).sort((a, b) => b.diasAtraso - a.diasAtraso)
     );
-
-    proximosVencimentos.push(
-      ...receitas
-        .filter((r) => r.status === "pendente" && r.data >= hojeIso && r.data <= em14diasIso)
-        .sort((a, b) => a.data.localeCompare(b.data))
-        .slice(0, 8)
-    );
   }
 
   // ---- KPIs financeiros (só para quem vê financeiro) ----
   const noPeriodo = (data: string) => data >= janela.desde && data <= janela.ate;
   const receitaPeriodo = verFinanceiro
-    ? receitas.filter((r) => r.status === "pago" && noPeriodo(r.data)).reduce((acc, r) => acc + Number(r.valor), 0)
+    ? receitasJanela.filter((r) => r.status === "pago" && noPeriodo(r.data)).reduce((acc, r) => acc + Number(r.valor), 0)
     : 0;
   const despesaPeriodo = verFinanceiro
-    ? despesas.filter((d) => d.status === "pago" && noPeriodo(d.data)).reduce((acc, d) => acc + Number(d.valor), 0)
+    ? despesasJanela.filter((d) => d.status === "pago" && noPeriodo(d.data)).reduce((acc, d) => acc + Number(d.valor), 0)
     : 0;
   const lucroPeriodo = receitaPeriodo - despesaPeriodo;
-  const novosAlunos = alunos.filter((a) => noPeriodo(a.criado_em.slice(0, 10))).length;
+  const novosAlunos = novosAlunosCount;
 
-  // ---- Período anterior (mesma duração, imediatamente antes) para o comparativo ----
-  const umDia = 86400_000;
-  const spanDias =
-    Math.round(
-      (new Date(janela.ate + "T00:00:00").getTime() -
-        new Date(janela.desde + "T00:00:00").getTime()) /
-        umDia
-    ) + 1;
-  const antAte = new Date(new Date(janela.desde + "T00:00:00").getTime() - umDia)
-    .toISOString()
-    .slice(0, 10);
-  const antDesde = new Date(
-    new Date(antAte + "T00:00:00").getTime() - (spanDias - 1) * umDia
-  )
-    .toISOString()
-    .slice(0, 10);
-  const noAnterior = (data: string) => data >= antDesde && data <= antAte;
   const somaPagos = (arr: { status: string; valor: number | string }[]) =>
     arr.filter((x) => x.status === "pago").reduce((a, x) => a + Number(x.valor), 0);
-  const receitaAnt = verFinanceiro
-    ? somaPagos(receitas.filter((r) => noAnterior(r.data)))
-    : 0;
-  const despesaAnt = verFinanceiro
-    ? somaPagos(despesas.filter((d) => noAnterior(d.data)))
-    : 0;
+  const receitaAnt = verFinanceiro ? somaPagos(receitasAnt) : 0;
+  const despesaAnt = verFinanceiro ? somaPagos(despesasAnt) : 0;
   const lucroAnt = receitaAnt - despesaAnt;
-  const novosAlunosAnt = alunos.filter((a) => noAnterior(a.criado_em.slice(0, 10))).length;
+  const novosAlunosAnt = novosAlunosAntCount;
 
   // Variação % entre atual e anterior (evita divisão por zero).
   const variacao = (atual: number, anterior: number): number =>
@@ -187,36 +218,29 @@ export default async function DashboardOverviewPage({
 
   // ---- Meta de faturamento do mês (recebido vs meta) + projeção ----
   const metaMensal = Number(sessao.academia.meta_faturamento_mensal ?? 0);
-  const mesAtualChave = new Date().toISOString().slice(0, 7);
-  const noMesAtual = (data: string) => data.slice(0, 7) === mesAtualChave;
   const recebidoMes = verFinanceiro
-    ? receitas
-        .filter((r) => r.status === "pago" && noMesAtual(r.data))
+    ? receitasMes
+        .filter((r) => r.status === "pago")
         .reduce((a, r) => a + Number(r.valor), 0)
     : 0;
   // Projeção do mês = já recebido + o que ainda está pendente para este mês.
   const projecaoMes = verFinanceiro
-    ? receitas
-        .filter((r) => noMesAtual(r.data))
-        .reduce((a, r) => a + Number(r.valor), 0)
+    ? receitasMes.reduce((a, r) => a + Number(r.valor), 0)
     : 0;
   const pctMeta = metaMensal > 0 ? Math.min(100, (recebidoMes / metaMensal) * 100) : 0;
   const pctProjecao = metaMensal > 0 ? Math.min(100, (projecaoMes / metaMensal) * 100) : 0;
   const mostrarMeta = verFinanceiro && metaMensal > 0;
 
   const dadosFinanceiro = verFinanceiro
-    ? agruparFinanceiro(receitas, despesas, janela.desde, janela.ate)
+    ? agruparFinanceiro(receitasJanela, despesasJanela, janela.desde, janela.ate)
     : [];
 
   const hintPeriodo = janela.custom ? "no período" : janela.label.toLowerCase();
 
-  const evolucaoAlunos: PontoEvolucaoAlunos[] = ultimosMeses(6).map(
-    ({ chave, label }) => {
-      const fimDoMes = `${chave}-31`;
-      const total = alunos.filter((a) => a.criado_em.slice(0, 10) <= fimDoMes).length;
-      return { mes: label, alunos: total };
-    }
-  );
+  const evolucaoAlunos: PontoEvolucaoAlunos[] = ultimosMeses(6).map(({ label }, i) => ({
+    mes: label,
+    alunos: evolucaoCounts[i] ?? 0,
+  }));
 
   return (
     <div className="space-y-6">
@@ -242,7 +266,7 @@ export default async function DashboardOverviewPage({
         <StatTile
           icon={Users}
           label="Alunos"
-          value={String(alunos.length)}
+          value={String(totalAlunos)}
           hint={`${alunosAtivos} ativos`}
           accent="volt"
         />

@@ -2,18 +2,22 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useFormState } from "react-dom";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   AlertCircle,
   ArrowRight,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Dumbbell,
+  FilterX,
   HeartPulse,
   ImagePlus,
   Loader2,
   Pencil,
   QrCode,
+  Search,
   Target,
   UserPlus,
   UserRound,
@@ -53,9 +57,23 @@ import {
 import { cancelarCobranca, marcarPago } from "@/app/painel/[slug]/financeiro/actions";
 import type { MensalidadeDetalhe } from "@/lib/data";
 
+const STATUS_OPCOES: { value: StatusMatricula; label: string }[] = [
+  { value: "ativa", label: "Ativa" },
+  { value: "pendente", label: "Pendente" },
+  { value: "trancada", label: "Trancada" },
+  { value: "inativa", label: "Inativa" },
+  { value: "cancelada", label: "Cancelada" },
+];
+
 export default function GestaoAlunos({
   slug,
   alunosIniciais,
+  totalAlunos,
+  pagina,
+  tamanhoPagina,
+  buscaInicial = "",
+  statusInicial = "",
+  planoIdInicial = "",
   treinosIniciais,
   planos,
   catalogo,
@@ -66,6 +84,12 @@ export default function GestaoAlunos({
 }: {
   slug: string;
   alunosIniciais: Aluno[];
+  totalAlunos: number;
+  pagina: number;
+  tamanhoPagina: number;
+  buscaInicial?: string;
+  statusInicial?: string;
+  planoIdInicial?: string;
   treinosIniciais: Treino[];
   planos: Plano[];
   catalogo: CatalogoExercicio[];
@@ -76,13 +100,62 @@ export default function GestaoAlunos({
 }) {
   const alunos = alunosIniciais;
   const treinos = treinosIniciais;
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [pendingFiltro, startFiltro] = useTransition();
 
   const [selecionadoId, setSelecionadoId] = useState<string | null>(
     alunosIniciais[0]?.id ?? null
   );
-  const [mostrarNovoAluno, setMostrarNovoAluno] = useState(alunos.length === 0);
+  const [mostrarNovoAluno, setMostrarNovoAluno] = useState(totalAlunos === 0);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const financialRef = useRef<HTMLDivElement>(null);
+
+  // A página/busca troca a lista inteira (aluno selecionado pode não estar
+  // mais na tela); se sumiu, seleciona o primeiro da nova página. Em
+  // atualizações que mantêm o aluno na lista (editar, marcar pago...) não
+  // mexe em nada — router.refresh() troca a referência do array, mas o id
+  // continua presente.
+  useEffect(() => {
+    if (!alunosIniciais.some((a) => a.id === selecionadoId)) {
+      setSelecionadoId(alunosIniciais[0]?.id ?? null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alunosIniciais]);
+
+  // ---- Busca e filtros no servidor (Fase 13) ----
+  const [busca, setBusca] = useState(buscaInicial);
+  const primeiraBuscaRef = useRef(true);
+
+  const aplicarFiltro = (patch: Record<string, string | null>) => {
+    const p = new URLSearchParams(searchParams.toString());
+    for (const [chave, valor] of Object.entries(patch)) {
+      if (valor) p.set(chave, valor);
+      else p.delete(chave);
+    }
+    if (!("pagina" in patch)) p.delete("pagina");
+    startFiltro(() => router.push(`${pathname}?${p.toString()}`));
+  };
+
+  // Debounce: só busca 400ms depois que o usuário parar de digitar.
+  useEffect(() => {
+    if (primeiraBuscaRef.current) {
+      primeiraBuscaRef.current = false;
+      return;
+    }
+    const t = setTimeout(() => aplicarFiltro({ q: busca.trim() || null }), 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busca]);
+
+  const filtrosAtivos = !!buscaInicial || !!statusInicial || !!planoIdInicial;
+  const limparFiltros = () => {
+    setBusca("");
+    aplicarFiltro({ q: null, status: null, planoId: null });
+  };
+
+  const totalPaginas = Math.max(1, Math.ceil(totalAlunos / tamanhoPagina));
 
   const treinosDoAluno = treinos.filter((t) => t.aluno_id === selecionadoId);
   const alunoSelecionado = alunos.find((a) => a.id === selecionadoId) ?? null;
@@ -108,7 +181,7 @@ export default function GestaoAlunos({
           <FormularioAluno
             slug={slug}
             planos={planos}
-            onCancelar={alunos.length > 0 ? () => setMostrarNovoAluno(false) : undefined}
+            onCancelar={totalAlunos > 0 ? () => setMostrarNovoAluno(false) : undefined}
             onSalvo={(id) => {
               setMostrarNovoAluno(false);
               setSelecionadoId(id);
@@ -128,13 +201,83 @@ export default function GestaoAlunos({
             <h2 className="font-semibold text-white">
               Alunos{" "}
               <span className="text-sm font-normal text-slate-500">
-                ({alunos.length})
+                ({totalAlunos})
               </span>
             </h2>
           </div>
+
+          <div
+            className={cn(
+              "flex flex-wrap items-end gap-3 border-b border-ink-700 px-5 py-3 transition-opacity",
+              pendingFiltro && "pointer-events-none opacity-60"
+            )}
+            aria-busy={pendingFiltro}
+          >
+            <label className="min-w-[160px] flex-1">
+              <span className="mb-1 block text-[11px] font-medium text-slate-400">
+                Buscar
+              </span>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                <input
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Nome, matrícula ou telefone"
+                  className="inp !py-1.5 pl-9 text-xs"
+                  autoComplete="off"
+                />
+              </div>
+            </label>
+            <label>
+              <span className="mb-1 block text-[11px] font-medium text-slate-400">
+                Status
+              </span>
+              <select
+                defaultValue={statusInicial}
+                onChange={(e) => aplicarFiltro({ status: e.target.value || null })}
+                className="inp !py-1.5 text-xs"
+              >
+                <option value="">Todos</option>
+                {STATUS_OPCOES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className="mb-1 block text-[11px] font-medium text-slate-400">
+                Plano
+              </span>
+              <select
+                defaultValue={planoIdInicial}
+                onChange={(e) => aplicarFiltro({ planoId: e.target.value || null })}
+                className="inp !py-1.5 text-xs"
+              >
+                <option value="">Todos</option>
+                {planos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {filtrosAtivos && (
+              <button
+                type="button"
+                onClick={limparFiltros}
+                className="btn-ghost !py-1.5 text-xs"
+              >
+                <FilterX className="h-3.5 w-3.5" /> Limpar
+              </button>
+            )}
+          </div>
+
           {alunos.length === 0 ? (
             <p className="px-5 py-6 text-sm text-slate-500">
-              Nenhum aluno cadastrado ainda.
+              {filtrosAtivos
+                ? "Nenhum aluno encontrado para os filtros selecionados."
+                : "Nenhum aluno cadastrado ainda."}
             </p>
           ) : (
             <ul className="max-h-[560px] divide-y divide-ink-700/70 overflow-auto">
@@ -169,6 +312,34 @@ export default function GestaoAlunos({
                 )
               )}
             </ul>
+          )}
+
+          {totalPaginas > 1 && (
+            <div className="flex items-center justify-between gap-3 border-t border-ink-700 px-5 py-3">
+              <span className="text-xs text-slate-500">
+                Página {pagina} de {totalPaginas}
+              </span>
+              <div className="inline-flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => aplicarFiltro({ pagina: String(pagina - 1) })}
+                  disabled={pagina <= 1}
+                  className="grid h-8 w-8 place-items-center rounded-lg border border-ink-600 text-slate-300 transition hover:bg-ink-700 disabled:pointer-events-none disabled:opacity-40"
+                  aria-label="Página anterior"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => aplicarFiltro({ pagina: String(pagina + 1) })}
+                  disabled={pagina >= totalPaginas}
+                  className="grid h-8 w-8 place-items-center rounded-lg border border-ink-600 text-slate-300 transition hover:bg-ink-700 disabled:pointer-events-none disabled:opacity-40"
+                  aria-label="Próxima página"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>

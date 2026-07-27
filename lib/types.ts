@@ -360,6 +360,23 @@ export type AcessosPaginados = {
   total: number;
 };
 
+/**
+ * Filtros da listagem paginada de alunos (Fase 13 — escala). Busca cobre
+ * nome, matrícula e telefone (por dígitos) em uma única consulta no banco.
+ */
+export type FiltroAlunos = {
+  pagina: number;
+  tamanhoPagina: number;
+  busca?: string;
+  status?: StatusMatricula;
+  planoId?: string;
+};
+
+export type AlunosPaginados = {
+  alunos: Aluno[];
+  total: number;
+};
+
 export interface Funcionario {
   id: string;
   academia_id: string;

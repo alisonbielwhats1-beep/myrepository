@@ -2,36 +2,67 @@ import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import GestaoAlunos from "@/components/painel/GestaoAlunos";
 import { requireSessao } from "@/lib/auth";
 import {
-  getAlunos,
+  getAlunosPaginado,
   getCatalogoExercicios,
-  getMensalidadesDetalhadas,
+  getHistoricoPlanosDosAlunos,
+  getMensalidadesDetalhadasDosAlunos,
   getPlanos,
-  getTodoHistoricoPlanos,
-  getTodoProgresso,
-  getTodosOsTreinos,
+  getProgressoDosAlunos,
+  getTreinosDosAlunos,
   type MensalidadeDetalhe,
 } from "@/lib/data";
 import { calcularStatusFinanceiro } from "@/lib/utils";
-import type { StatusFinanceiro } from "@/lib/types";
+import type { StatusFinanceiro, StatusMatricula } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+const TAMANHO_PAGINA = 20;
+const STATUS_VALIDOS: StatusMatricula[] = [
+  "ativa",
+  "inativa",
+  "trancada",
+  "pendente",
+  "cancelada",
+];
+
 export default async function AlunosPage({
   params,
+  searchParams,
 }: {
   params: { slug: string };
+  searchParams: { pagina?: string; q?: string; status?: string; planoId?: string };
 }) {
   const sessao = await requireSessao(params.slug);
-  const [alunos, treinos, planos, catalogo, progresso, historico, mensalidades] =
-    await Promise.all([
-      getAlunos(sessao.academia.id),
-      getTodosOsTreinos(sessao.academia.id),
-      getPlanos(sessao.academia.id),
-      getCatalogoExercicios(),
-      getTodoProgresso(sessao.academia.id),
-      getTodoHistoricoPlanos(sessao.academia.id),
-      getMensalidadesDetalhadas(sessao.academia.id),
-    ]);
+
+  const pagina = Math.max(1, Number(searchParams.pagina) || 1);
+  const status = STATUS_VALIDOS.includes(searchParams.status as StatusMatricula)
+    ? (searchParams.status as StatusMatricula)
+    : undefined;
+
+  // Fase 13: nada de carregar a base inteira de alunos — busca, filtro,
+  // paginação e contagem total acontecem no banco (getAlunosPaginado).
+  const [alunosPaginados, planos, catalogo] = await Promise.all([
+    getAlunosPaginado(sessao.academia.id, {
+      pagina,
+      tamanhoPagina: TAMANHO_PAGINA,
+      busca: searchParams.q,
+      status,
+      planoId: searchParams.planoId || undefined,
+    }),
+    getPlanos(sessao.academia.id),
+    getCatalogoExercicios(),
+  ]);
+
+  // Treinos, progresso, histórico e mensalidades só dos alunos da página
+  // atual — não da academia inteira (o painel à direita só mostra o aluno
+  // selecionado, que está sempre entre esses).
+  const alunoIds = alunosPaginados.alunos.map((a) => a.id);
+  const [treinos, progresso, historico, mensalidades] = await Promise.all([
+    getTreinosDosAlunos(sessao.academia.id, alunoIds),
+    getProgressoDosAlunos(sessao.academia.id, alunoIds),
+    getHistoricoPlanosDosAlunos(sessao.academia.id, alunoIds),
+    getMensalidadesDetalhadasDosAlunos(sessao.academia.id, alunoIds),
+  ]);
 
   // Agrupa mensalidades por aluno; deriva statusFinanceiro e mapa detalhado da mesma query.
   const statusFinanceiroMap: Record<string, StatusFinanceiro> = {};
@@ -57,7 +88,13 @@ export default async function AlunosPage({
 
       <GestaoAlunos
         slug={params.slug}
-        alunosIniciais={alunos}
+        alunosIniciais={alunosPaginados.alunos}
+        totalAlunos={alunosPaginados.total}
+        pagina={pagina}
+        tamanhoPagina={TAMANHO_PAGINA}
+        buscaInicial={searchParams.q ?? ""}
+        statusInicial={status ?? ""}
+        planoIdInicial={searchParams.planoId ?? ""}
         treinosIniciais={treinos}
         planos={planos}
         catalogo={catalogo}

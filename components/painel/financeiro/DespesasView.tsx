@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useFormState } from "react-dom";
-import { CalendarClock, FilterX, Loader2, Lock, Pencil, Plus } from "lucide-react";
+import { AlertTriangle, CalendarClock, FilterX, Loader2, Lock, Pencil, Plus } from "lucide-react";
 import { CATEGORIAS_DESPESA, Despesa, FORMAS_PAGAMENTO } from "@/lib/types";
 import { cn, formatBRL, hojeSaoPaulo } from "@/lib/utils";
 import { baixarCSV } from "@/lib/csv";
@@ -19,11 +19,17 @@ import {
 export default function DespesasView({
   slug,
   despesas: despesasTodas,
+  totalReal,
+  truncado = false,
   competenciaFolha,
   pagamentoInicial,
 }: {
   slug: string;
   despesas: Despesa[];
+  /** Total real no período — pode ser maior que despesas.length quando truncado. */
+  totalReal?: number;
+  /** true quando periodo=todos excedeu o limite explícito e a lista foi cortada. */
+  truncado?: boolean;
   competenciaFolha: string;
   pagamentoInicial?: string;
 }) {
@@ -77,6 +83,15 @@ export default function DespesasView({
           </p>
         </div>
       </div>
+
+      {truncado && (
+        <p className="no-print flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-none" />
+          Mostrando as {despesasTodas.length} despesas mais recentes de {totalReal} no
+          total. Refine o período (mês ou ano) para ver o restante — o CSV exporta
+          só o que está sendo exibido.
+        </p>
+      )}
 
       <div className="no-print surface flex flex-wrap items-end justify-between gap-3 rounded-2xl p-4">
         <label className="block">

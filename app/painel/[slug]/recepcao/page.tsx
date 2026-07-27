@@ -5,10 +5,10 @@ import HistoricoAcessos from "@/components/painel/HistoricoAcessos";
 import StatTile from "@/components/painel/StatTile";
 import { requireSecao } from "@/lib/auth";
 import {
-  getAcessos,
   getAcessosPaginado,
-  getAlunos,
-  getMensalidadesDetalhadas,
+  getAcessosRecentes,
+  getAlunosResumo,
+  getMensalidadesPendentes,
   getPlanos,
   getUltimosAcessosPorAluno,
 } from "@/lib/data";
@@ -43,12 +43,19 @@ export default async function RecepcaoPage({
     ? (searchParams.origem as OrigemAcesso)
     : undefined;
 
+  // "Hoje" com folga de 36h para cobrir qualquer fuso sem repetir o teto de
+  // 50 linhas que getAcessos(academiaId) aplicava por padrão — numa academia
+  // com mais de 50 check-ins no dia, os cards "acessos hoje"/"negados
+  // hoje"/"pico de hoje" vinham truncados (Fase 13). O recorte por horário
+  // continua sendo feito abaixo, exatamente como antes.
+  const desde36h = new Date(Date.now() - 36 * 3600_000).toISOString();
+
   const [acessos, alunos, planos, mensalidades, ultimosAcessos, historico] =
     await Promise.all([
-      getAcessos(sessao.academia.id),
-      getAlunos(sessao.academia.id),
+      getAcessosRecentes(sessao.academia.id, desde36h),
+      getAlunosResumo(sessao.academia.id),
       getPlanos(sessao.academia.id),
-      getMensalidadesDetalhadas(sessao.academia.id),
+      getMensalidadesPendentes(sessao.academia.id),
       getUltimosAcessosPorAluno(sessao.academia.id),
       getAcessosPaginado(sessao.academia.id, {
         pagina,

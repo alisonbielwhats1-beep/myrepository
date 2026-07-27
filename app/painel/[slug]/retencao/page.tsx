@@ -10,7 +10,7 @@ import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import StatTile from "@/components/painel/StatTile";
 import UpgradeGuard from "@/components/ui/UpgradeGuard";
 import { requireSecao } from "@/lib/auth";
-import { getAlunos, getRetencaoAlunos } from "@/lib/data";
+import { getAlunosAniversariantes, getRetencaoAlunos } from "@/lib/data";
 import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
 import {
   ROTULOS_RETENCAO as ROTULOS,
@@ -49,8 +49,12 @@ export default async function RetencaoPage({
 
   // Mesma consulta agregada do painel: uma chamada, agregação no banco, sem
   // limite arbitrário de acessos e sem trazer histórico para o frontend.
-  const [alunos, retencao] = await Promise.all([
-    getAlunos(sessao.academia.id),
+  // Aniversariantes (Fase 13): antes carregava getAlunos() — a ficha inteira
+  // de cada aluno da academia — só para ler data_nascimento. Agora usa a RPC
+  // aniversariantes_do_mes (migration 038), que já filtra o mês no banco.
+  const mesAtual = new Date().getMonth();
+  const [aniversariantesRows, retencao] = await Promise.all([
+    getAlunosAniversariantes(mesAtual),
     getRetencaoAlunos(30),
   ]);
 
@@ -95,13 +99,9 @@ export default async function RetencaoPage({
 
   const totalSumidos = classificados.filter((r) => r.classificacao === "sumido").length;
 
-  // Aniversariantes do mês.
-  const mesAtual = new Date().getMonth();
-  const aniversariantes = alunos
-    .filter((a) => {
-      if (!a.data_nascimento) return false;
-      return new Date(a.data_nascimento + "T00:00:00").getMonth() === mesAtual;
-    })
+  // Aniversariantes do mês — já filtrados pela RPC (mês é o mesmo `mesAtual`
+  // usado acima para a busca).
+  const aniversariantes = aniversariantesRows
     .map((a) => ({
       nome: a.nome,
       dia: new Date(a.data_nascimento + "T00:00:00").getDate(),

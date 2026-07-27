@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useFormState } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CalendarClock, Check, FilterX, Loader2, Pencil, Plus } from "lucide-react";
+import { AlertTriangle, CalendarClock, Check, FilterX, Loader2, Pencil, Plus } from "lucide-react";
 import { Aluno, FORMAS_PAGAMENTO, Receita, TIPOS_RECEITA } from "@/lib/types";
 import { cn, formatBRL, hojeSaoPaulo } from "@/lib/utils";
 import { baixarCSV } from "@/lib/csv";
@@ -25,6 +25,8 @@ export default function ReceitasView({
   slug,
   alunos,
   receitas,
+  totalReal,
+  truncado = false,
   alunoIdInicial,
   statusInicial,
   pagamentoInicial,
@@ -34,6 +36,10 @@ export default function ReceitasView({
   slug: string;
   alunos: Aluno[];
   receitas: Receita[];
+  /** Total real no período — pode ser maior que receitas.length quando truncado. */
+  totalReal?: number;
+  /** true quando periodo=todos excedeu o limite explícito e a lista foi cortada. */
+  truncado?: boolean;
   alunoIdInicial?: string;
   statusInicial?: string;
   pagamentoInicial?: string;
@@ -154,6 +160,15 @@ export default function ReceitasView({
           </p>
         </div>
       </div>
+
+      {truncado && (
+        <p className="no-print flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-none" />
+          Mostrando os {receitas.length} lançamentos mais recentes de {totalReal} no
+          total. Refine o período (mês ou ano) para ver o restante — o CSV exporta
+          só o que está sendo exibido.
+        </p>
+      )}
 
       {/* Filtros combináveis */}
       <div className="no-print surface rounded-2xl p-4">

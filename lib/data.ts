@@ -5,17 +5,20 @@
 import { createClient } from "./supabase/server";
 import { hojeSaoPaulo } from "./utils";
 import { tokenTemFormatoValido } from "./aluno-classificacao";
+import { calcularRange, construirFiltroBuscaAlunos } from "./paginacao";
 import {
   AcademiaPublica,
   AcessoAlunoPublico,
   AcessoCatraca,
   AcessosPaginados,
   Aluno,
+  AlunosPaginados,
   CatalogoExercicio,
   Despesa,
   Feedback,
   FichaAlunoPublica,
   FiltroAcessos,
+  FiltroAlunos,
   Funcionario,
   HistoricoPlano,
   LinhaRetencao,
@@ -100,6 +103,151 @@ export async function getAlunoSaude(
   return data ?? null;
 }
 
+/**
+ * Alunos paginados com busca e filtros no servidor (Fase 13 — escala).
+ *
+ * Substitui getAlunos() na tela de Alunos: nada de carregar a base inteira
+ * para filtrar/ordenar no cliente. Busca cobre nome, matrícula e telefone
+ * (por dígitos) via pg_trgm (migration 038); status e plano filtram por
+ * igualdade. Ordenação estável (criado_em desc + id desc como desempate)
+ * garante que nenhuma linha apareça duas vezes nem suma ao trocar de página.
+ */
+export async function getAlunosPaginado(
+  academiaId: string,
+  filtro: FiltroAlunos
+): Promise<AlunosPaginados> {
+  const supabase = createClient();
+  const { de, ate } = calcularRange(filtro.pagina, filtro.tamanhoPagina);
+
+  let query = supabase
+    .from("alunos")
+    .select("*", { count: "exact" })
+    .eq("academia_id", academiaId);
+
+  if (filtro.status) query = query.eq("status_matricula", filtro.status);
+  if (filtro.planoId) query = query.eq("plano_id", filtro.planoId);
+  if (filtro.busca) {
+    const orFiltro = construirFiltroBuscaAlunos(filtro.busca);
+    if (orFiltro) query = query.or(orFiltro);
+  }
+
+  const { data, error, count } = await query
+    .order("criado_em", { ascending: false })
+    .order("id", { ascending: false })
+    .range(de, ate);
+  if (error) throw new Error(`Falha ao carregar alunos: ${error.message}`);
+  return { alunos: (data as Aluno[]) ?? [], total: count ?? 0 };
+}
+
+/**
+ * Colunas mínimas de aluno para busca/seleção (Recepção e formulários do
+ * Financeiro): evita o over-fetch de select("*") — sem saúde/anamnese/CPF —
+ * quando só nome, matrícula, telefone, foto, status e plano são exibidos.
+ * Continua sendo a base inteira da academia (necessário para a busca
+ * instantânea da Recepção e para o combo de aluno das receitas), então não
+ * resolve escala sozinha — só reduz bytes transferidos. Ver riscos restantes.
+ */
+export async function getAlunosResumo(academiaId: string): Promise<Aluno[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("alunos")
+    .select(
+      "id, academia_id, nome, cpf, email, telefone, foto_perfil_url, data_nascimento, status_matricula, plano_id, matricula_codigo, dia_vencimento, objetivo, condicoes_medicas, contato_emergencia_nome, contato_emergencia_telefone, token_acesso_publico, criado_em, atualizado_em"
+    )
+    .eq("academia_id", academiaId)
+    .order("nome", { ascending: true });
+  if (error) throw new Error(`Falha ao carregar alunos: ${error.message}`);
+  return (data as Aluno[]) ?? [];
+}
+
+/** Contagem de alunos (total e ativos) sem transferir nenhuma linha — só o
+ *  count do Postgres, usado pelos KPIs do Dashboard. */
+export async function getContagemAlunos(
+  academiaId: string
+): Promise<{ total: number; ativos: number }> {
+  const supabase = createClient();
+  const [totalRes, ativosRes] = await Promise.all([
+    supabase
+      .from("alunos")
+      .select("id", { count: "exact", head: true })
+      .eq("academia_id", academiaId),
+    supabase
+      .from("alunos")
+      .select("id", { count: "exact", head: true })
+      .eq("academia_id", academiaId)
+      .eq("status_matricula", "ativa"),
+  ]);
+  if (totalRes.error) throw new Error(`Falha ao contar alunos: ${totalRes.error.message}`);
+  if (ativosRes.error) throw new Error(`Falha ao contar alunos: ${ativosRes.error.message}`);
+  return { total: totalRes.count ?? 0, ativos: ativosRes.count ?? 0 };
+}
+
+/**
+ * Quantos alunos foram criados em [desde, ate] (datas ISO, comparadas como o
+ * prefixo de data de `criado_em` em UTC — mesma comparação que
+ * `criado_em.slice(0,10) >= desde && <= ate` fazia em memória). Só o count,
+ * sem trazer os alunos.
+ */
+export async function getContagemAlunosCriadosEntre(
+  academiaId: string,
+  desde: string,
+  ate: string
+): Promise<number> {
+  const supabase = createClient();
+  const diaSeguinte = new Date(`${ate}T00:00:00Z`);
+  diaSeguinte.setUTCDate(diaSeguinte.getUTCDate() + 1);
+  const { count, error } = await supabase
+    .from("alunos")
+    .select("id", { count: "exact", head: true })
+    .eq("academia_id", academiaId)
+    .gte("criado_em", `${desde}T00:00:00.000Z`)
+    .lt("criado_em", diaSeguinte.toISOString().slice(0, 10) + "T00:00:00.000Z");
+  if (error) throw new Error(`Falha ao contar alunos: ${error.message}`);
+  return count ?? 0;
+}
+
+/**
+ * Contagem cumulativa de alunos cadastrados até cada data de corte (ex.: fim
+ * de cada um dos últimos 6 meses), para o gráfico "Evolução de alunos" do
+ * Dashboard. Uma consulta count por corte — número fixo (6), não cresce com
+ * a base de alunos, então não é o padrão N+1 que a Fase 13 proíbe.
+ */
+export async function getEvolucaoAlunosContagem(
+  academiaId: string,
+  cortes: string[]
+): Promise<number[]> {
+  const supabase = createClient();
+  const resultados = await Promise.all(
+    cortes.map((corte) =>
+      supabase
+        .from("alunos")
+        .select("id", { count: "exact", head: true })
+        .eq("academia_id", academiaId)
+        .lte("criado_em", `${corte}T23:59:59.999Z`)
+    )
+  );
+  for (const r of resultados) {
+    if (r.error) throw new Error(`Falha ao contar evolução de alunos: ${r.error.message}`);
+  }
+  return resultados.map((r) => r.count ?? 0);
+}
+
+/**
+ * Aniversariantes do mês (RPC `aniversariantes_do_mes`, migration 038) — só
+ * nome e dia, agregado no banco. `mesJs` é o valor de `Date#getMonth()`
+ * (0-11); a RPC espera 1-12.
+ */
+export async function getAlunosAniversariantes(
+  mesJs: number
+): Promise<{ id: string; nome: string; data_nascimento: string }[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("aniversariantes_do_mes", {
+    p_mes: mesJs + 1,
+  });
+  if (error) throw new Error(`Falha ao carregar aniversariantes: ${error.message}`);
+  return (data as { id: string; nome: string; data_nascimento: string }[]) ?? [];
+}
+
 export async function getPlanos(academiaId: string): Promise<Plano[]> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -138,6 +286,29 @@ export async function getTodosOsTreinos(academiaId: string): Promise<Treino[]> {
   return (data as Treino[]) ?? [];
 }
 
+/**
+ * Treinos de um conjunto específico de alunos (Fase 13 — tela de Alunos
+ * paginada). Substitui getTodosOsTreinos() ali: só os treinos dos alunos da
+ * página atual, não da academia inteira. Lista vazia de ids não bate no
+ * banco (evita um `.in("aluno_id", [])`, que o PostgREST aceita mas que aqui
+ * é sempre um resultado vazio garantido).
+ */
+export async function getTreinosDosAlunos(
+  academiaId: string,
+  alunoIds: string[]
+): Promise<Treino[]> {
+  if (alunoIds.length === 0) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("treinos")
+    .select("*, exercicios:exercicios_treino(*)")
+    .eq("academia_id", academiaId)
+    .in("aluno_id", alunoIds)
+    .order("ordem", { ascending: true });
+  if (error) throw new Error(`Falha ao carregar treinos: ${error.message}`);
+  return (data as Treino[]) ?? [];
+}
+
 /** Treinos da biblioteca (modelos, sem aluno vinculado), por modalidade. */
 export async function getTreinosBiblioteca(
   academiaId: string
@@ -165,6 +336,56 @@ export async function getAcessos(
     .eq("academia_id", academiaId)
     .order("data_hora_entrada", { ascending: false })
     .limit(limite);
+  if (error) throw new Error(`Falha ao carregar acessos: ${error.message}`);
+  return (data as AcessoCatraca[]) ?? [];
+}
+
+/**
+ * Acessos dentro de um intervalo de datas — sem limite de linhas, o recorte
+ * é o próprio intervalo (Fase 13). Usado por Relatórios/BI, que antes lia
+ * `getAcessos(academiaId, 500)`: com uma academia movimentada, os 500 mais
+ * recentes podiam não cobrir nem os últimos 7 dias (número errado nos
+ * cards), e com uma academia pequena podiam cobrir meses (gráfico de "7
+ * dias" misturando dados de outra época). Delimitar por data resolve os dois
+ * casos com o mesmo código de agregação em memória que já existia.
+ */
+export async function getAcessosPeriodo(
+  academiaId: string,
+  desdeIso: string,
+  ateIso: string
+): Promise<AcessoCatraca[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("acessos_catraca")
+    .select("*, aluno:alunos(id, nome, foto_perfil_url)")
+    .eq("academia_id", academiaId)
+    .gte("data_hora_entrada", desdeIso)
+    .lte("data_hora_entrada", ateIso)
+    .order("data_hora_entrada", { ascending: false });
+  if (error) throw new Error(`Falha ao carregar acessos: ${error.message}`);
+  return (data as AcessoCatraca[]) ?? [];
+}
+
+/**
+ * Acessos desde um instante (ISO) — sem limite de linhas, para os cards
+ * "hoje" da Recepção. Antes a Recepção lia `getAcessos(academiaId)`, que sem
+ * argumento de limite pegava as 50 entradas mais recentes DA ACADEMIA: em um
+ * dia de pico com mais de 50 check-ins, "acessos hoje"/"negados hoje"/"pico
+ * de hoje" vinham truncados e errados. O chamador ainda decide o que é "hoje"
+ * (mesmo critério de fuso que já usava), esta função só remove o teto de
+ * linhas.
+ */
+export async function getAcessosRecentes(
+  academiaId: string,
+  desdeIso: string
+): Promise<AcessoCatraca[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("acessos_catraca")
+    .select("*, aluno:alunos(id, nome, foto_perfil_url)")
+    .eq("academia_id", academiaId)
+    .gte("data_hora_entrada", desdeIso)
+    .order("data_hora_entrada", { ascending: false });
   if (error) throw new Error(`Falha ao carregar acessos: ${error.message}`);
   return (data as AcessoCatraca[]) ?? [];
 }
@@ -205,30 +426,24 @@ export async function getAcessosPaginado(
 /**
  * Último acesso efetivo (liberado/alerta) de cada aluno, para a busca da
  * Recepção mostrar "último acesso" antes de registrar uma nova entrada.
- * Olha só as entradas mais recentes da academia (ordenadas por data), então
- * cobre com folga o uso do dia a dia sem precisar de uma função agregada
- * própria — `retencao_alunos` (migration 030) já cobre o caso de retenção,
- * que só precisa de aluno ATIVO; aqui a busca precisa achar qualquer aluno.
+ *
+ * Fase 13: antes lia as 1000 entradas mais recentes DA ACADEMIA e ficava com
+ * a primeira ocorrência de cada aluno_id. Numa academia com mais de ~1000
+ * check-ins recentes, um aluno que não aparecesse nesses 1000 registros
+ * mostrava "nunca acessou" mesmo já tendo vindo — dado errado, não só
+ * truncado. Agora usa a RPC `ultimos_acessos_por_aluno` (migration 038),
+ * que agrega DISTINCT ON no banco: uma linha por aluno, sem limite nenhum.
  */
 export async function getUltimosAcessosPorAluno(
-  academiaId: string,
-  limite = 1000
+  academiaId: string
 ): Promise<Record<string, string>> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("acessos_catraca")
-    .select("aluno_id, data_hora_entrada")
-    .eq("academia_id", academiaId)
-    .in("status_liberacao", ["liberado", "alerta"])
-    .not("aluno_id", "is", null)
-    .order("data_hora_entrada", { ascending: false })
-    .limit(limite);
+  const { data, error } = await supabase.rpc("ultimos_acessos_por_aluno");
   if (error) throw new Error(`Falha ao carregar últimos acessos: ${error.message}`);
 
   const ultimos: Record<string, string> = {};
-  for (const row of (data as { aluno_id: string; data_hora_entrada: string }[]) ?? []) {
-    // Primeira ocorrência de cada aluno = a mais recente, já que veio ordenado desc.
-    if (!ultimos[row.aluno_id]) ultimos[row.aluno_id] = row.data_hora_entrada;
+  for (const row of (data as { aluno_id: string; ultimo_acesso: string }[]) ?? []) {
+    ultimos[row.aluno_id] = row.ultimo_acesso;
   }
   return ultimos;
 }
@@ -291,6 +506,110 @@ export async function getMensalidadesDetalhadas(
     .order("data", { ascending: false });
   if (error) throw new Error(`Falha ao carregar mensalidades: ${error.message}`);
   return (data as MensalidadeDetalhe[]) ?? [];
+}
+
+/**
+ * Mensalidades completas, mas só dos alunos informados (Fase 13 — tela de
+ * Alunos paginada). Substitui getMensalidadesDetalhadas(academiaId) ali: em
+ * vez do histórico inteiro da academia, só o dos alunos da página atual —
+ * que é exatamente o que o painel financeiro por aluno (SituacaoFinanceira)
+ * e o mapa de status de cada linha da lista precisam.
+ */
+export async function getMensalidadesDetalhadasDosAlunos(
+  academiaId: string,
+  alunoIds: string[]
+): Promise<MensalidadeDetalhe[]> {
+  if (alunoIds.length === 0) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("receitas")
+    .select("id, aluno_id, competencia, data, valor, status, descricao, data_pagamento, forma_pagamento")
+    .eq("academia_id", academiaId)
+    .eq("tipo", "mensalidade")
+    .in("aluno_id", alunoIds)
+    .order("data", { ascending: false });
+  if (error) throw new Error(`Falha ao carregar mensalidades: ${error.message}`);
+  return (data as MensalidadeDetalhe[]) ?? [];
+}
+
+/**
+ * Só as mensalidades PENDENTES da academia (Fase 13). calcularStatusFinanceiro
+ * (lib/utils.ts) descarta mensalidades pagas/canceladas antes de decidir o
+ * status — então, para calcular "em dia / pendente / inadimplente" de cada
+ * aluno, o histórico pago não faz nenhuma falta. Isso troca "todo o histórico
+ * financeiro da academia, para sempre crescente" por "só o que está em
+ * aberto agora", sem mudar o resultado de calcularStatusFinanceiro em nada.
+ * Usado pela Recepção, que só precisa do status, não do histórico completo.
+ */
+export async function getMensalidadesPendentes(
+  academiaId: string
+): Promise<Array<{ aluno_id: string; status: string; data: string }>> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("receitas")
+    .select("aluno_id, status, data")
+    .eq("academia_id", academiaId)
+    .eq("tipo", "mensalidade")
+    .eq("status", "pendente")
+    .not("aluno_id", "is", null);
+  if (error) throw new Error(`Falha ao carregar mensalidades: ${error.message}`);
+  return (data as Array<{ aluno_id: string; status: string; data: string }>) ?? [];
+}
+
+export type MensalidadeVencida = {
+  aluno_id: string;
+  valor: number;
+  data: string;
+  aluno: { id: string; nome: string; telefone: string | null } | null;
+};
+
+/**
+ * Mensalidades pendentes e já vencidas, com o aluno embutido — a lista bruta
+ * que alimenta o card de inadimplentes do Dashboard. Naturalmente pequena
+ * (só o que está em aberto e atrasado, não o histórico inteiro), então dá
+ * pra trazer todas as linhas e agrupar por aluno no servidor, sem precisar
+ * de agregação no banco.
+ */
+export async function getMensalidadesVencidas(
+  academiaId: string,
+  hojeIso: string
+): Promise<MensalidadeVencida[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("receitas")
+    .select("aluno_id, valor, data, aluno:alunos(id, nome, telefone)")
+    .eq("academia_id", academiaId)
+    .eq("tipo", "mensalidade")
+    .eq("status", "pendente")
+    .not("aluno_id", "is", null)
+    .lt("data", hojeIso);
+  if (error) throw new Error(`Falha ao carregar mensalidades vencidas: ${error.message}`);
+  return (data as unknown as MensalidadeVencida[]) ?? [];
+}
+
+/**
+ * Próximos vencimentos (qualquer tipo de receita, igual ao comportamento
+ * anterior) dentro de uma janela — já ordenado e limitado no banco, em vez
+ * de trazer tudo e cortar com `.slice()` no Node.
+ */
+export async function getProximosVencimentos(
+  academiaId: string,
+  desdeIso: string,
+  ateIso: string,
+  limite: number
+): Promise<Receita[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("receitas")
+    .select("*, aluno:alunos(id, nome, telefone)")
+    .eq("academia_id", academiaId)
+    .eq("status", "pendente")
+    .gte("data", desdeIso)
+    .lte("data", ateIso)
+    .order("data", { ascending: true })
+    .limit(limite);
+  if (error) throw new Error(`Falha ao carregar próximos vencimentos: ${error.message}`);
+  return (data as Receita[]) ?? [];
 }
 
 // ---------------------------------------------------------------------------
@@ -391,7 +710,8 @@ export async function getSerieFinanceira(
 export async function getReceitas(
   academiaId: string,
   desde?: string,
-  ate?: string
+  ate?: string,
+  limite?: number
 ): Promise<Receita[]> {
   const supabase = createClient();
   let query = supabase
@@ -401,9 +721,82 @@ export async function getReceitas(
     .order("data", { ascending: false });
   if (desde) query = query.gte("data", desde);
   if (ate) query = query.lte("data", ate);
+  if (limite) query = query.limit(limite);
   const { data, error } = await query;
   if (error) throw new Error(`Falha ao carregar receitas: ${error.message}`);
   return (data as Receita[]) ?? [];
+}
+
+/**
+ * Receitas relevantes para uma janela do Dashboard: vencimento (`data`) OU
+ * pagamento (`data_pagamento`) dentro do intervalo.
+ *
+ * O Dashboard usa este mesmo conjunto de linhas para dois cálculos com
+ * critérios diferentes — `receitaPeriodo` filtra por vencimento (`data`,
+ * regime de competência simplificado) e `agruparFinanceiro` (o gráfico
+ * Receita x Despesa) filtra o caixa por `data_pagamento` (regime de caixa).
+ * Delimitar a consulta só por `data` perderia, silenciosamente, uma conta
+ * antiga paga dentro do período; delimitar só por `data_pagamento` perderia
+ * uma conta pendente que vence no período. A união cobre os dois sem trazer
+ * o histórico inteiro.
+ */
+export async function getReceitasJanela(
+  academiaId: string,
+  desde: string,
+  ate: string
+): Promise<Receita[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("receitas")
+    .select("*, aluno:alunos(id, nome, telefone)")
+    .eq("academia_id", academiaId)
+    .or(
+      `and(data.gte.${desde},data.lte.${ate}),and(data_pagamento.gte.${desde},data_pagamento.lte.${ate})`
+    )
+    .order("data", { ascending: false });
+  if (error) throw new Error(`Falha ao carregar receitas: ${error.message}`);
+  return (data as Receita[]) ?? [];
+}
+
+/** Despesas relevantes para uma janela do Dashboard — ver getReceitasJanela. */
+export async function getDespesasJanela(
+  academiaId: string,
+  desde: string,
+  ate: string
+): Promise<Despesa[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("despesas")
+    .select("*")
+    .eq("academia_id", academiaId)
+    .or(
+      `and(data.gte.${desde},data.lte.${ate}),and(data_pagamento.gte.${desde},data_pagamento.lte.${ate})`
+    )
+    .order("data", { ascending: false });
+  if (error) throw new Error(`Falha ao carregar despesas: ${error.message}`);
+  return (data as Despesa[]) ?? [];
+}
+
+/**
+ * Quantas receitas existem em [desde, ate] — só o count, para a tela saber
+ * se o resultado de getReceitas(..., limite) veio truncado (periodo=todos
+ * com histórico muito grande) e avisar em vez de fingir que é tudo.
+ */
+export async function contarReceitas(
+  academiaId: string,
+  desde?: string,
+  ate?: string
+): Promise<number> {
+  const supabase = createClient();
+  let query = supabase
+    .from("receitas")
+    .select("id", { count: "exact", head: true })
+    .eq("academia_id", academiaId);
+  if (desde) query = query.gte("data", desde);
+  if (ate) query = query.lte("data", ate);
+  const { count, error } = await query;
+  if (error) throw new Error(`Falha ao contar receitas: ${error.message}`);
+  return count ?? 0;
 }
 
 /**
@@ -413,7 +806,8 @@ export async function getReceitas(
 export async function getDespesas(
   academiaId: string,
   desde?: string,
-  ate?: string
+  ate?: string,
+  limite?: number
 ): Promise<Despesa[]> {
   const supabase = createClient();
   let query = supabase
@@ -423,9 +817,28 @@ export async function getDespesas(
     .order("data", { ascending: false });
   if (desde) query = query.gte("data", desde);
   if (ate) query = query.lte("data", ate);
+  if (limite) query = query.limit(limite);
   const { data, error } = await query;
   if (error) throw new Error(`Falha ao carregar despesas: ${error.message}`);
   return (data as Despesa[]) ?? [];
+}
+
+/** Quantas despesas existem em [desde, ate] — ver contarReceitas. */
+export async function contarDespesas(
+  academiaId: string,
+  desde?: string,
+  ate?: string
+): Promise<number> {
+  const supabase = createClient();
+  let query = supabase
+    .from("despesas")
+    .select("id", { count: "exact", head: true })
+    .eq("academia_id", academiaId);
+  if (desde) query = query.gte("data", desde);
+  if (ate) query = query.lte("data", ate);
+  const { count, error } = await query;
+  if (error) throw new Error(`Falha ao contar despesas: ${error.message}`);
+  return count ?? 0;
 }
 
 /**
@@ -732,6 +1145,26 @@ export async function getTodoHistoricoPlanos(
   return (data as HistoricoPlano[]) ?? [];
 }
 
+/**
+ * Histórico de planos só dos alunos informados (Fase 13 — tela de Alunos
+ * paginada). Substitui getTodoHistoricoPlanos() ali.
+ */
+export async function getHistoricoPlanosDosAlunos(
+  academiaId: string,
+  alunoIds: string[]
+): Promise<HistoricoPlano[]> {
+  if (alunoIds.length === 0) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("historico_planos")
+    .select("*")
+    .eq("academia_id", academiaId)
+    .in("aluno_id", alunoIds)
+    .order("data_inicio", { ascending: false });
+  if (error) return [];
+  return (data as HistoricoPlano[]) ?? [];
+}
+
 /** Catálogo global de exercícios (grupo muscular), para montagem rápida de treino. */
 export async function getCatalogoExercicios(): Promise<CatalogoExercicio[]> {
   const supabase = createClient();
@@ -755,6 +1188,26 @@ export async function getProgressoAluno(
     .select("*")
     .eq("academia_id", academiaId)
     .eq("aluno_id", alunoId)
+    .order("data", { ascending: false });
+  if (error) throw new Error(`Falha ao carregar progresso: ${error.message}`);
+  return (data as ProgressoAluno[]) ?? [];
+}
+
+/**
+ * Progresso só dos alunos informados (Fase 13 — tela de Alunos paginada).
+ * Substitui getTodoProgresso() ali.
+ */
+export async function getProgressoDosAlunos(
+  academiaId: string,
+  alunoIds: string[]
+): Promise<ProgressoAluno[]> {
+  if (alunoIds.length === 0) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("progresso_aluno")
+    .select("*")
+    .eq("academia_id", academiaId)
+    .in("aluno_id", alunoIds)
     .order("data", { ascending: false });
   if (error) throw new Error(`Falha ao carregar progresso: ${error.message}`);
   return (data as ProgressoAluno[]) ?? [];
