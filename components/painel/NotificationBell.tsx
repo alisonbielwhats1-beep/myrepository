@@ -106,6 +106,7 @@ export default function NotificationBell({
   academiaNome,
   isDemo,
   notificacoes,
+  naoLidasTotal,
   feedbackNovo,
 }: {
   slug: string;
@@ -113,11 +114,17 @@ export default function NotificationBell({
   academiaNome: string;
   isDemo: boolean;
   notificacoes: Notificacao[];
+  /** COUNT do servidor — pode ser maior que `notificacoes.length` (lista limitada). */
+  naoLidasTotal: number;
   feedbackNovo: number;
 }) {
   const [aberto, setAberto] = useState(false);
   const [itensBrutos, setItensBrutos] = useState(notificacoes);
   const [filtro, setFiltro] = useState<CategoriaNotificacao | "todas">("todas");
+  // Quantas o usuário tirou do "não lidas" nesta sessão (marcar lida/dispensar).
+  // O badge é `naoLidasTotal - lidasLocalmente` porque o total vem do servidor
+  // e não se recalcula sozinho a cada clique.
+  const [lidasLocalmente, setLidasLocalmente] = useState(0);
   const [, startTransition] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -125,6 +132,9 @@ export default function NotificationBell({
   // revalidatePath de outra aba) — mesma lição do bug do QR: nunca confiar só
   // no estado local depois da primeira montagem.
   useEffect(() => setItensBrutos(notificacoes), [notificacoes]);
+
+  // Chegou contagem nova do servidor: o ajuste local já está refletido nela.
+  useEffect(() => setLidasLocalmente(0), [naoLidasTotal]);
 
   // Filtra por permissão ANTES de qualquer outra coisa (contagem, filtro de
   // categoria, lista) — quem não vê Financeiro nunca deve nem contar um
@@ -142,7 +152,11 @@ export default function NotificationBell({
     return () => document.removeEventListener("mousedown", fora);
   }, []);
 
-  const naoLidas = itens.filter((n) => !n.lida_em).length + feedbackNovo;
+  const naoLidas =
+    Math.max(naoLidasTotal - lidasLocalmente, 0) + feedbackNovo;
+  // Só a lista carregada pode ser marcada como lida por "Marcar todas" — o
+  // feedback novo vive em outra tabela e não é alcançado por essa ação.
+  const temNaoLidasNaLista = itens.some((n) => !n.lida_em);
 
   const categoriasPresentes = Array.from(
     new Set(itens.map((n) => n.categoria))
@@ -152,16 +166,22 @@ export default function NotificationBell({
   );
 
   function marcarLida(id: string) {
+    const estavaNaoLida = itens.some((n) => n.id === id && !n.lida_em);
     setItensBrutos((prev) =>
       prev.map((n) => (n.id === id ? { ...n, lida_em: new Date().toISOString() } : n))
     );
+    if (estavaNaoLida) setLidasLocalmente((v) => v + 1);
     startTransition(() => {
       marcarNotificacaoLida(slug, id);
     });
   }
 
   function dispensar(id: string) {
+    // Dispensar uma não lida também a remove do contador: deixa de satisfazer
+    // "lida_em is null AND dispensada_em is null".
+    const estavaNaoLida = itens.some((n) => n.id === id && !n.lida_em);
     setItensBrutos((prev) => prev.filter((n) => n.id !== id));
+    if (estavaNaoLida) setLidasLocalmente((v) => v + 1);
     startTransition(() => {
       dispensarNotificacao(slug, id);
     });
@@ -175,6 +195,7 @@ export default function NotificationBell({
     setItensBrutos((prev) =>
       prev.map((n) => (idsVisiveis.includes(n.id) ? { ...n, lida_em: agora } : n))
     );
+    setLidasLocalmente((v) => v + idsVisiveis.length);
     startTransition(() => {
       marcarTodasNotificacoesLidas(slug, idsVisiveis);
     });
@@ -200,7 +221,7 @@ export default function NotificationBell({
           <div className="flex items-center justify-between border-b border-ink-700 px-3 py-2.5">
             <span className="text-sm font-semibold text-white">Notificações</span>
             <div className="flex items-center gap-1">
-              {naoLidas > 0 && (
+              {temNaoLidasNaLista && (
                 <button
                   onClick={marcarTodas}
                   title="Marcar todas como lidas"

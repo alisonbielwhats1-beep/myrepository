@@ -4,7 +4,10 @@ import InstallPWA from "@/components/painel/InstallPWA";
 import DemoBanner from "@/components/painel/DemoBanner";
 import { requireSessao } from "@/lib/auth";
 import { contarFeedbackNaoLido } from "@/lib/data";
-import { getNotificacoesPainel } from "@/lib/notificacoes";
+import {
+  contarNotificacoesNaoLidas,
+  getNotificacoesPainel,
+} from "@/lib/notificacoes";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +19,12 @@ export default async function PainelLayout({
   params: { slug: string };
 }) {
   const sessao = await requireSessao(params.slug);
-  const [notificacoes, feedbackNovo] = await Promise.all([
+  // O contador vem de um COUNT próprio, não do tamanho da lista: a lista é
+  // limitada (LIMITE_PAINEL) e passaria a subnotificar assim que a academia
+  // tivesse mais não lidas que esse teto.
+  const [notificacoes, naoLidasTotal, feedbackNovo] = await Promise.all([
     getNotificacoesPainel(sessao.academia.id),
+    contarNotificacoesNaoLidas(sessao.academia.id),
     contarFeedbackNaoLido(sessao.academia.id),
   ]);
 
@@ -43,6 +50,7 @@ export default async function PainelLayout({
               academiaNome={sessao.academia.nome_fantasia}
               isDemo={sessao.academia.is_demo}
               notificacoes={notificacoes}
+              naoLidasTotal={naoLidasTotal}
               feedbackNovo={feedbackNovo}
             />
           </div>
