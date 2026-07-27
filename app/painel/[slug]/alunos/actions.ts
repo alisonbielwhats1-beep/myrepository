@@ -306,6 +306,12 @@ export async function criarAluno(
   const cpf = lerCpf(formData);
   if ("erro" in cpf) return { erro: cpf.erro };
 
+  // Gerada uma vez por abertura do formulário (não por aluno) — ver
+  // FormularioAluno. Sem CPF, é a única defesa contra duplo clique/reenvio
+  // criar duas matrículas para a mesma pessoa (unique(academia_id, cpf) só
+  // protege quando o CPF é preenchido).
+  const chaveIdempotencia = String(formData.get("chave_idempotencia") ?? "").trim() || null;
+
   const planoId = String(formData.get("plano_id") ?? "").trim() || null;
 
   // Sem plano → sempre "pendente", independentemente do que o formulário enviou.
@@ -326,7 +332,7 @@ export async function criarAluno(
   });
   const matriculaCodigo = (codigoData as string | null) ?? `AL-${Date.now()}`;
 
-  const { data: novo, error } = await supabase
+  const { data: novoInserido, error } = await supabase
     .from("alunos")
     .insert({
       academia_id: sessao.academia.id,
@@ -339,12 +345,31 @@ export async function criarAluno(
       plano_id: planoId,
       dia_vencimento: diaVencimento,
       matricula_codigo: matriculaCodigo,
+      chave_idempotencia: chaveIdempotencia,
       ...lerCamposSaude(formData),
     })
     .select("id")
     .single();
 
-  if (error) return { erro: `Falha ao cadastrar aluno: ${error.message}` };
+  let novo = novoInserido;
+
+  if (error) {
+    // 23505 pode ser a mesma tentativa reenviada (duplo clique/retry) OU uma
+    // colisão real de CPF. Só a primeira tem uma linha com esta chave.
+    if (error.code === "23505" && chaveIdempotencia) {
+      const { data: existente } = await supabase
+        .from("alunos")
+        .select("id")
+        .eq("academia_id", sessao.academia.id)
+        .eq("chave_idempotencia", chaveIdempotencia)
+        .maybeSingle();
+      if (existente) {
+        revalidatePath(`/painel/${slug}/alunos`);
+        return { ok: true, savedAt: Date.now(), id: existente.id };
+      }
+    }
+    return { erro: `Falha ao cadastrar aluno: ${error.message}` };
+  }
 
   if (planoId && novo) {
     // Lê campos de pagamento inicial (somente relevantes na criação de novos alunos).

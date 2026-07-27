@@ -764,6 +764,14 @@ function FormularioAluno({
     : criarAluno.bind(null, slug);
   const [estado, formAction] = useFormState(acao, {});
   const [fotoUrl, setFotoUrl] = useState(alunoExistente?.foto_perfil_url ?? "");
+  // Uma chave por abertura do formulário de cadastro — evita duplo
+  // clique/reenvio criar dois alunos quando não há CPF (edição não precisa:
+  // é sempre a mesma linha, por id).
+  const [chaveIdempotencia] = useState(() =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
 
   // Controle do plano selecionado (para exibir info de ciclo e pagamento).
   const [planoSelecionadoId, setPlanoSelecionadoId] = useState(
@@ -804,6 +812,10 @@ function FormularioAluno({
         <UserPlus className="h-4 w-4 text-volt-300" />
         {alunoExistente ? "Editar aluno" : "Cadastrar aluno"}
       </h2>
+
+      {!alunoExistente && (
+        <input type="hidden" name="chave_idempotencia" value={chaveIdempotencia} />
+      )}
 
       {estado.erro && (
         <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
