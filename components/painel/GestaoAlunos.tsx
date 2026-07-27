@@ -13,7 +13,6 @@ import {
   Dumbbell,
   FilterX,
   HeartPulse,
-  ImagePlus,
   Loader2,
   Pencil,
   QrCode,
@@ -29,6 +28,7 @@ import {
   CatalogoExercicio,
   FORMAS_PAGAMENTO,
   HistoricoPlano,
+  Papel,
   Plano,
   ProgressoAluno as TipoProgresso,
   StatusFinanceiro,
@@ -47,6 +47,8 @@ import ConfirmButton from "@/components/ui/ConfirmButton";
 import ExercicioBuilder from "@/components/painel/ExercicioBuilder";
 import ProgressoAluno from "@/components/painel/ProgressoAluno";
 import HistoricoPlanoAluno from "@/components/painel/HistoricoPlanoAluno";
+import AcessoAlunoCard from "@/components/painel/AcessoAlunoCard";
+import FotoAlunoAdminCard from "@/components/painel/FotoAlunoAdminCard";
 import {
   atualizarAluno,
   criarAluno,
@@ -81,6 +83,9 @@ export default function GestaoAlunos({
   historico,
   statusFinanceiroMap = {},
   mensalidadesPorAluno = {},
+  papel,
+  academiaNome,
+  isDemo = false,
 }: {
   slug: string;
   alunosIniciais: Aluno[];
@@ -97,6 +102,9 @@ export default function GestaoAlunos({
   historico: HistoricoPlano[];
   statusFinanceiroMap?: Record<string, StatusFinanceiro>;
   mensalidadesPorAluno?: Record<string, MensalidadeDetalhe[]>;
+  papel: Papel;
+  academiaNome: string;
+  isDemo?: boolean;
 }) {
   const alunos = alunosIniciais;
   const treinos = treinosIniciais;
@@ -346,6 +354,27 @@ export default function GestaoAlunos({
 
       {/* Coluna direita: montagem da ficha de treino */}
       <div className="space-y-6">
+        {alunoSelecionado && (
+          <>
+            <FotoAlunoAdminCard
+              slug={slug}
+              alunoId={alunoSelecionado.id}
+              nome={alunoSelecionado.nome}
+              fotoUrl={alunoSelecionado.foto_perfil_url}
+            />
+            <AcessoAlunoCard
+              slug={slug}
+              alunoId={alunoSelecionado.id}
+              nome={alunoSelecionado.nome}
+              telefone={alunoSelecionado.telefone}
+              academiaNome={academiaNome}
+              tokenAcessoPublico={alunoSelecionado.token_acesso_publico}
+              isDono={papel === "dono"}
+              isDemo={isDemo}
+            />
+          </>
+        )}
+
         {alunoSelecionado?.condicoes_medicas && (
           <div className="surface flex items-start gap-3 rounded-2xl border-magenta-500/30 p-4">
             <HeartPulse className="mt-0.5 h-4 w-4 flex-none text-magenta-400" />
@@ -934,7 +963,6 @@ function FormularioAluno({
     ? atualizarAluno.bind(null, slug, alunoExistente.id)
     : criarAluno.bind(null, slug);
   const [estado, formAction] = useFormState(acao, {});
-  const [fotoUrl, setFotoUrl] = useState(alunoExistente?.foto_perfil_url ?? "");
   // Uma chave por abertura do formulário de cadastro — evita duplo
   // clique/reenvio criar dois alunos quando não há CPF (edição não precisa:
   // é sempre a mesma linha, por id).
@@ -1169,15 +1197,11 @@ function FormularioAluno({
           </div>
         )}
 
-        <Field label="Foto de perfil">
-          <input type="hidden" name="foto_perfil_url" value={fotoUrl} />
-          <ImageUpload
-            value={fotoUrl}
-            onChange={setFotoUrl}
-            aspect="aspect-square"
-            hint="Foto do aluno (estado original)"
-          />
-        </Field>
+        <p className="rounded-lg border border-ink-600 bg-ink-800/50 px-3 py-2 text-xs text-slate-400">
+          {alunoExistente
+            ? "A foto de perfil se envia direto na ficha do aluno, logo acima."
+            : "Depois de salvar, a foto de perfil se envia na ficha do aluno recém-cadastrado."}
+        </p>
       </div>
 
       <div className="mt-5 border-t border-ink-700 pt-4">
@@ -1325,84 +1349,3 @@ function Field({
   );
 }
 
-/**
- * Upload de imagem com preview. Aceita colar uma URL OU selecionar um arquivo
- * local (convertido para data URL — em produção, envie para o Supabase
- * Storage e cole a URL pública). A imagem é exibida em seu estado nativo
- * (sem filtros) e sem retângulos de fundo desnecessários.
- */
-function ImageUpload({
-  value,
-  onChange,
-  aspect,
-  hint,
-}: {
-  value: string;
-  onChange: (url: string) => void;
-  aspect: string;
-  hint?: string;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const onFile = (file?: File) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => onChange(String(reader.result));
-    reader.readAsDataURL(file);
-  };
-
-  return (
-    <div>
-      <div
-        className={cn(
-          "relative overflow-hidden rounded-xl border border-dashed border-ink-500 bg-ink-900/50",
-          aspect
-        )}
-      >
-        {value ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={value}
-              alt="Pré-visualização"
-              className="media-native h-full w-full object-cover"
-            />
-            <button
-              type="button"
-              onClick={() => onChange("")}
-              className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-md bg-ink-950/70 text-slate-200 hover:bg-ink-950"
-              aria-label="Remover imagem"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="grid h-full w-full place-items-center text-slate-500 transition hover:text-volt-300"
-          >
-            <span className="flex flex-col items-center gap-1">
-              <ImagePlus className="h-6 w-6" />
-              <span className="text-[11px]">{hint ?? "Enviar imagem"}</span>
-            </span>
-          </button>
-        )}
-      </div>
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => onFile(e.target.files?.[0])}
-      />
-      <input
-        value={value.startsWith("data:") ? "" : value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="ou cole uma URL de imagem"
-        className="inp mt-2 text-xs"
-      />
-    </div>
-  );
-}

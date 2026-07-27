@@ -102,6 +102,9 @@ export default async function AlunosPage({
         historico={historico}
         statusFinanceiroMap={statusFinanceiroMap}
         mensalidadesPorAluno={mensalidadesPorAluno}
+        papel={sessao.papel}
+        academiaNome={sessao.academia.nome_fantasia}
+        isDemo={sessao.academia.is_demo}
       />
     </div>
   );

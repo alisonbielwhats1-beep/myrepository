@@ -8,6 +8,11 @@ import { createClient } from "@/lib/supabase/server";
 import { StatusMatricula } from "@/lib/types";
 import { hojeSaoPaulo } from "@/lib/utils";
 import { normalizarCpf, validarUrl } from "@/lib/validacoes";
+import {
+  enviarFotoPerfil,
+  removerFotoAntiga,
+  validarArquivoFoto,
+} from "@/lib/fotos-perfil";
 
 // ---------------------------------------------------------------------------
 // Helpers de data no fuso America/Sao_Paulo
@@ -340,7 +345,8 @@ export async function criarAluno(
       cpf: cpf.cpf,
       email: String(formData.get("email") ?? "").trim() || null,
       telefone: String(formData.get("telefone") ?? "").trim() || null,
-      foto_perfil_url: validarUrl(String(formData.get("foto_perfil_url") ?? "")),
+      // Foto é enviada à parte, por atualizarFotoAlunoAdmin (upload real via
+      // Storage) — este formulário não grava foto_perfil_url.
       status_matricula: statusInicial,
       plano_id: planoId,
       dia_vencimento: diaVencimento,
@@ -452,7 +458,8 @@ export async function atualizarAluno(
       cpf: cpf.cpf,
       email: String(formData.get("email") ?? "").trim() || null,
       telefone: String(formData.get("telefone") ?? "").trim() || null,
-      foto_perfil_url: validarUrl(String(formData.get("foto_perfil_url") ?? "")),
+      // Foto é enviada à parte, por atualizarFotoAlunoAdmin — edição de dados
+      // cadastrais não mexe em foto_perfil_url.
       status_matricula: novoStatus,
       plano_id: planoId,
       dia_vencimento: diaVencimento,
@@ -728,4 +735,123 @@ export async function excluirProgresso(
   if (error) throw new Error(`Falha ao excluir registro: ${error.message}`);
 
   revalidatePath(`/painel/${slug}/alunos`);
+}
+
+// ---------------------------------------------------------------------------
+// Acesso do aluno: regenerar o link/QR pessoal (token_acesso_publico)
+// ---------------------------------------------------------------------------
+
+/**
+ * Gera um novo token_acesso_publico para o aluno via RPC `regenerar_token_aluno`
+ * (migration 037) — revoga o link/QR antigo imediatamente. Só o "dono" pode
+ * chamar: quem tiver o link antigo perde acesso, e essa é uma decisão que só
+ * o dono da academia deveria poder tomar.
+ */
+export async function regenerarTokenAluno(
+  slug: string,
+  alunoId: string
+): Promise<{ erro?: string; token?: string }> {
+  const sessao = await requireSecao(slug, "alunos");
+  if (sessao.papel !== "dono") {
+    return { erro: "Só o dono da academia pode gerar um novo link de acesso." };
+  }
+
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("regenerar_token_aluno", {
+    p_aluno_id: alunoId,
+  });
+
+  if (error || !data) {
+    return { erro: "Não foi possível gerar um novo link. Tente novamente." };
+  }
+
+  revalidatePath(`/painel/${slug}/alunos`);
+  return { token: data as string };
+}
+
+// ---------------------------------------------------------------------------
+// Foto de perfil do aluno (upload real via Supabase Storage) — lado do painel
+// ---------------------------------------------------------------------------
+
+export type EstadoFotoAdmin = { erro?: string; ok?: boolean; savedAt?: number };
+
+/**
+ * Substitui a foto do aluno: valida a sessão (mesma seção "alunos" das
+ * demais ações de cadastro), envia o arquivo para o Storage com nome não
+ * previsível e só então atualiza `foto_perfil_url` — a foto antiga (se
+ * pertencer ao nosso bucket) é apagada depois, para não acumular arquivo
+ * órfão. Como o nome do arquivo muda a cada envio, a URL nova nunca colide
+ * com cache de navegador/CDN da foto antiga.
+ */
+export async function atualizarFotoAlunoAdmin(
+  slug: string,
+  alunoId: string,
+  _estado: EstadoFotoAdmin,
+  formData: FormData
+): Promise<EstadoFotoAdmin> {
+  const sessao = await requireSecao(slug, "alunos");
+
+  const arquivo = formData.get("foto") as File | null;
+  const validado = validarArquivoFoto(arquivo);
+  if ("erro" in validado) return { erro: validado.erro };
+
+  const supabase = createClient();
+  const { data: atual } = await supabase
+    .from("alunos")
+    .select("foto_perfil_url")
+    .eq("id", alunoId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+
+  const enviado = await enviarFotoPerfil(
+    sessao.academia.id,
+    alunoId,
+    arquivo as File,
+    validado.extensao
+  );
+  if ("erro" in enviado) return { erro: enviado.erro };
+
+  const { error } = await supabase
+    .from("alunos")
+    .update({ foto_perfil_url: enviado.url })
+    .eq("id", alunoId)
+    .eq("academia_id", sessao.academia.id);
+
+  if (error) return { erro: `Falha ao salvar a foto: ${error.message}` };
+
+  await removerFotoAntiga(atual?.foto_perfil_url ?? null);
+
+  revalidatePath(`/painel/${slug}/alunos`);
+  revalidatePath(`/painel/${slug}/recepcao`);
+  return { ok: true, savedAt: Date.now() };
+}
+
+/** Remove a foto do aluno (Storage + coluna) — aluno volta a mostrar o avatar de iniciais. */
+export async function removerFotoAlunoAdmin(
+  slug: string,
+  alunoId: string
+): Promise<{ erro?: string; ok?: boolean }> {
+  const sessao = await requireSecao(slug, "alunos");
+  const supabase = createClient();
+
+  const { data: atual } = await supabase
+    .from("alunos")
+    .select("foto_perfil_url")
+    .eq("id", alunoId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from("alunos")
+    .update({ foto_perfil_url: null })
+    .eq("id", alunoId)
+    .eq("academia_id", sessao.academia.id);
+
+  if (error) return { erro: `Falha ao remover a foto: ${error.message}` };
+
+  await removerFotoAntiga(atual?.foto_perfil_url ?? null);
+
+  revalidatePath(`/painel/${slug}/alunos`);
+  revalidatePath(`/painel/${slug}/recepcao`);
+  return { ok: true };
 }

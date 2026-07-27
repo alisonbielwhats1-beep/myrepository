@@ -21,6 +21,21 @@ export function linkWhats(
   return `https://wa.me/${comDDI}?text=${encodeURIComponent(texto)}`;
 }
 
+/** Mensagem com o link pessoal de acesso do aluno (app do aluno / credencial de QR). */
+export function mensagemAcesso(opts: {
+  nome: string;
+  academia: string;
+  url: string;
+}): string {
+  const primeiroNome = opts.nome.split(" ")[0];
+  return (
+    `Olá, ${primeiroNome}! 👋\n\n` +
+    `Aqui está o seu link pessoal de acesso na ${opts.academia}: ${opts.url}\n\n` +
+    `Guarde este link — é sua credencial de acesso (treinos, mensalidades e QR Code da catraca). ` +
+    `Não compartilhe com outras pessoas.`
+  );
+}
+
 /** Mensagem padrão de lembrete/cobrança de mensalidade. */
 export function mensagemCobranca(opts: {
   nome: string;
