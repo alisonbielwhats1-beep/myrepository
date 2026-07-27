@@ -1,5 +1,13 @@
 import TreinoViewer from "@/components/aluno/TreinoViewer";
 import { requireFichaAluno } from "@/lib/aluno-publico";
+import { getSessoesAtivasTreino } from "@/lib/data";
+import {
+  finalizarSessaoTreino,
+  iniciarSessaoTreino,
+  salvarProgressoTreino,
+} from "./actions";
+
+export const dynamic = "force-dynamic";
 
 export default async function TreinosPage({
   params,
@@ -7,6 +15,7 @@ export default async function TreinosPage({
   params: { slug: string; token: string };
 }) {
   const ficha = await requireFichaAluno(params.slug, params.token);
+  const sessoesAtivas = await getSessoesAtivasTreino(params.token, params.slug);
 
   return (
     <div className="space-y-6">
@@ -15,7 +24,13 @@ export default async function TreinosPage({
         <h1 className="text-2xl font-bold text-white">Ficha de treino</h1>
       </header>
 
-      <TreinoViewer treinos={ficha.treinos} />
+      <TreinoViewer
+        treinos={ficha.treinos}
+        sessoesAtivas={sessoesAtivas}
+        iniciar={iniciarSessaoTreino.bind(null, params.slug, params.token)}
+        salvarProgresso={salvarProgressoTreino.bind(null, params.slug, params.token)}
+        finalizar={finalizarSessaoTreino.bind(null, params.slug, params.token)}
+      />
     </div>
   );
 }

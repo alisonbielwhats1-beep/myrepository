@@ -1,25 +1,42 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import { Check, Dumbbell, PlayCircle, RotateCcw, Timer, Weight } from "lucide-react";
-import { ExercicioTreino } from "@/lib/types";
+import { ExercicioTreino, ProgressoExercicio } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+const PROGRESSO_VAZIO: Omit<ProgressoExercicio, "exercicio_id"> = {
+  concluido: false,
+  carga_realizada_kg: 0,
+  repeticoes_realizadas: "",
+};
+
 /**
- * Card de exercício da visão do aluno. Mostra a demonstração NATIVA do
- * movimento (sem filtros — classe `media-native`): um clipe de vídeo curto
- * (<= 10s) em loop quando disponível, caindo para a foto e, por fim, um
- * ícone. Exibe séries, repetições, carga e um botão "Concluído".
+ * Card de exercício. Dentro de uma sessão de treino ativa (Bloco 1),
+ * "concluído", carga e repetições realizadas vêm de `progresso` (persistido
+ * em sessoes_treino) e nunca de estado local — ao contrário da versão
+ * anterior, que usava só `useState` e perdia tudo ao atualizar a página.
+ *
+ * `onAlterar` ausente = modo somente leitura (usado pela ficha compartilhada
+ * pública em app/treino/[token], que só demonstra a prescrição e não tem
+ * sessão nenhuma) — não mostra os campos de realizado nem o botão de concluir.
  */
-export default function ExercicioCard({ ex }: { ex: ExercicioTreino }) {
-  const [feito, setFeito] = useState(false);
+export default function ExercicioCard({
+  ex,
+  progresso,
+  onAlterar,
+}: {
+  ex: ExercicioTreino;
+  progresso?: ProgressoExercicio;
+  onAlterar?: (patch: Partial<Omit<ProgressoExercicio, "exercicio_id">>) => void;
+}) {
+  const realizado = progresso ?? { exercicio_id: ex.id, ...PROGRESSO_VAZIO };
 
   return (
     <div
       className={cn(
         "surface overflow-hidden rounded-2xl transition",
-        feito && "border-volt-500/40 bg-volt-500/[0.06]"
+        realizado.concluido && "border-volt-500/40 bg-volt-500/[0.06]"
       )}
     >
       {/* Mídia nativa do movimento — sem retângulo de fundo poluindo a mídia */}
@@ -53,7 +70,7 @@ export default function ExercicioCard({ ex }: { ex: ExercicioTreino }) {
             <Dumbbell className="h-10 w-10" />
           </div>
         )}
-        {feito && (
+        {realizado.concluido && (
           <div className="absolute inset-0 grid place-items-center bg-ink-950/55">
             <span className="chip border-volt-500/40 bg-volt-500/20 text-volt-200">
               <Check className="h-3.5 w-3.5" /> Concluído
@@ -67,7 +84,10 @@ export default function ExercicioCard({ ex }: { ex: ExercicioTreino }) {
           {ex.nome_exercicio}
         </h3>
 
-        <div className="mt-3 flex flex-wrap gap-2">
+        <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          Prescrito pelo professor
+        </p>
+        <div className="mt-1.5 flex flex-wrap gap-2">
           <span className="chip border-ink-600 bg-ink-700/60 text-slate-200">
             <RotateCcw className="h-3.5 w-3.5 text-volt-300" />
             {ex.series} séries
@@ -94,18 +114,57 @@ export default function ExercicioCard({ ex }: { ex: ExercicioTreino }) {
           <p className="mt-3 text-sm text-slate-400">{ex.observacoes}</p>
         )}
 
-        <button
-          onClick={() => setFeito((f) => !f)}
-          className={cn(
-            "mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98]",
-            feito
-              ? "border border-ink-600 bg-ink-700 text-slate-300 hover:bg-ink-600"
-              : "bg-volt-300 text-ink-950 shadow-glow hover:bg-volt-200"
-          )}
-        >
-          <Check className="h-4 w-4" />
-          {feito ? "Desfazer" : "Marcar como concluído"}
-        </button>
+        {onAlterar && (
+          <>
+            {/* Realizado pelo aluno — nunca altera a prescrição acima. */}
+            <div className="mt-4 grid grid-cols-2 gap-2 border-t border-ink-600/60 pt-3">
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  Carga realizada (kg)
+                </span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  max={999}
+                  defaultValue={realizado.carga_realizada_kg || ""}
+                  onBlur={(e) =>
+                    onAlterar({ carga_realizada_kg: Number(e.target.value) || 0 })
+                  }
+                  placeholder="0"
+                  className="inp !py-1.5 text-sm"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  Repetições realizadas
+                </span>
+                <input
+                  type="text"
+                  defaultValue={realizado.repeticoes_realizadas}
+                  onBlur={(e) =>
+                    onAlterar({ repeticoes_realizadas: e.target.value.slice(0, 50) })
+                  }
+                  placeholder="Ex: 12, 10, 8"
+                  className="inp !py-1.5 text-sm"
+                />
+              </label>
+            </div>
+
+            <button
+              onClick={() => onAlterar({ concluido: !realizado.concluido })}
+              className={cn(
+                "mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98]",
+                realizado.concluido
+                  ? "border border-ink-600 bg-ink-700 text-slate-300 hover:bg-ink-600"
+                  : "bg-volt-300 text-ink-950 shadow-glow hover:bg-volt-200"
+              )}
+            >
+              <Check className="h-4 w-4" />
+              {realizado.concluido ? "Desfazer" : "Marcar como concluído"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

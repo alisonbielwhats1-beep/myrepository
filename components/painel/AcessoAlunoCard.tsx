@@ -15,7 +15,10 @@ import {
 } from "lucide-react";
 import { linkWhats, mensagemAcesso } from "@/lib/whats";
 import { origemPublica } from "@/lib/site-url";
-import { regenerarTokenAluno } from "@/app/painel/[slug]/alunos/actions";
+import {
+  regenerarTokenAluno,
+  regenerarTokenQrAluno,
+} from "@/app/painel/[slug]/alunos/actions";
 
 /**
  * Acesso rápido do aluno: WhatsApp, copiar link e QR Code, todos a partir do
@@ -56,6 +59,13 @@ export default function AcessoAlunoCard({
   const [erro, setErro] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
+  // QR de acesso à recepção (Bloco 1) — credencial separada do link acima,
+  // regenerada/invalidada de forma independente.
+  const [confirmarRegerarQr, setConfirmarRegerarQr] = useState(false);
+  const [erroQr, setErroQr] = useState<string | null>(null);
+  const [okQr, setOkQr] = useState(false);
+  const [pendingQr, startQr] = useTransition();
+
   const token =
     regenerado?.alunoId === alunoId ? regenerado.token : tokenAcessoPublico;
 
@@ -87,6 +97,20 @@ export default function AcessoAlunoCard({
       }
       if (r.token) setRegenerado({ alunoId, token: r.token });
       setConfirmarRegerar(false);
+    });
+  };
+
+  const regenerarQr = () => {
+    setErroQr(null);
+    startQr(async () => {
+      const r = await regenerarTokenQrAluno(slug, alunoId);
+      if (r.erro) {
+        setErroQr(r.erro);
+        return;
+      }
+      setOkQr(true);
+      setConfirmarRegerarQr(false);
+      setTimeout(() => setOkQr(false), 2500);
     });
   };
 
@@ -171,6 +195,48 @@ export default function AcessoAlunoCard({
             </div>
           )}
           {erro && <p className="mt-2 text-xs text-red-400">{erro}</p>}
+
+          {!confirmarRegerarQr ? (
+            <button
+              type="button"
+              onClick={() => setConfirmarRegerarQr(true)}
+              className="mt-3 flex items-center gap-1.5 text-xs text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
+            >
+              <RefreshCw className="h-3 w-3" /> Gerar novo QR de acesso à recepção
+              (revoga o atual)
+            </button>
+          ) : (
+            <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+              <p>
+                O QR de acesso atual do aluno para de funcionar imediatamente.
+                Continuar?
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  disabled={pendingQr}
+                  onClick={regenerarQr}
+                  className="btn-volt !py-1 text-xs disabled:opacity-50"
+                >
+                  {pendingQr ? "Gerando..." : "Confirmar"}
+                </button>
+                <button
+                  type="button"
+                  disabled={pendingQr}
+                  onClick={() => setConfirmarRegerarQr(false)}
+                  className="btn-ghost !py-1 text-xs"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+          {erroQr && <p className="mt-2 text-xs text-red-400">{erroQr}</p>}
+          {okQr && (
+            <p className="mt-2 text-xs text-volt-300">
+              Novo QR gerado — o anterior não funciona mais.
+            </p>
+          )}
         </div>
       )}
 

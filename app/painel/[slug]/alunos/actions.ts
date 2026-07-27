@@ -829,6 +829,33 @@ export async function regenerarTokenAluno(
   return { token: data as string };
 }
 
+/**
+ * Regenera o token do QR de acesso à recepção (Bloco 1, migration 044) —
+ * credencial separada de `token_acesso_publico`, que abre a área do aluno.
+ * Regenerar invalida o QR anterior imediatamente.
+ */
+export async function regenerarTokenQrAluno(
+  slug: string,
+  alunoId: string
+): Promise<{ erro?: string; ok?: boolean }> {
+  const sessao = await requireSecao(slug, "alunos");
+  if (sessao.papel !== "dono") {
+    return { erro: "Só o dono da academia pode gerar um novo QR de acesso." };
+  }
+
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("regenerar_token_qr_acesso", {
+    p_aluno_id: alunoId,
+  });
+
+  if (error || !data) {
+    return { erro: "Não foi possível gerar um novo QR. Tente novamente." };
+  }
+
+  revalidatePath(`/painel/${slug}/alunos`);
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------------------
 // Foto de perfil do aluno (upload real via Supabase Storage) — lado do painel
 // ---------------------------------------------------------------------------

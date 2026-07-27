@@ -30,6 +30,7 @@ import {
   ProdutoPublico,
   ProgressoAluno,
   Receita,
+  SessaoTreino,
   Treino,
   TreinoPublico,
 } from "./types";
@@ -909,6 +910,46 @@ export async function getFrequenciaAlunoPublico(
   });
   if (error) throw new Error(`Falha ao carregar frequência: ${error.message}`);
   return (data as AcessoAlunoPublico[]) ?? [];
+}
+
+/**
+ * Token do QR de acesso à recepção do próprio aluno (Bloco 1, migration 044)
+ * via RPC `obter_token_qr_aluno`, resolvida por token pessoal + slug — nunca
+ * aluno_id. Separado do `token_acesso_publico` (que abre toda a área do
+ * aluno): o QR nunca deve carregar essa credencial completa.
+ */
+export async function getTokenQrAlunoPublico(
+  token: string,
+  slug: string
+): Promise<string | null> {
+  if (!tokenTemFormatoValido(token)) return null;
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_token_qr_aluno", {
+    p_token: token,
+    p_slug: slug,
+  });
+  if (error) throw new Error(`Falha ao carregar QR de acesso: ${error.message}`);
+  return (data as string) ?? null;
+}
+
+/**
+ * Sessões de execução de treino ATIVAS do próprio aluno (Bloco 1, migration
+ * 045), no máximo uma por treino, via RPC `obter_sessoes_ativas_treino`,
+ * resolvida por token+slug. Usada para decidir "Iniciar" vs "Retomar" sem
+ * consultar treino por treino.
+ */
+export async function getSessoesAtivasTreino(
+  token: string,
+  slug: string
+): Promise<SessaoTreino[]> {
+  if (!tokenTemFormatoValido(token)) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_sessoes_ativas_treino", {
+    p_token: token,
+    p_slug: slug,
+  });
+  if (error) throw new Error(`Falha ao carregar sessões de treino: ${error.message}`);
+  return (data as SessaoTreino[]) ?? [];
 }
 
 /** Treino compartilhado por QR (público) via RPC obter_treino_publico. */

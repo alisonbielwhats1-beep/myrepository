@@ -10,7 +10,11 @@ import {
 import AvatarAluno from "@/components/aluno/AvatarAluno";
 import QRCodeCard from "@/components/aluno/QRCodeCard";
 import { requireFichaAluno, ultimoAcessoEfetivo } from "@/lib/aluno-publico";
-import { getFrequenciaAlunoPublico, getMensalidadesAlunoPublico } from "@/lib/data";
+import {
+  getFrequenciaAlunoPublico,
+  getMensalidadesAlunoPublico,
+  getTokenQrAlunoPublico,
+} from "@/lib/data";
 import {
   badgeStatusFinanceiro,
   badgeStatusMatricula,
@@ -35,9 +39,10 @@ export default async function AlunoHome({
   const ficha = await requireFichaAluno(params.slug, params.token);
   const { aluno, academia, treinos } = ficha;
 
-  const [mensalidades, acessos] = await Promise.all([
+  const [mensalidades, acessos, tokenQrAcesso] = await Promise.all([
     getMensalidadesAlunoPublico(params.token, params.slug),
     getFrequenciaAlunoPublico(params.token, params.slug),
+    getTokenQrAlunoPublico(params.token, params.slug),
   ]);
 
   const primeiroNome = aluno.nome.split(" ")[0];
@@ -65,8 +70,8 @@ export default async function AlunoHome({
 
       {/* QR de acesso */}
       <QRCodeCard
-        alunoId={aluno.id}
         academiaSlug={params.slug}
+        tokenQrAcesso={tokenQrAcesso}
         matriculaCodigo={aluno.matricula_codigo}
       />
 

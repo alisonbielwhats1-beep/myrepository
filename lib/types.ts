@@ -7,7 +7,7 @@ export type StatusMatricula = "ativa" | "inativa" | "trancada" | "pendente" | "c
 /** Status financeiro calculado pelas mensalidades do aluno.
  *  Não é persistido — derivado em tempo de execução. */
 export type StatusFinanceiro = "em_dia" | "pendente" | "inadimplente";
-export type OrigemAcesso = "Direto" | "Gympass" | "TotalPass";
+export type OrigemAcesso = "Direto" | "Gympass" | "TotalPass" | "qr";
 export type StatusLiberacao = "liberado" | "negado" | "pendente" | "alerta";
 
 /** Como a academia trata o acesso de aluno com mensalidade vencida (Fase 5). */
@@ -644,4 +644,28 @@ export interface FichaTreinoPublico {
   objetivo: string | null;
   ordem: number;
   exercicios: ExercicioTreino[];
+}
+
+/** Status de uma sessão de execução de treino pelo aluno (Bloco 1). */
+export type StatusSessaoTreino = "ativa" | "finalizada";
+
+/**
+ * Progresso REALIZADO de um exercício dentro de uma sessão — nunca a
+ * prescrição original (que fica em ExercicioTreino, imutável por aqui).
+ */
+export interface ProgressoExercicio {
+  exercicio_id: string;
+  concluido: boolean;
+  carga_realizada_kg: number;
+  repeticoes_realizadas: string;
+}
+
+/** Sessão de execução de uma ficha de treino pelo aluno (tabela sessoes_treino). */
+export interface SessaoTreino {
+  id: string;
+  treino_id: string;
+  status: StatusSessaoTreino;
+  progresso: ProgressoExercicio[];
+  iniciado_em: string;
+  finalizado_em: string | null;
 }

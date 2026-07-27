@@ -61,6 +61,7 @@ export const CORES_ORIGEM: Record<OrigemAcesso, string> = {
   Direto: "#adff42",
   Gympass: "#3ee6ff",
   TotalPass: "#f81cc0",
+  qr: "#f5c451",
 };
 
 /** Classe de badge por status de matrícula. */
