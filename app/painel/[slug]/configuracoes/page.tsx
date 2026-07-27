@@ -3,8 +3,10 @@ import ConfiguracoesAcademia from "@/components/painel/ConfiguracoesAcademia";
 import GestaoPlanos from "@/components/painel/GestaoPlanos";
 import IntegracoesCard from "@/components/painel/configuracoes/IntegracoesCard";
 import PlanoSaasCard from "@/components/painel/configuracoes/PlanoSaasCard";
+import NotificacoesConfigCard from "@/components/painel/configuracoes/NotificacoesConfigCard";
 import { requireSecao } from "@/lib/auth";
 import { getPlanos, getSecretsWebhook } from "@/lib/data";
+import { getConfiguracoesNotificacoes } from "@/lib/notificacoes";
 import { mascarar } from "@/lib/utils";
 import { headers } from "next/headers";
 import { planoPodeAcessar } from "@/lib/planos";
@@ -18,9 +20,10 @@ export default async function ConfiguracoesPage({
   params: { slug: string };
 }) {
   const sessao = await requireSecao(params.slug, "configuracoes");
-  const [planos, secrets] = await Promise.all([
+  const [planos, secrets, configNotificacoes] = await Promise.all([
     getPlanos(sessao.academia.id),
     getSecretsWebhook(sessao.academia.id),
+    getConfiguracoesNotificacoes(sessao.academia.id),
   ]);
 
   const headersList = headers();
@@ -41,6 +44,8 @@ export default async function ConfiguracoesPage({
       <PlanoSaasCard slug={params.slug} planoAtual={sessao.academia.plano_saas} />
 
       <ConfiguracoesAcademia slug={params.slug} academia={sessao.academia} />
+
+      <NotificacoesConfigCard slug={params.slug} configuracoes={configNotificacoes} />
 
       <GestaoPlanos slug={params.slug} planos={planos} />
 

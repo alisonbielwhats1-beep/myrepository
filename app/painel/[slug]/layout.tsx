@@ -3,7 +3,8 @@ import NotificationBell from "@/components/painel/NotificationBell";
 import InstallPWA from "@/components/painel/InstallPWA";
 import DemoBanner from "@/components/painel/DemoBanner";
 import { requireSessao } from "@/lib/auth";
-import { getNotificacoes } from "@/lib/data";
+import { contarFeedbackNaoLido } from "@/lib/data";
+import { getNotificacoesPainel } from "@/lib/notificacoes";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,10 @@ export default async function PainelLayout({
   params: { slug: string };
 }) {
   const sessao = await requireSessao(params.slug);
-  const notificacoes = await getNotificacoes(sessao.academia.id);
+  const [notificacoes, feedbackNovo] = await Promise.all([
+    getNotificacoesPainel(sessao.academia.id),
+    contarFeedbackNaoLido(sessao.academia.id),
+  ]);
 
   return (
     <div className="flex min-h-dvh flex-col bg-ink-950 bg-grid-fade">
@@ -36,7 +40,10 @@ export default async function PainelLayout({
             <NotificationBell
               slug={params.slug}
               papel={sessao.papel}
-              dados={notificacoes}
+              academiaNome={sessao.academia.nome_fantasia}
+              isDemo={sessao.academia.is_demo}
+              notificacoes={notificacoes}
+              feedbackNovo={feedbackNovo}
             />
           </div>
           {children}

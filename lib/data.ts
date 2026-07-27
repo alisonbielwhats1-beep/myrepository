@@ -954,53 +954,22 @@ export async function getProdutosPublicos(
   return (data as ProdutoPublico[]) ?? [];
 }
 
-export interface Notificacoes {
-  inadimplentes: number;
-  estoqueBaixo: number;
-  feedbackNovo: number;
-}
-
 /**
- * Contadores para a central de notificações do painel: mensalidades vencidas,
- * produtos para repor e feedbacks não lidos. Consultas leves (counts + um
- * fetch mínimo de produtos).
+ * Feedbacks não lidos — sinal simples e independente da central de alertas
+ * persistida (Fase 9, lib/notificacoes.ts). "Feedback novo" não é um dos
+ * tipos de alerta da Fase 9 (não teria o que "gerar": já existe a coluna
+ * `lido` na própria tabela de feedbacks), mas já era mostrado no sino antes
+ * desta fase — mantido à parte para não regredir esse sinal.
  */
-export async function getNotificacoes(
-  academiaId: string
-): Promise<Notificacoes> {
+export async function contarFeedbackNaoLido(academiaId: string): Promise<number> {
   const supabase = createClient();
-  // Mesma referência de data usada na ficha do aluno e na recepção.
-  const hoje = hojeSaoPaulo();
-
-  const [inadRes, feedRes, prodRes] = await Promise.all([
-    supabase
-      .from("receitas")
-      .select("id", { count: "exact", head: true })
-      .eq("academia_id", academiaId)
-      .eq("tipo", "mensalidade")
-      .eq("status", "pendente")
-      .lt("data", hoje),
-    supabase
-      .from("feedbacks")
-      .select("id", { count: "exact", head: true })
-      .eq("academia_id", academiaId)
-      .eq("lido", false),
-    supabase
-      .from("produtos")
-      .select("estoque, estoque_minimo")
-      .eq("academia_id", academiaId)
-      .not("estoque", "is", null),
-  ]);
-
-  const estoqueBaixo = ((prodRes.data as
-    | { estoque: number; estoque_minimo: number }[]
-    | null) ?? []).filter((p) => p.estoque <= p.estoque_minimo).length;
-
-  return {
-    inadimplentes: inadRes.count ?? 0,
-    estoqueBaixo,
-    feedbackNovo: feedRes.count ?? 0,
-  };
+  const { count, error } = await supabase
+    .from("feedbacks")
+    .select("id", { count: "exact", head: true })
+    .eq("academia_id", academiaId)
+    .eq("lido", false);
+  if (error) throw new Error(`Falha ao contar feedbacks: ${error.message}`);
+  return count ?? 0;
 }
 
 export interface LinhaVenda {

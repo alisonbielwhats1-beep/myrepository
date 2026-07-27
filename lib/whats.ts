@@ -36,6 +36,37 @@ export function mensagemAcesso(opts: {
   );
 }
 
+/**
+ * Mensagem genérica de pendência de mensalidade — usada pelo botão de
+ * WhatsApp da central de notificações (Fase 9). Deliberadamente sem valor
+ * nem data: a notificação não carrega esses dados (evita duplicar dado
+ * financeiro que pode ficar desatualizado); quem quiser o valor exato abre a
+ * ficha do aluno pelo link da própria notificação.
+ */
+export function mensagemPendenciaMensalidade(nome: string): string {
+  const primeiroNome = nome.split(" ")[0];
+  return `Olá, ${primeiroNome}. Identificamos uma pendência na sua mensalidade. Entre em contato com a academia para regularizar.`;
+}
+
+/** Mensagem de aniversário — botão de WhatsApp do alerta "aniversariante do dia". */
+export function mensagemAniversario(nome: string, academia: string): string {
+  const primeiroNome = nome.split(" ")[0];
+  return (
+    `Parabéns, ${primeiroNome}! 🎉\n\n` +
+    `A equipe da ${academia} deseja um ótimo dia. Contamos com você no treino!`
+  );
+}
+
+/** Mensagem de retenção — botão de WhatsApp do alerta "aluno sem acesso". */
+export function mensagemAusencia(nome: string, academia: string, dias: number): string {
+  const primeiroNome = nome.split(" ")[0];
+  return (
+    `Olá, ${primeiroNome}! 👋\n\n` +
+    `Notamos que você não aparece na ${academia} há ${dias} dias. Sentimos sua falta — ` +
+    `precisa de ajuda com algo?`
+  );
+}
+
 /** Mensagem padrão de lembrete/cobrança de mensalidade. */
 export function mensagemCobranca(opts: {
   nome: string;
