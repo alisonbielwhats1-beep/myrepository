@@ -210,6 +210,8 @@ export interface Aluno {
   condicoes_medicas: string | null;
   contato_emergencia_nome: string | null;
   contato_emergencia_telefone: string | null;
+  /** Credencial do link pessoal do aluno sem login (Fase 12). Nunca usar `id` para montar /aluno/[slug]/[...]. */
+  token_acesso_publico: string;
   criado_em: string;
   atualizado_em: string;
 }
@@ -590,6 +592,7 @@ export interface FichaAlunoPublica {
     status_matricula: StatusMatricula;
     matricula_codigo: string | null;
     plano_nome: string | null;
+    criado_em: string;
   };
   academia: {
     id: string;
@@ -598,6 +601,24 @@ export interface FichaAlunoPublica {
   };
   treinos: FichaTreinoPublico[];
   progresso: ProgressoPublico[];
+}
+
+/** Mensalidade do próprio aluno (retorno da RPC obter_mensalidades_aluno, Fase 12). Nunca DRE/saldo da academia. */
+export interface MensalidadeAlunoPublica {
+  id: string;
+  competencia: string | null;
+  /** Sempre o vencimento. */
+  data: string;
+  valor: number;
+  status: StatusPagamento;
+  data_pagamento: string | null;
+  forma_pagamento: string | null;
+}
+
+/** Acesso efetivo (liberado/alerta) do próprio aluno (retorno da RPC obter_frequencia_aluno, Fase 12). */
+export interface AcessoAlunoPublico {
+  data_hora_entrada: string;
+  status_liberacao: StatusLiberacao;
 }
 
 export interface FichaTreinoPublico {

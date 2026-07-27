@@ -4,8 +4,10 @@
 
 import { createClient } from "./supabase/server";
 import { hojeSaoPaulo } from "./utils";
+import { tokenTemFormatoValido } from "./aluno-classificacao";
 import {
   AcademiaPublica,
+  AcessoAlunoPublico,
   AcessoCatraca,
   AcessosPaginados,
   Aluno,
@@ -17,6 +19,7 @@ import {
   Funcionario,
   HistoricoPlano,
   LinhaRetencao,
+  MensalidadeAlunoPublica,
   PerfilEquipe,
   Plano,
   PlanoPublico,
@@ -427,19 +430,67 @@ export async function getDespesas(
 
 /**
  * Ficha pública do aluno (nome, foto, treinos e exercícios — nunca CPF/
- * e-mail/telefone) via RPC `obter_ficha_aluno`. Não exige login: é o link
- * único usado pela tela do aluno.
+ * e-mail/telefone) via RPC `obter_ficha_aluno` (Fase 12: resolvida por
+ * `token` pessoal + `slug` da academia, nunca por aluno_id — a junção
+ * token+slug é feita dentro do próprio banco). Não exige login: é o link
+ * único usado pela tela do aluno. Token malformado nunca chega a fazer a
+ * chamada — vira "não encontrado" sem round-trip e sem erro do Postgres.
  */
 export async function getFichaAlunoPublica(
-  alunoId: string
+  token: string,
+  slug: string
 ): Promise<FichaAlunoPublica | null> {
+  if (!tokenTemFormatoValido(token)) return null;
   const supabase = createClient();
   const { data, error } = await supabase.rpc("obter_ficha_aluno", {
-    p_aluno_id: alunoId,
+    p_token: token,
+    p_slug: slug,
   });
   if (error) throw new Error(`Falha ao carregar ficha do aluno: ${error.message}`);
   if (!data || !(data as FichaAlunoPublica).aluno) return null;
   return data as FichaAlunoPublica;
+}
+
+/**
+ * Mensalidades do próprio aluno (competência/valor/vencimento/status/pagamento)
+ * via RPC `obter_mensalidades_aluno` (Fase 12), resolvida por token+slug.
+ * Não exige login: mesmo link único da ficha. Nunca traz DRE, saldo ou
+ * mensalidade de outro aluno.
+ */
+export async function getMensalidadesAlunoPublico(
+  token: string,
+  slug: string
+): Promise<MensalidadeAlunoPublica[]> {
+  if (!tokenTemFormatoValido(token)) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_mensalidades_aluno", {
+    p_token: token,
+    p_slug: slug,
+  });
+  if (error) throw new Error(`Falha ao carregar mensalidades: ${error.message}`);
+  return (data as MensalidadeAlunoPublica[]) ?? [];
+}
+
+/**
+ * Acessos efetivos (liberado/alerta) do próprio aluno nos últimos `dias` dias,
+ * via RPC `obter_frequencia_aluno` (Fase 12), resolvida por token+slug.
+ * Acesso negado nunca é retornado aqui — a própria RPC já filtra por
+ * status_liberacao.
+ */
+export async function getFrequenciaAlunoPublico(
+  token: string,
+  slug: string,
+  dias = 90
+): Promise<AcessoAlunoPublico[]> {
+  if (!tokenTemFormatoValido(token)) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_frequencia_aluno", {
+    p_token: token,
+    p_slug: slug,
+    p_dias: dias,
+  });
+  if (error) throw new Error(`Falha ao carregar frequência: ${error.message}`);
+  return (data as AcessoAlunoPublico[]) ?? [];
 }
 
 /** Treino compartilhado por QR (público) via RPC obter_treino_publico. */

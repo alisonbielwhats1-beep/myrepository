@@ -16,13 +16,15 @@ function ipCliente(): string {
 }
 
 /**
- * Registra a opinião do aluno (sem login) via RPC pública `registrar_feedback`,
- * que resolve a academia a partir do aluno. Valida antes que o aluno pertence
- * à academia da URL (defesa contra link adulterado).
+ * Registra a opinião do aluno (sem login) via RPC pública `registrar_feedback`
+ * (pré-existente, fora do escopo da Fase 12 — recebe aluno_id). A ficha é
+ * resolvida pelo TOKEN pessoal (nunca aluno_id vindo do formulário); só
+ * depois de confirmar que o token pertence a esta academia é que usamos o
+ * `aluno.id` da própria ficha para chamar a RPC existente.
  */
 export async function enviarFeedback(
   slug: string,
-  alunoId: string,
+  token: string,
   _estado: EstadoFeedback,
   formData: FormData
 ): Promise<EstadoFeedback> {
@@ -31,17 +33,17 @@ export async function enviarFeedback(
     return { erro: "Escolha uma nota de 1 a 5 estrelas." };
   }
 
-  // Garante que o aluno é válido e pertence a esta academia.
-  const ficha = await getFichaAlunoPublica(alunoId);
+  // Garante que o token é válido e pertence a esta academia.
+  const ficha = await getFichaAlunoPublica(token, slug);
   if (!ficha || ficha.academia.slug_url !== slug) {
     return { erro: "Link inválido." };
   }
 
   const supabase = createClient();
 
-  // Anti-spam: no máx. 5 envios a cada 5 min por IP+aluno.
+  // Anti-spam: no máx. 5 envios a cada 5 min por IP+token.
   const { data: liberado } = await supabase.rpc("acao_permitida", {
-    p_chave: `fb:${alunoId}:${ipCliente()}`,
+    p_chave: `fb:${token}:${ipCliente()}`,
     p_max: 5,
     p_janela_seg: 300,
   });
@@ -50,7 +52,7 @@ export async function enviarFeedback(
   }
 
   const { error } = await supabase.rpc("registrar_feedback", {
-    p_aluno_id: alunoId,
+    p_aluno_id: ficha.aluno.id,
     p_nota: nota,
     p_categoria: String(formData.get("categoria") ?? "geral"),
     p_comentario: String(formData.get("comentario") ?? ""),

@@ -332,7 +332,7 @@ function LinhaAluno({
 
   const copiarLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const link = `${origemPublica()}/aluno/${slug}/${aluno.id}`;
+    const link = `${origemPublica()}/aluno/${slug}/${aluno.token_acesso_publico}`;
     await navigator.clipboard.writeText(link);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 1600);

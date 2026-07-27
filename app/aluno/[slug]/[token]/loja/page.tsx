@@ -10,9 +10,9 @@ export const dynamic = "force-dynamic";
 export default async function AlunoLojaPage({
   params,
 }: {
-  params: { slug: string; alunoId: string };
+  params: { slug: string; token: string };
 }) {
-  await requireFichaAluno(params.slug, params.alunoId);
+  await requireFichaAluno(params.slug, params.token);
 
   const [academia, produtos] = await Promise.all([
     getAcademiaPublica(params.slug),

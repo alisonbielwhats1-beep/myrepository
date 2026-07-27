@@ -4,9 +4,9 @@ import { requireFichaAluno } from "@/lib/aluno-publico";
 export default async function TreinosPage({
   params,
 }: {
-  params: { slug: string; alunoId: string };
+  params: { slug: string; token: string };
 }) {
-  const ficha = await requireFichaAluno(params.slug, params.alunoId);
+  const ficha = await requireFichaAluno(params.slug, params.token);
 
   return (
     <div className="space-y-6">

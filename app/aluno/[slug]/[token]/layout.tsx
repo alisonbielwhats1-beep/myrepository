@@ -6,15 +6,15 @@ export default async function AlunoFichaLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { slug: string; alunoId: string };
+  params: { slug: string; token: string };
 }) {
   // Garante que o link é válido antes de renderizar qualquer sub-rota.
-  await requireFichaAluno(params.slug, params.alunoId);
+  await requireFichaAluno(params.slug, params.token);
 
   return (
     <>
       {children}
-      <AlunoTabBar base={`/aluno/${params.slug}/${params.alunoId}`} />
+      <AlunoTabBar base={`/aluno/${params.slug}/${params.token}`} />
     </>
   );
 }

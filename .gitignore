@@ -10,6 +10,7 @@
 /.test-build-cob
 /.test-build-perm
 /.test-build-val
+/.test-build-aluno
 
 # next.js
 /.next/

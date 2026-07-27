@@ -1,16 +1,23 @@
-import Image from "next/image";
 import { BadgeCheck, CreditCard, Ruler, ShieldCheck } from "lucide-react";
 import { GraficoProgressoPeso } from "@/components/painel/DashboardCharts";
+import AvatarAluno from "@/components/aluno/AvatarAluno";
+import FotoPerfilForm from "@/components/aluno/FotoPerfilForm";
 import { requireFichaAluno } from "@/lib/aluno-publico";
 import { badgeStatusMatricula, cn } from "@/lib/utils";
+import { atualizarFotoAluno } from "./actions";
 
 export default async function PerfilPage({
   params,
 }: {
-  params: { slug: string; alunoId: string };
+  params: { slug: string; token: string };
 }) {
-  const ficha = await requireFichaAluno(params.slug, params.alunoId);
+  const ficha = await requireFichaAluno(params.slug, params.token);
   const { aluno, progresso } = ficha;
+  const alunoDesde = new Date(aluno.criado_em).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 
   const dadosPeso = progresso
     .filter((p) => p.peso_kg != null)
@@ -32,17 +39,9 @@ export default async function PerfilPage({
 
       {/* Card do aluno */}
       <div className="surface rounded-3xl p-6 text-center">
-        {aluno.foto_perfil_url && (
-          <div className="relative mx-auto h-24 w-24 overflow-hidden rounded-full ring-2 ring-volt-300/50">
-            <Image
-              src={aluno.foto_perfil_url}
-              alt={aluno.nome}
-              fill
-              sizes="96px"
-              className="media-native object-cover"
-            />
-          </div>
-        )}
+        <div className="mx-auto w-fit">
+          <AvatarAluno nome={aluno.nome} fotoUrl={aluno.foto_perfil_url} size={96} />
+        </div>
         <h2 className="mt-4 text-xl font-bold text-white">{aluno.nome}</h2>
         <span
           className={cn(
@@ -53,7 +52,15 @@ export default async function PerfilPage({
           <BadgeCheck className="h-3.5 w-3.5" />
           Matrícula {aluno.status_matricula}
         </span>
+        <p className="mt-2 text-xs text-slate-500">Na academia desde {alunoDesde}</p>
       </div>
+
+      {/* Foto de perfil — único dado editável pelo aluno sem login */}
+      <FotoPerfilForm
+        nome={aluno.nome}
+        fotoAtual={aluno.foto_perfil_url}
+        atualizar={atualizarFotoAluno.bind(null, params.slug, params.token)}
+      />
 
       {/* Plano */}
       {aluno.plano_nome && (
@@ -124,8 +131,8 @@ export default async function PerfilPage({
       )}
 
       <p className="px-1 text-center text-xs text-slate-500">
-        Para atualizar seus dados de contato, fale com a recepção da
-        academia.
+        Nome, contato, plano, matrícula e vencimento são controlados pela
+        academia. Para atualizar esses dados, fale com a recepção.
       </p>
     </div>
   );
