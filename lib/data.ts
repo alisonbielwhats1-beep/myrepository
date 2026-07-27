@@ -26,6 +26,8 @@ import {
   PerfilEquipe,
   Plano,
   PlanoPublico,
+  PoliticaInadimplencia,
+  POLITICAS_INADIMPLENCIA,
   Produto,
   ProdutoPublico,
   ProgressoAluno,
@@ -930,6 +932,39 @@ export async function getTokenQrAlunoPublico(
   });
   if (error) throw new Error(`Falha ao carregar QR de acesso: ${error.message}`);
   return (data as string) ?? null;
+}
+
+/**
+ * Política de inadimplência da academia do próprio aluno (Bloco 2, migration
+ * 047), resolvida por token pessoal + slug — nunca aluno_id/academia_id.
+ * Único dado que faltava para calcular `decidirAcesso()` (mesma regra da
+ * recepção) no lado do aluno: status_matricula (ficha) e mensalidades
+ * pendentes (getMensalidadesAlunoPublico) já vinham de outras funções.
+ *
+ * Nunca lança: erro do Supabase, RPC ausente ou valor fora do enum conhecido
+ * viram `null` da mesma forma que um token inválido. O status de acesso da
+ * Home NÃO pode assumir "liberar" quando isto falhar — quem chama precisa
+ * tratar `null` como "não consegui confirmar", nunca como um valor padrão.
+ */
+export async function getPoliticaAcessoAlunoPublico(
+  token: string,
+  slug: string
+): Promise<PoliticaInadimplencia | null> {
+  if (!tokenTemFormatoValido(token)) return null;
+  const politicasValidas: string[] = POLITICAS_INADIMPLENCIA.map((p) => p.value);
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("obter_politica_acesso_aluno", {
+      p_token: token,
+      p_slug: slug,
+    });
+    if (error || typeof data !== "string" || !politicasValidas.includes(data)) {
+      return null;
+    }
+    return data as PoliticaInadimplencia;
+  } catch {
+    return null;
+  }
 }
 
 /**

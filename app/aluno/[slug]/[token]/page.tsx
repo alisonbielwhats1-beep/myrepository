@@ -1,35 +1,72 @@
 import Link from "next/link";
 import {
+  AlertTriangle,
   CalendarClock,
   CalendarDays,
+  CheckCircle2,
   ChevronRight,
   Dumbbell,
+  HelpCircle,
+  MessageCircle,
   User,
   Wallet,
+  XCircle,
 } from "lucide-react";
 import AvatarAluno from "@/components/aluno/AvatarAluno";
 import QRCodeCard from "@/components/aluno/QRCodeCard";
 import { requireFichaAluno, ultimoAcessoEfetivo } from "@/lib/aluno-publico";
 import {
+  getAcademiaPublica,
   getFrequenciaAlunoPublico,
   getMensalidadesAlunoPublico,
+  getPoliticaAcessoAlunoPublico,
   getTokenQrAlunoPublico,
 } from "@/lib/data";
 import {
+  badgeStatusAcesso,
   badgeStatusFinanceiro,
   badgeStatusMatricula,
   calcularStatusFinanceiro,
   cn,
+  decidirAcesso,
   formatBRL,
   formatDataHora,
   hojeSaoPaulo,
 } from "@/lib/utils";
+import type { ResultadoAcesso } from "@/lib/types";
 
 const ROTULO_FINANCEIRO: Record<"em_dia" | "pendente" | "inadimplente", string> = {
   em_dia: "Em dia",
   pendente: "Vence hoje",
   inadimplente: "Mensalidade em atraso",
 };
+
+const ROTULO_ACESSO: Record<ResultadoAcesso, string> = {
+  liberado: "Liberado",
+  alerta: "Liberado com alerta",
+  bloqueado: "Bloqueado",
+};
+
+// Textos exatos pedidos para a Home do aluno — curtos, respeitosos e sem
+// nenhum valor financeiro, CPF, telefone ou regra interna da academia.
+const MENSAGEM_ACESSO: Record<ResultadoAcesso, string> = {
+  liberado: "Seu acesso está liberado.",
+  alerta: "Seu acesso está liberado, mas existe uma pendência que precisa de atenção.",
+  bloqueado: "Não foi possível liberar seu acesso. Procure a recepção para verificar sua situação.",
+};
+
+const ICONE_ACESSO: Record<ResultadoAcesso, typeof CheckCircle2> = {
+  liberado: CheckCircle2,
+  alerta: AlertTriangle,
+  bloqueado: XCircle,
+};
+
+// Quando a política da academia não pôde ser confirmada (erro do Supabase,
+// RPC ausente, valor fora do enum conhecido) — nunca tratamos isso como
+// "liberar". Um estado honesto e distinto dos três resultados reais.
+const MENSAGEM_ACESSO_INDISPONIVEL =
+  "Não foi possível confirmar sua situação de acesso. Procure a recepção.";
+const BADGE_ACESSO_INDISPONIVEL = "bg-ink-600 text-slate-300 border-ink-500";
 
 export default async function AlunoHome({
   params,
@@ -39,11 +76,14 @@ export default async function AlunoHome({
   const ficha = await requireFichaAluno(params.slug, params.token);
   const { aluno, academia, treinos } = ficha;
 
-  const [mensalidades, acessos, tokenQrAcesso] = await Promise.all([
-    getMensalidadesAlunoPublico(params.token, params.slug),
-    getFrequenciaAlunoPublico(params.token, params.slug),
-    getTokenQrAlunoPublico(params.token, params.slug),
-  ]);
+  const [mensalidades, acessos, tokenQrAcesso, politicaAcesso, academiaPublica] =
+    await Promise.all([
+      getMensalidadesAlunoPublico(params.token, params.slug),
+      getFrequenciaAlunoPublico(params.token, params.slug),
+      getTokenQrAlunoPublico(params.token, params.slug),
+      getPoliticaAcessoAlunoPublico(params.token, params.slug),
+      getAcademiaPublica(params.slug),
+    ]);
 
   const primeiroNome = aluno.nome.split(" ")[0];
   const statusFinanceiro = calcularStatusFinanceiro(mensalidades);
@@ -52,6 +92,27 @@ export default async function AlunoHome({
     .filter((m) => m.status === "pendente")
     .sort((a, b) => (a.data < b.data ? -1 : 1))[0];
   const ultimoAcesso = ultimoAcessoEfetivo(acessos);
+
+  // Mesma regra oficial da recepção (decidirAcesso) — nenhuma lógica de
+  // acesso paralela. Só falta, do lado do aluno, a política da academia
+  // (mensalidades e status_matricula já vêm da própria ficha).
+  //
+  // Se a política não pôde ser confirmada (RPC falhou, retorno inesperado),
+  // `politicaAcesso` chega null e NÃO calculamos decidirAcesso com um valor
+  // padrão — isso poderia mostrar "Liberado" para quem na verdade estaria
+  // bloqueado. `statusAcesso` fica null e a interface mostra um estado
+  // honesto de indisponibilidade, nunca um resultado inventado.
+  const statusAcesso = politicaAcesso
+    ? decidirAcesso(aluno.status_matricula, politicaAcesso, mensalidades)
+    : null;
+  const IconeAcesso = statusAcesso ? ICONE_ACESSO[statusAcesso.resultado] : HelpCircle;
+
+  const whatsappDigits = academiaPublica?.whatsapp?.replace(/\D/g, "");
+  const linkWhatsapp = whatsappDigits
+    ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(
+        `Olá! Sou aluno da ${academia.nome_fantasia} e preciso falar sobre minha situação.`
+      )}`
+    : null;
 
   const base = `/aluno/${params.slug}/${params.token}`;
 
@@ -98,6 +159,27 @@ export default async function AlunoHome({
             {ROTULO_FINANCEIRO[statusFinanceiro]}
           </span>
         </div>
+
+        {/* Status de acesso — mesma regra da recepção (decidirAcesso),
+            separado do cadastral e do financeiro acima. Nunca mostra valor
+            vencido, quantidade de mensalidades ou motivo detalhado. */}
+        <div className="flex items-center justify-between gap-2 border-t border-ink-600/60 pt-3">
+          <div className="flex items-center gap-2 text-sm text-slate-300">
+            <IconeAcesso className="h-4 w-4 text-volt-300" />
+            Situação de acesso
+          </div>
+          <span
+            className={cn(
+              "chip",
+              statusAcesso ? badgeStatusAcesso(statusAcesso.resultado) : BADGE_ACESSO_INDISPONIVEL
+            )}
+          >
+            {statusAcesso ? ROTULO_ACESSO[statusAcesso.resultado] : "Indisponível"}
+          </span>
+        </div>
+        <p className="text-xs text-slate-400">
+          {statusAcesso ? MENSAGEM_ACESSO[statusAcesso.resultado] : MENSAGEM_ACESSO_INDISPONIVEL}
+        </p>
 
         {proximaMensalidade && (
           <div className="flex items-center justify-between gap-2 border-t border-ink-600/60 pt-3 text-sm">
@@ -162,6 +244,15 @@ export default async function AlunoHome({
         <AcaoRapida href={`${base}/mensalidades`} icon={Wallet} label="Ver mensalidades" />
         <AcaoRapida href={`${base}/frequencia`} icon={CalendarDays} label="Ver frequência" />
         <AcaoRapida href={`${base}/perfil`} icon={User} label="Meu perfil" />
+        {linkWhatsapp && (
+          <AcaoRapida
+            href={linkWhatsapp}
+            icon={MessageCircle}
+            label="Falar com a academia"
+            externo
+            className="col-span-2"
+          />
+        )}
       </div>
     </div>
   );
@@ -171,20 +262,40 @@ function AcaoRapida({
   href,
   icon: Icon,
   label,
+  externo,
+  className,
 }: {
   href: string;
   icon: typeof Dumbbell;
   label: string;
+  /** true = link externo (ex.: wa.me) — abre em nova aba, sem navegação interna do Next. */
+  externo?: boolean;
+  className?: string;
 }) {
-  return (
-    <Link
-      href={href}
-      className="surface flex flex-col items-start gap-2 rounded-2xl p-4 transition active:scale-[0.98] hover:border-ink-500"
-    >
+  const classeBase = cn(
+    "surface flex flex-col items-start gap-2 rounded-2xl p-4 transition active:scale-[0.98] hover:border-ink-500",
+    className
+  );
+  const conteudo = (
+    <>
       <span className="grid h-9 w-9 place-items-center rounded-xl bg-volt-300/15 text-volt-300">
         <Icon className="h-5 w-5" />
       </span>
       <span className="text-sm font-semibold text-white">{label}</span>
+    </>
+  );
+
+  if (externo) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" className={classeBase}>
+        {conteudo}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href} className={classeBase}>
+      {conteudo}
     </Link>
   );
 }

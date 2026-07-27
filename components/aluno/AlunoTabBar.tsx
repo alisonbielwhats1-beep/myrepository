@@ -2,17 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Dumbbell, MessageSquare, QrCode, ShoppingBag, User } from "lucide-react";
+import { Dumbbell, QrCode, User, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/**
+ * Navegação inferior priorizada para o piloto (Bloco 2): Acesso, Treinos,
+ * Mensalidades e Perfil — as 4 funções que o documento de fluxo do aluno
+ * considera essenciais. Loja e Feedback continuam funcionando nas mesmas
+ * rotas de sempre (nenhum link publicado quebra); só saíram da barra fixa e
+ * passaram a ficar acessíveis a partir do Perfil.
+ */
 export default function AlunoTabBar({ base }: { base: string }) {
   const pathname = usePathname();
 
   const tabs = [
     { href: base, label: "Acesso", icon: QrCode, exact: true },
     { href: `${base}/treinos`, label: "Treinos", icon: Dumbbell, exact: false },
-    { href: `${base}/loja`, label: "Loja", icon: ShoppingBag, exact: false },
-    { href: `${base}/feedback`, label: "Feedback", icon: MessageSquare, exact: false },
+    { href: `${base}/mensalidades`, label: "Mensalidades", icon: Wallet, exact: false },
     { href: `${base}/perfil`, label: "Perfil", icon: User, exact: false },
   ];
 

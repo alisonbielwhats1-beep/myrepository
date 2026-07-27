@@ -123,7 +123,16 @@ export default function Home() {
         </section>
 
         <footer className="border-t border-ink-700 py-8 text-center text-xs text-slate-500">
-          GestAcad · Next.js (App Router) · Tailwind CSS · Supabase · PWA
+          <p>GestAcad · Next.js (App Router) · Tailwind CSS · Supabase · PWA</p>
+          <p className="mt-2 flex items-center justify-center gap-3">
+            <Link href="/termos" className="hover:text-slate-300 hover:underline">
+              Termos de Uso
+            </Link>
+            <span className="text-slate-700">·</span>
+            <Link href="/privacidade" className="hover:text-slate-300 hover:underline">
+              Política de Privacidade
+            </Link>
+          </p>
         </footer>
       </div>
     </main>

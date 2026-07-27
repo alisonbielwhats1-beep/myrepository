@@ -389,6 +389,22 @@ export function badgeStatusFinanceiro(status: StatusFinanceiro): string {
   }
 }
 
+/**
+ * Classe de badge por status de ACESSO (resultado de decidirAcesso) — usada
+ * na Home do aluno (Bloco 2) para separar visualmente "posso entrar?" de
+ * status cadastral e financeiro, que já têm seus próprios badges acima.
+ */
+export function badgeStatusAcesso(resultado: ResultadoAcesso): string {
+  switch (resultado) {
+    case "liberado":
+      return "bg-volt-500/15 text-volt-300 border-volt-500/30";
+    case "alerta":
+      return "bg-amber-500/15 text-amber-300 border-amber-500/30";
+    case "bloqueado":
+      return "bg-red-500/15 text-red-400 border-red-500/30";
+  }
+}
+
 /** Junta classes condicionalmente (mini clsx). */
 export function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");

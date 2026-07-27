@@ -1,4 +1,15 @@
-import { BadgeCheck, CreditCard, Ruler, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import {
+  BadgeCheck,
+  ChevronRight,
+  CreditCard,
+  FileText,
+  Lock,
+  MessageSquare,
+  Ruler,
+  ShieldCheck,
+  ShoppingBag,
+} from "lucide-react";
 import { GraficoProgressoPeso } from "@/components/painel/DashboardCharts";
 import AvatarAluno from "@/components/aluno/AvatarAluno";
 import FotoPerfilForm from "@/components/aluno/FotoPerfilForm";
@@ -130,11 +141,47 @@ export default async function PerfilPage({
         </div>
       )}
 
+      {/* Mais — itens secundários (rotas preservadas, só saíram da barra
+          inferior fixa no Bloco 2) e documentos legais do piloto. */}
+      <div className="surface divide-y divide-ink-600/60 overflow-hidden rounded-2xl">
+        <LinkSecundario href={`/aluno/${params.slug}/${params.token}/loja`} icon={ShoppingBag} label="Loja" />
+        <LinkSecundario
+          href={`/aluno/${params.slug}/${params.token}/feedback`}
+          icon={MessageSquare}
+          label="Deixar feedback"
+        />
+        <LinkSecundario href="/termos" icon={FileText} label="Termos de Uso" />
+        <LinkSecundario href="/privacidade" icon={Lock} label="Política de Privacidade" />
+      </div>
+
       <p className="px-1 text-center text-xs text-slate-500">
         Nome, contato, plano, matrícula e vencimento são controlados pela
         academia. Para atualizar esses dados, fale com a recepção.
       </p>
     </div>
+  );
+}
+
+function LinkSecundario({
+  href,
+  icon: Icon,
+  label,
+}: {
+  href: string;
+  icon: typeof ShoppingBag;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-between gap-3 p-4 transition hover:bg-ink-700/40"
+    >
+      <span className="flex items-center gap-3 text-sm text-white">
+        <Icon className="h-4 w-4 text-slate-400" />
+        {label}
+      </span>
+      <ChevronRight className="h-4 w-4 text-slate-500" />
+    </Link>
   );
 }
 
