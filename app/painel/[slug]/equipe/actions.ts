@@ -6,6 +6,7 @@ import type { EstadoAcao } from "@/lib/types";
 import { LIMITE_MEMBROS_EQUIPE, removeriaUltimoDono } from "@/lib/permissoes";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { Papel } from "@/lib/types";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 const PAPEIS_VALIDOS: Papel[] = ["dono", "gerente", "recepcao", "instrutor"];
 
@@ -76,6 +77,18 @@ export async function criarMembroEquipe(
     return { erro: `Falha ao vincular o perfil: ${erroPerfil.message}` };
   }
 
+  // Nunca a senha: só nome, e-mail e papel — o suficiente para investigação,
+  // sem nenhuma credencial no log.
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "equipe",
+    entidadeId: novoUsuario.user.id,
+    acao: "equipe_criado",
+    valorNovo: { nome, email, papel },
+  });
+
   revalidatePath(`/painel/${slug}/equipe`);
   return { ok: true, savedAt: Date.now() };
 }
@@ -96,7 +109,7 @@ export async function removerMembroEquipe(
   const supabase = createClient();
   const { data: perfil } = await supabase
     .from("perfis_admin")
-    .select("id, papel")
+    .select("id, nome, email, papel")
     .eq("id", perfilId)
     .eq("academia_id", sessao.academia.id)
     .maybeSingle();
@@ -112,6 +125,16 @@ export async function removerMembroEquipe(
   const admin = createServiceRoleClient();
   const { error } = await admin.auth.admin.deleteUser(perfilId);
   if (error) return { erro: `Falha ao remover: ${error.message}` };
+
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "equipe",
+    entidadeId: perfilId,
+    acao: "equipe_removido",
+    valorAnterior: { nome: perfil.nome, email: perfil.email, papel: perfil.papel },
+  });
 
   revalidatePath(`/painel/${slug}/equipe`);
   return { ok: true };
@@ -169,6 +192,17 @@ export async function alterarPapel(
     .eq("id", perfilId)
     .eq("academia_id", sessao.academia.id);
   if (error) return { erro: `Falha ao atualizar: ${error.message}` };
+
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "equipe",
+    entidadeId: perfilId,
+    acao: "equipe_papel_alterado",
+    valorAnterior: { papel: atual?.papel ?? null },
+    valorNovo: { papel },
+  });
 
   revalidatePath(`/painel/${slug}/equipe`);
   return { ok: true };

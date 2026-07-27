@@ -7,6 +7,7 @@ import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { StatusFuncionario } from "@/lib/types";
 import { validarUrl } from "@/lib/validacoes";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 
 function lerCampos(formData: FormData) {
@@ -100,6 +101,16 @@ export async function excluirFuncionario(
   const sessao = await requireSecao(slug, "funcionarios");
   const supabase = createClient();
 
+  // Lido ANTES de excluir: depois de deletado não há mais linha para
+  // consultar. Nunca CPF nem salário aqui — nome, cargo e status já bastam
+  // para investigação, sem dado sensível desnecessário.
+  const { data: funcionarioRemovido } = await supabase
+    .from("funcionarios")
+    .select("nome, cargo, status")
+    .eq("id", funcionarioId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("funcionarios")
     .delete()
@@ -107,6 +118,16 @@ export async function excluirFuncionario(
     .eq("academia_id", sessao.academia.id);
 
   if (error) throw new Error(`Falha ao excluir funcionário: ${error.message}`);
+
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "funcionario",
+    entidadeId: funcionarioId,
+    acao: "funcionario_excluido",
+    valorAnterior: funcionarioRemovido ?? undefined,
+  });
 
   revalidatePath(`/painel/${slug}/funcionarios`);
   revalidatePath(`/painel/${slug}`);

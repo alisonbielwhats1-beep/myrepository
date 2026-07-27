@@ -13,6 +13,7 @@ import {
   TipoReceita,
 } from "@/lib/types";
 import { hojeSaoPaulo } from "@/lib/utils";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 
 /**
@@ -416,8 +417,24 @@ export async function marcarPago(
       .eq("tipo", "mensalidade");
 
     if (!count) return { erro: "Cobrança não encontrada." };
+    // Idempotente (já estava paga): nada mudou de fato, não gera novo registro.
     return { ok: true, savedAt: Date.now() };
   }
+
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "mensalidade",
+    entidadeId: receitaId,
+    acao: "mensalidade_paga",
+    valorNovo: {
+      status: pagas[0].status,
+      data_pagamento: pagas[0].data_pagamento,
+      forma_pagamento: pagas[0].forma_pagamento,
+    },
+  });
+
   revalidatePath(`/painel/${slug}/alunos`);
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
@@ -468,6 +485,18 @@ export async function cancelarCobranca(
     .eq("academia_id", sessao.academia.id);
 
   if (error) return { erro: `Falha ao cancelar: ${error.message}` };
+
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "mensalidade",
+    entidadeId: receitaId,
+    acao: "mensalidade_cancelada",
+    valorAnterior: { status: receita.status },
+    valorNovo: { status: "cancelada" },
+    metadados: { motivo: motivo.trim() },
+  });
 
   revalidatePath(`/painel/${slug}/alunos`);
   revalidatePath(`/painel/${slug}/financeiro`);

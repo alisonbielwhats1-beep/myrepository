@@ -13,6 +13,7 @@ import {
   removerFotoAntiga,
   validarArquivoFoto,
 } from "@/lib/fotos-perfil";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 // ---------------------------------------------------------------------------
 // Helpers de data no fuso America/Sao_Paulo
@@ -410,6 +411,18 @@ export async function criarAluno(
     }
   }
 
+  if (novo) {
+    await registrarAuditoria({
+      academiaId: sessao.academia.id,
+      usuarioId: sessao.userId,
+      usuarioNome: sessao.nome,
+      entidade: "aluno",
+      entidadeId: novo.id,
+      acao: "aluno_criado",
+      valorNovo: { nome, status_matricula: statusInicial, plano_id: planoId },
+    });
+  }
+
   revalidatePath(`/painel/${slug}/alunos`);
   revalidatePath(`/painel/${slug}`);
   return { ok: true, savedAt: Date.now(), id: novo?.id };
@@ -473,6 +486,33 @@ export async function atualizarAluno(
   const statusAnterior = atual?.status_matricula ?? "ativa";
   const trocouPlano = planoId && planoId !== (atual?.plano_id ?? null);
   const reativando = novoStatus === "ativa" && statusAnterior !== "ativa";
+
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "aluno",
+    entidadeId: alunoId,
+    acao: "aluno_atualizado",
+    valorAnterior: {
+      status_matricula: statusAnterior,
+      dia_vencimento: atual?.dia_vencimento ?? null,
+    },
+    valorNovo: { status_matricula: novoStatus, dia_vencimento: diaVencimento },
+  });
+
+  if (trocouPlano) {
+    await registrarAuditoria({
+      academiaId: sessao.academia.id,
+      usuarioId: sessao.userId,
+      usuarioNome: sessao.nome,
+      entidade: "plano",
+      entidadeId: alunoId,
+      acao: "plano_alterado",
+      valorAnterior: { plano_id: atual?.plano_id ?? null },
+      valorNovo: { plano_id: planoId },
+    });
+  }
 
   if (reativando && trocouPlano && planoId) {
     // Reativação com troca de plano: fecha ciclo anterior, abre novo e gera cobrança.
@@ -578,6 +618,16 @@ export async function excluirAluno(slug: string, alunoId: string): Promise<void>
   const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
+  // Lido ANTES de excluir: depois de deletado não há mais linha para
+  // consultar, e o log de auditoria é o único lugar que vai preservar quem
+  // era esse aluno.
+  const { data: alunoRemovido } = await supabase
+    .from("alunos")
+    .select("nome, matricula_codigo, status_matricula")
+    .eq("id", alunoId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("alunos")
     .delete()
@@ -585,6 +635,16 @@ export async function excluirAluno(slug: string, alunoId: string): Promise<void>
     .eq("academia_id", sessao.academia.id);
 
   if (error) throw new Error(`Falha ao excluir aluno: ${error.message}`);
+
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "aluno",
+    entidadeId: alunoId,
+    acao: "aluno_excluido",
+    valorAnterior: alunoRemovido ?? undefined,
+  });
 
   revalidatePath(`/painel/${slug}/alunos`);
   revalidatePath(`/painel/${slug}`);
