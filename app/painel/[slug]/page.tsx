@@ -94,10 +94,18 @@ export default async function DashboardOverviewPage({
   const mesIni = `${mesAtualChave}-01`;
   const mesFim = new Date(Date.UTC(mesAno, mesNum, 0)).toISOString().slice(0, 10);
 
-  // Cortes mensais para "Evolução de alunos" — "-31" como teto é seguro
-  // porque nenhuma data válida ultrapassa esse dia, sem precisar calcular o
-  // último dia real de cada mês (igual ao código anterior).
-  const cortesEvolucao = ultimosMeses(6).map(({ chave }) => `${chave}-31`);
+  // Cortes mensais para "Evolução de alunos": o primeiro dia do mês SEGUINTE,
+  // usado como limite exclusivo (< corte) — equivale a "até o fim deste mês".
+  //
+  // Não dá para usar `${chave}-31` como teto: enquanto isso era comparação de
+  // string em memória, "2026-02-31" funcionava como sentinela; agora o valor
+  // vai para o Postgres como literal de data e 31 de fevereiro/abril/junho
+  // não existe — o banco recusa com "date/time field value out of range" e
+  // derruba a página. Date.UTC também cuida da virada de dezembro.
+  const cortesEvolucao = ultimosMeses(6).map(({ chave }) => {
+    const [ano, mes] = chave.split("-").map(Number);
+    return new Date(Date.UTC(ano, mes, 1)).toISOString().slice(0, 10);
+  });
 
   // Fase 13: nada de carregar a base inteira de alunos/receitas/despesas para
   // somar em memória. Cada consulta abaixo já vem do banco recortada pelo

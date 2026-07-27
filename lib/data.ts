@@ -207,10 +207,15 @@ export async function getContagemAlunosCriadosEntre(
 }
 
 /**
- * Contagem cumulativa de alunos cadastrados até cada data de corte (ex.: fim
- * de cada um dos últimos 6 meses), para o gráfico "Evolução de alunos" do
- * Dashboard. Uma consulta count por corte — número fixo (6), não cresce com
- * a base de alunos, então não é o padrão N+1 que a Fase 13 proíbe.
+ * Contagem cumulativa de alunos cadastrados antes de cada corte, para o
+ * gráfico "Evolução de alunos" do Dashboard. Uma consulta count por corte —
+ * número fixo (6), não cresce com a base de alunos, então não é o padrão N+1
+ * que a Fase 13 proíbe.
+ *
+ * Cada `corte` é um limite EXCLUSIVO (YYYY-MM-DD): "alunos criados antes
+ * disto". Quem chama passa o primeiro dia do mês seguinte, o que evita
+ * construir datas inexistentes como 31 de fevereiro — que o Postgres recusa
+ * (ao contrário da comparação de string em memória que existia antes).
  */
 export async function getEvolucaoAlunosContagem(
   academiaId: string,
@@ -223,7 +228,7 @@ export async function getEvolucaoAlunosContagem(
         .from("alunos")
         .select("id", { count: "exact", head: true })
         .eq("academia_id", academiaId)
-        .lte("criado_em", `${corte}T23:59:59.999Z`)
+        .lt("criado_em", `${corte}T00:00:00.000Z`)
     )
   );
   for (const r of resultados) {
