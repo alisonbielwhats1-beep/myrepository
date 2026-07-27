@@ -120,17 +120,20 @@ export default function GestaoAlunos({
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const financialRef = useRef<HTMLDivElement>(null);
 
-  // A página/busca troca a lista inteira (aluno selecionado pode não estar
-  // mais na tela); se sumiu, seleciona o primeiro da nova página. Em
-  // atualizações que mantêm o aluno na lista (editar, marcar pago...) não
-  // mexe em nada — router.refresh() troca a referência do array, mas o id
-  // continua presente.
-  useEffect(() => {
-    if (!alunosIniciais.some((a) => a.id === selecionadoId)) {
-      setSelecionadoId(alunosIniciais[0]?.id ?? null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alunosIniciais]);
+  // NÃO existe fallback de seleção aqui — de propósito.
+  //
+  // A versão anterior fazia `setSelecionadoId(alunosIniciais[0]?.id)` sempre que
+  // o aluno selecionado não estava na lista. Isso causava o bug do QR do aluno
+  // errado: ao cadastrar um aluno, `setSelecionadoId(novoId)` acontece antes do
+  // `router.refresh()` chegar, então por um instante o novo id não está na
+  // lista — e a seleção pulava para `alunosIniciais[0]`, que é o aluno mais
+  // recente ANTERIOR (ordem criado_em DESC), tipicamente o último que o usuário
+  // tinha aberto. Pior: como esse id É válido, o efeito nunca mais corrigia, e
+  // o painel ficava preso no aluno errado exibindo o QR dele.
+  //
+  // Agora, se o aluno selecionado não está na lista, a ficha simplesmente não
+  // renderiza (ver `alunoSelecionado` abaixo) até o refresh trazê-lo. Nunca se
+  // troca a seleção por outro aluno.
 
   // ---- Busca e filtros no servidor (Fase 13) ----
   const [busca, setBusca] = useState(buscaInicial);
@@ -192,7 +195,21 @@ export default function GestaoAlunos({
             onCancelar={totalAlunos > 0 ? () => setMostrarNovoAluno(false) : undefined}
             onSalvo={(id) => {
               setMostrarNovoAluno(false);
+              // Sem id não se seleciona nada: manter o aluno anterior
+              // selecionado aqui é exatamente como o QR errado era entregue.
+              if (!id) {
+                setSelecionadoId(null);
+                return;
+              }
               setSelecionadoId(id);
+              // O recém-cadastrado é o mais recente (ordem criado_em DESC),
+              // logo está na primeira página SEM filtros. Com filtro ou página
+              // ativos ele poderia não aparecer na lista — e a ficha ficaria
+              // sem renderizar. Limpa para garantir que ele fique visível.
+              if (filtrosAtivos || pagina > 1) {
+                setBusca("");
+                aplicarFiltro({ q: null, status: null, planoId: null, pagina: null });
+              }
             }}
           />
         ) : (
@@ -354,6 +371,24 @@ export default function GestaoAlunos({
 
       {/* Coluna direita: montagem da ficha de treino */}
       <div className="space-y-6">
+        {selecionadoId && !alunoSelecionado && (
+          <div className="surface flex items-start gap-3 rounded-2xl p-4">
+            <Loader2 className="mt-0.5 h-4 w-4 flex-none animate-spin text-slate-500" />
+            <p className="text-sm text-slate-400">
+              Carregando a ficha do aluno… Se ela não aparecer, o aluno não está
+              na página ou nos filtros atuais —{" "}
+              <button
+                type="button"
+                onClick={limparFiltros}
+                className="text-volt-300 underline underline-offset-2"
+              >
+                limpar filtros
+              </button>
+              . Nenhuma ficha de outro aluno é exibida no lugar.
+            </p>
+          </div>
+        )}
+
         {alunoSelecionado && (
           <>
             <FotoAlunoAdminCard
@@ -363,6 +398,7 @@ export default function GestaoAlunos({
               fotoUrl={alunoSelecionado.foto_perfil_url}
             />
             <AcessoAlunoCard
+              key={alunoSelecionado.id}
               slug={slug}
               alunoId={alunoSelecionado.id}
               nome={alunoSelecionado.nome}

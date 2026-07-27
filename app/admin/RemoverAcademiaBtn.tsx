@@ -23,7 +23,7 @@ export default function RemoverAcademiaBtn({
   if (confirmar) {
     return (
       <div className="flex items-center gap-2 whitespace-nowrap">
-        <span className="text-xs text-red-300">Remover "{nome}"?</span>
+        <span className="text-xs text-red-300">Remover &quot;{nome}&quot;?</span>
         <button
           onClick={handleRemover}
           disabled={pending}

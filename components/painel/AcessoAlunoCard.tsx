@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { QRCodeCanvas } from "qrcode.react";
 import {
+  AlertTriangle,
   Check,
   Copy,
   Download,
@@ -41,19 +42,34 @@ export default function AcessoAlunoCard({
   isDono: boolean;
   isDemo: boolean;
 }) {
-  const [token, setToken] = useState(tokenAcessoPublico);
+  // O token NUNCA é copiado para estado a partir do prop: era isso que fazia o
+  // QR continuar mostrando o aluno anterior quando o React reaproveitava esta
+  // instância. Só o token *regenerado* vive em estado — e amarrado ao aluno que
+  // o gerou, para que não possa vazar para outro aluno em nenhuma hipótese.
+  const [regenerado, setRegenerado] = useState<{
+    alunoId: string;
+    token: string;
+  } | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [mostrarQR, setMostrarQR] = useState(false);
   const [confirmarRegerar, setConfirmarRegerar] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  const url = `${origemPublica()}/aluno/${slug}/${token}`;
-  const whatsHref = linkWhats(
-    telefone,
-    mensagemAcesso({ nome, academia: academiaNome, url }),
-    { isDemo }
-  );
+  const token =
+    regenerado?.alunoId === alunoId ? regenerado.token : tokenAcessoPublico;
+
+  // Sem token não existe link possível. Exibir o QR de outro aluno (ou uma URL
+  // truncada) seria pior do que não exibir nada: o erro é explícito.
+  const tokenValido = typeof token === "string" && token.trim().length > 0;
+  const url = tokenValido ? `${origemPublica()}/aluno/${slug}/${token}` : "";
+  const whatsHref = tokenValido
+    ? linkWhats(
+        telefone,
+        mensagemAcesso({ nome, academia: academiaNome, url }),
+        { isDemo }
+      )
+    : null;
 
   const copiar = async () => {
     await navigator.clipboard.writeText(url);
@@ -69,7 +85,7 @@ export default function AcessoAlunoCard({
         setErro(r.erro);
         return;
       }
-      if (r.token) setToken(r.token);
+      if (r.token) setRegenerado({ alunoId, token: r.token });
       setConfirmarRegerar(false);
     });
   };
@@ -84,30 +100,39 @@ export default function AcessoAlunoCard({
         sem precisar informar o aluno pelo cadastro.
       </p>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        {whatsHref && (
-          <a
-            href={whatsHref}
-            target="_blank"
-            rel="noreferrer"
-            className="btn-ghost"
-            title="Enviar o link pelo WhatsApp"
-          >
-            <MessageCircle className="h-4 w-4" /> Enviar por WhatsApp
-          </a>
-        )}
-        <button type="button" onClick={copiar} className="btn-ghost">
-          {copiado ? (
-            <Check className="h-4 w-4 text-volt-300" />
-          ) : (
-            <Copy className="h-4 w-4" />
+      {!tokenValido ? (
+        <p className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-none" />
+          Este aluno ainda não tem link de acesso. Atualize a página; se
+          continuar assim, gere um novo link. Nenhum QR é exibido aqui para não
+          entregar o acesso de outro aluno por engano.
+        </p>
+      ) : (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {whatsHref && (
+            <a
+              href={whatsHref}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-ghost"
+              title="Enviar o link pelo WhatsApp"
+            >
+              <MessageCircle className="h-4 w-4" /> Enviar por WhatsApp
+            </a>
           )}
-          {copiado ? "Copiado!" : "Copiar link"}
-        </button>
-        <button type="button" onClick={() => setMostrarQR(true)} className="btn-ghost">
-          <QrCode className="h-4 w-4" /> Mostrar QR Code
-        </button>
-      </div>
+          <button type="button" onClick={copiar} className="btn-ghost">
+            {copiado ? (
+              <Check className="h-4 w-4 text-volt-300" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+            {copiado ? "Copiado!" : "Copiar link"}
+          </button>
+          <button type="button" onClick={() => setMostrarQR(true)} className="btn-ghost">
+            <QrCode className="h-4 w-4" /> Mostrar QR Code
+          </button>
+        </div>
+      )}
 
       {isDono && (
         <div className="mt-4 border-t border-ink-700 pt-3">
@@ -150,8 +175,17 @@ export default function AcessoAlunoCard({
       )}
 
       {mostrarQR &&
+        tokenValido &&
         createPortal(
-          <DialogQR url={url} nome={nome} onClose={() => setMostrarQR(false)} />,
+          // `key={url}` garante um diálogo (e um canvas) novos sempre que a URL
+          // muda — nada de canvas reaproveitado com o QR do aluno anterior.
+          <DialogQR
+            key={url}
+            url={url}
+            nome={nome}
+            canvasId={`qr-acesso-aluno-${alunoId}`}
+            onClose={() => setMostrarQR(false)}
+          />,
           document.body
         )}
     </div>
@@ -161,15 +195,19 @@ export default function AcessoAlunoCard({
 function DialogQR({
   url,
   nome,
+  canvasId,
   onClose,
 }: {
   url: string;
   nome: string;
+  canvasId: string;
   onClose: () => void;
 }) {
   const baixar = () => {
+    // Id único por aluno: com o id fixo antigo, um canvas de outro aluno ainda
+    // montado podia ser encontrado primeiro e baixado no lugar deste.
     const canvas = document.getElementById(
-      "qr-acesso-aluno"
+      canvasId
     ) as HTMLCanvasElement | null;
     if (!canvas) return;
     const a = document.createElement("a");
@@ -200,8 +238,19 @@ function DialogQR({
         <p className="mt-1 text-sm text-slate-400">{nome}</p>
 
         <div className="mx-auto mt-5 w-fit rounded-2xl bg-white p-4">
-          <QRCodeCanvas id="qr-acesso-aluno" value={url} size={200} level="M" includeMargin={false} />
+          <QRCodeCanvas id={canvasId} value={url} size={200} level="M" includeMargin={false} />
         </div>
+
+        {/* A URL exata codificada neste QR, visível como texto: permite conferir
+            de quem é o link sem precisar escanear — e comparar com a página que
+            abriu depois de escanear. */}
+        <div className="mt-4 rounded-xl border border-ink-600 bg-ink-900/60 p-3 text-left">
+          <p className="label-muted">Link deste QR</p>
+          <p className="mt-1 break-all font-mono text-[11px] leading-relaxed text-slate-300">
+            {url}
+          </p>
+        </div>
+
         <p className="mt-3 text-xs text-slate-500">
           Funciona como credencial pessoal do aluno. Quem escanear abre o app
           do aluno direto — sem senha.
