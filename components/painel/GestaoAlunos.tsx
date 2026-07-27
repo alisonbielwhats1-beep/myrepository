@@ -460,6 +460,7 @@ function formatComp(comp: string | null): string {
 function BotaoPago({ slug, receitaId }: { slug: string; receitaId: string }) {
   const [expandido, setExpandido] = useState(false);
   const [forma, setForma] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   if (!expandido) {
@@ -474,41 +475,49 @@ function BotaoPago({ slug, receitaId }: { slug: string; receitaId: string }) {
   }
 
   return (
-    <div className="flex items-center gap-1">
-      <select
-        value={forma}
-        onChange={(e) => setForma(e.target.value)}
-        className="h-6 rounded border border-ink-600 bg-ink-900 px-1 text-[10px] text-slate-200 focus:outline-none"
-        autoFocus
-      >
-        <option value="">Forma…</option>
-        {FORMAS_PAGAMENTO.map((f) => (
-          <option key={f.value} value={f.label}>
-            {f.label}
-          </option>
-        ))}
-      </select>
-      <button
-        disabled={!forma || pending}
-        onClick={() =>
-          start(async () => {
-            await marcarPago(slug, receitaId, forma);
-            setExpandido(false);
-            setForma("");
-          })
-        }
-        title="Confirmar pagamento"
-        className="grid h-6 w-6 place-items-center rounded bg-volt-500/15 text-volt-300 transition hover:bg-volt-500/25 disabled:opacity-40"
-      >
-        {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-      </button>
-      <button
-        onClick={() => { setExpandido(false); setForma(""); }}
-        title="Fechar"
-        className="grid h-6 w-6 place-items-center rounded text-slate-500 transition hover:text-slate-300"
-      >
-        <X className="h-3 w-3" />
-      </button>
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-1">
+        <select
+          value={forma}
+          onChange={(e) => setForma(e.target.value)}
+          className="h-6 rounded border border-ink-600 bg-ink-900 px-1 text-[10px] text-slate-200 focus:outline-none"
+          autoFocus
+        >
+          <option value="">Forma…</option>
+          {FORMAS_PAGAMENTO.map((f) => (
+            <option key={f.value} value={f.label}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+        <button
+          disabled={!forma || pending}
+          onClick={() =>
+            start(async () => {
+              setErro(null);
+              const resultado = await marcarPago(slug, receitaId, forma);
+              if (resultado.erro) {
+                setErro(resultado.erro);
+                return;
+              }
+              setExpandido(false);
+              setForma("");
+            })
+          }
+          title="Confirmar pagamento"
+          className="grid h-6 w-6 place-items-center rounded bg-volt-500/15 text-volt-300 transition hover:bg-volt-500/25 disabled:opacity-40"
+        >
+          {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+        </button>
+        <button
+          onClick={() => { setExpandido(false); setForma(""); setErro(null); }}
+          title="Fechar"
+          className="grid h-6 w-6 place-items-center rounded text-slate-500 transition hover:text-slate-300"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+      {erro && <p className="text-[10px] text-red-400">{erro}</p>}
     </div>
   );
 }
