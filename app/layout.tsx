@@ -42,8 +42,10 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // `maximumScale: 1` e `userScalable: false` foram removidos: bloqueavam o
+  // zoom em todo o app (falha de acessibilidade — WCAG 1.4.4 exige ampliar
+  // até 200%). Nada além disso muda: largura e escala inicial seguem iguais,
+  // então painel, login e área do aluno continuam abrindo do mesmo jeito.
 };
 
 // Aplica o tema salvo ANTES da primeira pintura (evita "piscar" de tema).

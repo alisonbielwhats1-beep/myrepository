@@ -11,7 +11,10 @@ export const PLANOS_SAAS: {
 }[] = [
   { value: "basico", label: "Básico", preco: 29.9 },
   { value: "profissional", label: "Profissional", preco: 59.9, destaque: true },
-  { value: "premium", label: "Premium", preco: 99.9 },
+  // Preço comercial oficial do GestAcad Premium: R$ 99/mês (era 99,90 até a
+  // definição do preço de vitrine). Espelhado em lib/site-config.ts, que é a
+  // fonte usada pela landing page pública.
+  { value: "premium", label: "Premium", preco: 99 },
 ];
 
 // Map each plan to the set of features it unlocks (cumulative).

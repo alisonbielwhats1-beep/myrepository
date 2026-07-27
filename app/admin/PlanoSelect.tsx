@@ -31,7 +31,7 @@ export default function PlanoSelect({
       >
         <option value="basico">Básico — R$ 29,90</option>
         <option value="profissional">Profissional — R$ 59,90</option>
-        <option value="premium">Premium — R$ 99,90</option>
+        <option value="premium">Premium — R$ 99,00</option>
       </select>
       {pending && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
     </div>

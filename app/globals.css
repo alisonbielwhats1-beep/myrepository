@@ -87,6 +87,34 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Rolagem suave para a navegação por âncora da landing page (#funcionalidades,
+   #planos, ...). Só quando o sistema não pede movimento reduzido. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Acessibilidade: quem configurou "reduzir movimento" no sistema não recebe
+   nenhuma animação/transição do app — inclusive as entradas da landing page. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Foco sempre visível para navegação por teclado (a landing é usada por
+   teclado e leitor de tela; o realce padrão do Tailwind reset é discreto). */
+:focus-visible {
+  outline: 2px solid rgb(var(--volt-300));
+  outline-offset: 2px;
+}
+
 /* Barra de rolagem discreta, temática */
 ::-webkit-scrollbar {
   width: 10px;
