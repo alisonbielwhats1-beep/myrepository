@@ -40,7 +40,7 @@ import {
   getProximosVencimentos,
   getFuncionarios,
 } from "@/lib/data";
-import { agruparFinanceiro, ultimosMeses } from "@/lib/financeiro";
+import { agruparFinanceiro, calcularCaixaPeriodo, ultimosMeses } from "@/lib/financeiro";
 import { resolverJanelaDashboard } from "@/lib/periodo";
 import {
   classificarRetencao,
@@ -131,7 +131,7 @@ export default async function DashboardOverviewPage({
     verFinanceiro ? getDespesasJanela(sessao.academia.id, janela.desde, janela.ate) : Promise.resolve([]),
     verFinanceiro ? getReceitas(sessao.academia.id, antDesde, antAte) : Promise.resolve([]),
     verFinanceiro ? getDespesas(sessao.academia.id, antDesde, antAte) : Promise.resolve([]),
-    verFinanceiro ? getReceitas(sessao.academia.id, mesIni, mesFim) : Promise.resolve([]),
+    verFinanceiro ? getReceitasJanela(sessao.academia.id, mesIni, mesFim) : Promise.resolve([]),
     getContagemAlunosCriadosEntre(sessao.academia.id, janela.desde, janela.ate),
     getContagemAlunosCriadosEntre(sessao.academia.id, antDesde, antAte),
     getEvolucaoAlunosContagem(sessao.academia.id, cortesEvolucao),
@@ -201,14 +201,14 @@ export default async function DashboardOverviewPage({
   }
 
   // ---- KPIs financeiros (só para quem vê financeiro) ----
-  const noPeriodo = (data: string) => data >= janela.desde && data <= janela.ate;
-  const receitaPeriodo = verFinanceiro
-    ? receitasJanela.filter((r) => r.status === "pago" && noPeriodo(r.data)).reduce((acc, r) => acc + Number(r.valor), 0)
-    : 0;
-  const despesaPeriodo = verFinanceiro
-    ? despesasJanela.filter((d) => d.status === "pago" && noPeriodo(d.data)).reduce((acc, d) => acc + Number(d.valor), 0)
-    : 0;
-  const lucroPeriodo = receitaPeriodo - despesaPeriodo;
+  // Regime de caixa (status=pago + data_pagamento no período), igual ao
+  // Financeiro e ao gráfico "Receita x Despesa" logo abaixo — antes este
+  // resumo filtrava por vencimento (`data`), então uma mensalidade paga hoje
+  // com vencimento mais adiante no mês ficava fora da janela e mostrava R$0.
+  const { receitaRecebida: receitaPeriodo, despesaPaga: despesaPeriodo, resultado: lucroPeriodo } =
+    verFinanceiro
+      ? calcularCaixaPeriodo(receitasJanela, despesasJanela, janela.desde, janela.ate)
+      : { receitaRecebida: 0, despesaPaga: 0, resultado: 0 };
   const novosAlunos = novosAlunosCount;
 
   const somaPagos = (arr: { status: string; valor: number | string }[]) =>
@@ -225,15 +225,23 @@ export default async function DashboardOverviewPage({
   const financeiroHref = `/painel/${params.slug}/financeiro`;
 
   // ---- Meta de faturamento do mês (recebido vs meta) + projeção ----
+  // Sempre o mês corrente (mesIni..mesFim), independente do filtro do topo.
+  // "Recebido" é regime de caixa (status=pago + data_pagamento no mês) — mesmo
+  // critério do resumo acima. Antes somava por vencimento (`data`) no mês, o
+  // que confundia "cobrança devida este mês" com "dinheiro recebido este mês"
+  // (ex.: atraso de mês anterior pago agora não entrava; vencimento futuro já
+  // pago entrava mesmo sem o dinheiro ainda ter chegado neste mês).
   const metaMensal = Number(sessao.academia.meta_faturamento_mensal ?? 0);
   const recebidoMes = verFinanceiro
-    ? receitasMes
-        .filter((r) => r.status === "pago")
-        .reduce((a, r) => a + Number(r.valor), 0)
+    ? calcularCaixaPeriodo(receitasMes, [], mesIni, mesFim).receitaRecebida
     : 0;
-  // Projeção do mês = já recebido + o que ainda está pendente para este mês.
+  // Projeção do mês = já recebido (caixa) + o que ainda está pendente com
+  // vencimento este mês (competência).
   const projecaoMes = verFinanceiro
-    ? receitasMes.reduce((a, r) => a + Number(r.valor), 0)
+    ? recebidoMes +
+      receitasMes
+        .filter((r) => r.status === "pendente" && r.data >= mesIni && r.data <= mesFim)
+        .reduce((a, r) => a + Number(r.valor), 0)
     : 0;
   const pctMeta = metaMensal > 0 ? Math.min(100, (recebidoMes / metaMensal) * 100) : 0;
   const pctProjecao = metaMensal > 0 ? Math.min(100, (projecaoMes / metaMensal) * 100) : 0;
