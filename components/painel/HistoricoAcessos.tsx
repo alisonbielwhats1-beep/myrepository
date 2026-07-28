@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   AlertTriangle,
+  Ban,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -13,8 +14,9 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { AcessoCatraca, Aluno, OrigemAcesso, StatusLiberacao } from "@/lib/types";
-import { CORES_ORIGEM, cn, formatHora, timeAgo } from "@/lib/utils";
+import { cancelarAcesso } from "@/app/painel/[slug]/recepcao/actions";
+import { AcessoCatraca, Aluno, OrigemAcesso, Papel, StatusLiberacao } from "@/lib/types";
+import { CORES_ORIGEM, cn, dataSaoPaulo, formatHora, hojeSaoPaulo, timeAgo } from "@/lib/utils";
 
 const RESULTADOS: { value: StatusLiberacao; label: string }[] = [
   { value: "liberado", label: "Liberado" },
@@ -23,20 +25,78 @@ const RESULTADOS: { value: StatusLiberacao; label: string }[] = [
 ];
 const ORIGENS: OrigemAcesso[] = ["Direto", "Gympass", "TotalPass"];
 
+/**
+ * Botão "Cancelar acesso" de uma linha do Histórico. Nunca exclui o
+ * registro — só marca cancelado_em/cancelado_por/motivo_cancelamento via RPC
+ * (migration 052). Dono cancela qualquer um; recepção só os de hoje em SP
+ * (checado aqui só para não mostrar um botão que a RPC vai recusar — a
+ * validação de verdade é no banco).
+ */
+function BotaoCancelarAcesso({
+  slug,
+  acesso,
+  podeCancelar,
+}: {
+  slug: string;
+  acesso: AcessoCatraca;
+  podeCancelar: boolean;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
+
+  if (!podeCancelar) return null;
+
+  function cancelar() {
+    const motivo = window.prompt("Motivo do cancelamento:");
+    if (motivo === null) return;
+    if (!motivo.trim()) {
+      setErro("Informe um motivo.");
+      return;
+    }
+    setErro(null);
+    startTransition(async () => {
+      const res = await cancelarAcesso(slug, acesso.id, motivo.trim());
+      if (res.erro) setErro(res.erro);
+      else router.refresh();
+    });
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <button
+        type="button"
+        onClick={cancelar}
+        disabled={pending}
+        className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500 transition hover:text-red-400 disabled:opacity-50"
+      >
+        <Ban className="h-3 w-3" />
+        {pending ? "Cancelando..." : "Cancelar acesso"}
+      </button>
+      {erro && <span className="text-[10px] text-red-400">{erro}</span>}
+    </div>
+  );
+}
+
 /** Histórico de acessos da Recepção: filtros simples + paginação no servidor. */
 export default function HistoricoAcessos({
+  slug,
+  papel,
   acessos,
   total,
   pagina,
   tamanhoPagina,
   alunos,
 }: {
+  slug: string;
+  papel: Papel;
   acessos: AcessoCatraca[];
   total: number;
   pagina: number;
   tamanhoPagina: number;
   alunos: Aluno[];
 }) {
+  const hoje = hojeSaoPaulo();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -148,10 +208,19 @@ export default function HistoricoAcessos({
           const alerta = a.status_liberacao === "alerta";
           // "alerta" é entrada PERMITIDA — não pode aparecer como negada.
           const liberado = a.status_liberacao === "liberado" || alerta;
+          const cancelado = !!a.cancelado_em;
+          const ehParceiro = a.origem === "Gympass" || a.origem === "TotalPass";
+          const podeCancelar =
+            !cancelado &&
+            (papel === "dono" ||
+              (papel === "recepcao" && dataSaoPaulo(a.data_hora_entrada) === hoje));
           return (
             <li
               key={a.id}
-              className="flex items-center gap-4 px-5 py-3.5 transition hover:bg-ink-700/30"
+              className={cn(
+                "flex items-center gap-4 px-5 py-3.5 transition hover:bg-ink-700/30",
+                cancelado && "opacity-60"
+              )}
             >
               <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-1 ring-ink-600">
                 {a.aluno?.foto_perfil_url ? (
@@ -197,38 +266,56 @@ export default function HistoricoAcessos({
                 {a.observacao && (
                   <p className="mt-0.5 truncate text-[11px] text-slate-500">{a.observacao}</p>
                 )}
+                {cancelado && (
+                  <p className="mt-0.5 truncate text-[11px] text-red-400">
+                    Cancelado{a.motivo_cancelamento ? `: ${a.motivo_cancelamento}` : ""}
+                  </p>
+                )}
+                {cancelado && ehParceiro && (
+                  <p className="mt-0.5 text-[11px] text-amber-300">
+                    O cancelamento no GestAcad não desfaz o check-in na plataforma parceira.
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col items-end gap-1">
-                <span
-                  className={cn(
-                    "chip",
-                    alerta
-                      ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                      : liberado
-                      ? "border-volt-500/30 bg-volt-500/10 text-volt-300"
-                      : "border-red-500/30 bg-red-500/10 text-red-400"
+                <div className="flex items-center gap-1.5">
+                  {cancelado && (
+                    <span className="chip border-ink-500 bg-ink-600/60 text-slate-400">
+                      <Ban className="h-3.5 w-3.5" /> Cancelado
+                    </span>
                   )}
-                >
-                  {alerta ? (
-                    <>
-                      <AlertTriangle className="h-3.5 w-3.5" /> Alerta
-                    </>
-                  ) : liberado ? (
-                    <>
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Liberado
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="h-3.5 w-3.5" /> Negado
-                    </>
-                  )}
-                </span>
+                  <span
+                    className={cn(
+                      "chip",
+                      alerta
+                        ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                        : liberado
+                        ? "border-volt-500/30 bg-volt-500/10 text-volt-300"
+                        : "border-red-500/30 bg-red-500/10 text-red-400"
+                    )}
+                  >
+                    {alerta ? (
+                      <>
+                        <AlertTriangle className="h-3.5 w-3.5" /> Alerta
+                      </>
+                    ) : liberado ? (
+                      <>
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Liberado
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-3.5 w-3.5" /> Negado
+                      </>
+                    )}
+                  </span>
+                </div>
                 {a.dias_atraso ? (
                   <span className="text-[10px] text-slate-500">
                     {a.dias_atraso} dia(s) de atraso
                   </span>
                 ) : null}
+                <BotaoCancelarAcesso slug={slug} acesso={a} podeCancelar={podeCancelar} />
               </div>
             </li>
           );

@@ -169,6 +169,8 @@ export default async function RecepcaoPage({
       />
 
       <HistoricoAcessos
+        slug={params.slug}
+        papel={sessao.papel}
         acessos={historico.acessos}
         total={historico.total}
         pagina={pagina}

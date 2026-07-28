@@ -354,6 +354,10 @@ export interface AcessoCatraca {
   registrado_por: string | null;
   /** Chave de idempotência da tentativa de registro manual (Fase 8). */
   chave_idempotencia: string | null;
+  /** Cancelamento (migration 052) — nunca exclui a linha, só anota quem/quando/por quê. */
+  cancelado_em: string | null;
+  cancelado_por: string | null;
+  motivo_cancelamento: string | null;
   aluno?: Pick<Aluno, "id" | "nome" | "foto_perfil_url"> | null;
 }
 

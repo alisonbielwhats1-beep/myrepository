@@ -368,6 +368,10 @@ export async function getAcessosPeriodo(
     .from("acessos_catraca")
     .select("*, aluno:alunos(id, nome, foto_perfil_url)")
     .eq("academia_id", academiaId)
+    // Cancelado (migration 052) não conta em gráfico nenhum — o histórico
+    // detalhado (getAcessosPaginado) continua mostrando a linha, só não entra
+    // aqui.
+    .is("cancelado_em", null)
     .gte("data_hora_entrada", desdeIso)
     .lte("data_hora_entrada", ateIso)
     .order("data_hora_entrada", { ascending: false });
@@ -393,6 +397,9 @@ export async function getAcessosRecentes(
     .from("acessos_catraca")
     .select("*, aluno:alunos(id, nome, foto_perfil_url)")
     .eq("academia_id", academiaId)
+    // Cancelado (migration 052) não conta em "acessos hoje"/liberados/
+    // negados/pico — só usado para os cards, o Histórico continua mostrando.
+    .is("cancelado_em", null)
     .gte("data_hora_entrada", desdeIso)
     .order("data_hora_entrada", { ascending: false });
   if (error) throw new Error(`Falha ao carregar acessos: ${error.message}`);

@@ -183,3 +183,54 @@ export async function confirmarAcessoQr(
   revalidatePath(`/painel/${slug}`);
   return { ok: true, savedAt: Date.now(), decisao };
 }
+
+/**
+ * Cancela (nunca exclui) um acesso do Histórico da Recepção. A escrita real
+ * é a RPC `cancelar_acesso_catraca` (migration 052): dono cancela qualquer
+ * acesso da própria academia; recepção só os de hoje (America/Sao_Paulo);
+ * demais papéis não chegam nem a esta função (requireSecao). Cancelado sai
+ * de "acessos hoje", frequência e repasse estimado — nunca do Histórico.
+ *
+ * Não vincula ao ciclo de vida de uma receita: cancelar uma mensalidade não
+ * cancela o acesso, e cancelar o acesso não mexe em nenhuma receita.
+ */
+export async function cancelarAcesso(
+  slug: string,
+  acessoId: string,
+  motivo: string
+): Promise<EstadoAcao> {
+  await requireSecao(slug, "recepcao");
+  const supabase = createClient();
+
+  const motivoLimpo = motivo.trim();
+  if (!motivoLimpo) return { erro: "Informe o motivo do cancelamento." };
+
+  const { data: cancelou, error } = await supabase.rpc("cancelar_acesso_catraca", {
+    p_acesso_id: acessoId,
+    p_motivo: motivoLimpo,
+  });
+
+  if (error) return { erro: `Falha ao cancelar acesso: ${error.message}` };
+
+  if (!cancelou) {
+    // RPC devolve false tanto para "sem permissão" quanto para "já
+    // cancelado"/"fora do dia de hoje" — uma consulta simples (mesmo RLS de
+    // sempre) distingue os casos para uma mensagem útil, sem exigir service
+    // role nem revelar nada a quem realmente não tem acesso.
+    const { data: atual } = await supabase
+      .from("acessos_catraca")
+      .select("cancelado_em")
+      .eq("id", acessoId)
+      .maybeSingle();
+    if (atual?.cancelado_em) return { erro: "Este acesso já foi cancelado." };
+    return {
+      erro:
+        "Não foi possível cancelar. A recepção só cancela acessos de hoje — acessos de outros dias exigem o dono.",
+    };
+  }
+
+  revalidatePath(`/painel/${slug}/recepcao`);
+  revalidatePath(`/painel/${slug}`);
+  revalidatePath(`/painel/${slug}/financeiro`);
+  return { ok: true, savedAt: Date.now() };
+}
