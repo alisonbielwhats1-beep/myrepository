@@ -8,12 +8,27 @@ import { OrigemAcesso } from "@/lib/types";
 import { tokenTemFormatoValido } from "@/lib/aluno-classificacao";
 import { decidirAcesso, statusLiberacaoDe } from "@/lib/utils";
 
-const REPASSE_POR_ORIGEM: Record<OrigemAcesso, number> = {
-  Direto: 0,
-  Gympass: 12.5,
-  TotalPass: 10,
-  qr: 0,
-};
+/**
+ * Valor de repasse vigente configurado pelo dono (migration 049), para uma
+ * plataforma parceira. Direto e qr nunca são parceiro, ficam sempre em 0 —
+ * não são "constante fixa de repasse", são o valor correto por definição
+ * (não têm contrato de repasse). Gympass/TotalPass consultam
+ * `valor_repasse_vigente` (migration 051): SECURITY DEFINER, funciona tanto
+ * para dono quanto para recepção — mas o número retornado aqui NUNCA deve
+ * ser devolvido ao cliente (ver EstadoAcao dos callers): só é usado para
+ * montar o INSERT.
+ */
+async function valorRepasseVigente(
+  supabase: ReturnType<typeof createClient>,
+  origem: OrigemAcesso
+): Promise<number | null> {
+  if (origem !== "Gympass" && origem !== "TotalPass") return 0;
+  const plataforma = origem === "Gympass" ? "gympass" : "totalpass";
+  const { data } = await supabase.rpc("valor_repasse_vigente", {
+    p_plataforma: plataforma,
+  });
+  return (data as number | null) ?? null;
+}
 
 /** Registra manualmente uma entrada na catraca (recepção sem hardware integrado). */
 export async function registrarAcesso(
@@ -55,15 +70,18 @@ export async function registrarAcesso(
     mensalidades ?? []
   );
 
+  // Entrada bloqueada fica no histórico, mas sem efeito financeiro: não houve
+  // uso da academia, logo não há repasse a receber ("alerta" é entrada
+  // permitida e mantém o repasse normal — só pula a consulta quando já sabe
+  // que vai gravar 0).
+  const valorRepasse =
+    decisao.resultado === "bloqueado" ? 0 : await valorRepasseVigente(supabase, origem);
+
   const { error } = await supabase.from("acessos_catraca").insert({
     academia_id: sessao.academia.id,
     aluno_id: alunoId,
     origem,
-    // Entrada bloqueada fica no histórico, mas sem efeito financeiro: não houve
-    // uso da academia, logo não há repasse a receber. "alerta" é entrada
-    // permitida e mantém o repasse normal.
-    valor_repasse:
-      decisao.resultado === "bloqueado" ? 0 : REPASSE_POR_ORIGEM[origem],
+    valor_repasse: valorRepasse,
     status_liberacao: statusLiberacaoDe(decisao.resultado),
     observacao: decisao.motivo,
     politica_aplicada: decisao.politicaAplicada,
@@ -143,7 +161,8 @@ export async function confirmarAcessoQr(
     academia_id: sessao.academia.id,
     aluno_id: aluno.id,
     origem: "qr",
-    valor_repasse: REPASSE_POR_ORIGEM.qr,
+    // QR não é plataforma parceira — nunca tem repasse, sempre 0.
+    valor_repasse: 0,
     status_liberacao: statusLiberacaoDe(decisao.resultado),
     observacao: decisao.motivo,
     politica_aplicada: decisao.politicaAplicada,

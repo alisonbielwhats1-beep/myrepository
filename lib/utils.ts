@@ -103,6 +103,23 @@ export function dataSaoPaulo(instante: string | Date): string {
   }).format(typeof instante === "string" ? new Date(instante) : instante);
 }
 
+/**
+ * Converte um instante (ISO ou Date) para a hora do dia (0–23) em SP.
+ *
+ * Mesmo motivo de `dataSaoPaulo`: `Date.getHours()` usa o fuso do processo
+ * (UTC no servidor), não o da academia — um acesso às 22h39 em São Paulo
+ * aparecia como 01h (do dia seguinte, em UTC), embaralhando "acessos de
+ * hoje" e "horário de pico" com o dia/hora errados.
+ */
+export function horaSaoPaulo(instante: string | Date): number {
+  const partes = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(typeof instante === "string" ? new Date(instante) : instante);
+  return Number(partes.find((p) => p.type === "hour")?.value ?? 0);
+}
+
 /** Dias inteiros entre duas datas YYYY-MM-DD (ate - de). */
 export function diasEntre(de: string, ate: string): number {
   return Math.floor(

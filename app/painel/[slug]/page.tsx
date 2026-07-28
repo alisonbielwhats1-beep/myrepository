@@ -15,6 +15,7 @@ import {
   UserX,
   Zap,
 } from "lucide-react";
+import Ajuda from "@/components/ui/Ajuda";
 import StatTile from "@/components/painel/StatTile";
 import DashboardRangeFilter from "@/components/painel/DashboardRangeFilter";
 import BotaoCobrancaWhats from "@/components/painel/BotaoCobrancaWhats";
@@ -381,20 +382,41 @@ export default async function DashboardOverviewPage({
       {/* Meta de faturamento do mês */}
       {mostrarMeta && (
         <div className="surface rounded-2xl p-5">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Target className="h-4 w-4 text-volt-300" />
               <h2 className="font-semibold text-white">Meta de faturamento do mês</h2>
+              <Ajuda texto="Sempre o mês corrente, em regime de caixa — independente do período escolhido no filtro do Dashboard acima. Por isso pode diferir do Resumo financeiro quando o filtro ali não cobrir o mês inteiro (ex.: filtro em 'Hoje')." />
             </div>
-            <p className="text-sm text-slate-400">
-              <span className="font-semibold text-white">{formatBRL(recebidoMes)}</span>
-              {" "}de {formatBRL(metaMensal)}{" "}
-              <span className="text-slate-500">({Math.round(pctMeta)}%)</span>
-            </p>
+            <span className="text-xs text-slate-500">{Math.round(pctMeta)}% da meta</span>
+          </div>
+
+          {/* Três números separados de propósito — "R$X de R$Y" escondia se o
+              valor recebido já incluía pendente ou não. */}
+          <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3">
+            <div>
+              <p className="label-muted">Recebido no mês</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-volt-300 [overflow-wrap:anywhere] sm:text-2xl">
+                {formatBRL(recebidoMes, { compacto: true })}
+              </p>
+            </div>
+            <div>
+              <p className="label-muted">Projeção do mês</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-white [overflow-wrap:anywhere] sm:text-2xl">
+                {formatBRL(projecaoMes, { compacto: true })}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">recebido + a receber</p>
+            </div>
+            <div>
+              <p className="label-muted">Meta do mês</p>
+              <p className="mt-1 text-xl font-bold tabular-nums text-slate-300 [overflow-wrap:anywhere] sm:text-2xl">
+                {formatBRL(metaMensal, { compacto: true })}
+              </p>
+            </div>
           </div>
 
           {/* Barra: recebido (sólido) + projeção (translúcido) */}
-          <div className="relative mt-3 h-3 w-full overflow-hidden rounded-full bg-ink-700">
+          <div className="relative mt-4 h-3 w-full overflow-hidden rounded-full bg-ink-700">
             <div
               className="absolute inset-y-0 left-0 rounded-full bg-volt-500/30"
               style={{ width: `${pctProjecao}%` }}
@@ -409,7 +431,6 @@ export default async function DashboardOverviewPage({
             <span className="flex items-center gap-1.5 text-slate-400">
               <span className="inline-block h-2 w-2 rounded-full bg-volt-400" /> Recebido
               <span className="ml-3 inline-block h-2 w-2 rounded-full bg-volt-500/40" /> Projeção
-              (recebido + a receber): {formatBRL(projecaoMes)}
             </span>
             {recebidoMes >= metaMensal ? (
               <span className="font-semibold text-volt-300">🎉 Meta atingida!</span>

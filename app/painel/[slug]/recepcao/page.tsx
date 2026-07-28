@@ -12,7 +12,7 @@ import {
   getPlanos,
   getUltimosAcessosPorAluno,
 } from "@/lib/data";
-import { calcularStatusFinanceiro } from "@/lib/utils";
+import { calcularStatusFinanceiro, dataSaoPaulo, hojeSaoPaulo, horaSaoPaulo } from "@/lib/utils";
 import type { OrigemAcesso, StatusFinanceiro, StatusLiberacao } from "@/lib/types";
 
 const TAMANHO_PAGINA = 20;
@@ -79,9 +79,13 @@ export default async function RecepcaoPage({
     statusFinanceiroMap[alunoId] = calcularStatusFinanceiro(mens);
   }
 
-  const hoje = new Date().toDateString();
+  // "Hoje" sempre em America/Sao_Paulo — new Date().toDateString() usava o
+  // fuso do processo (UTC no servidor): um acesso às 22h39 em SP (01h39 UTC
+  // do dia seguinte) contava junto com um acesso às 01h05 em SP do dia
+  // seguinte de verdade, porque os dois caem no mesmo dia em UTC.
+  const hoje = hojeSaoPaulo();
   const acessosHoje = acessos.filter(
-    (a) => new Date(a.data_hora_entrada).toDateString() === hoje
+    (a) => dataSaoPaulo(a.data_hora_entrada) === hoje
   );
   // "alerta" é entrada PERMITIDA — conta como liberado e ainda tem contagem própria.
   const alertasHoje = acessosHoje.filter(
@@ -95,10 +99,11 @@ export default async function RecepcaoPage({
   ).length;
   const ativos = alunos.filter((a) => a.status_matricula === "ativa").length;
 
-  // Horário com mais entradas hoje, calculado a partir de dados reais.
+  // Horário com mais entradas hoje, calculado a partir de dados reais —
+  // hora do dia em SP (mesmo motivo do agrupamento de "hoje" acima).
   const contagemHora = new Map<number, number>();
   for (const a of acessosHoje) {
-    const h = new Date(a.data_hora_entrada).getHours();
+    const h = horaSaoPaulo(a.data_hora_entrada);
     contagemHora.set(h, (contagemHora.get(h) ?? 0) + 1);
   }
   let horaPico: number | null = null;
