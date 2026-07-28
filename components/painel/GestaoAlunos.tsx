@@ -1033,7 +1033,7 @@ function FormularioAluno({
   const [diaVencimento, setDiaVencimento] = useState(
     alunoExistente?.dia_vencimento ?? Math.min(new Date().getDate(), 28)
   );
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeSaoPaulo();
   const [dataPagamento, setDataPagamento] = useState(hoje);
 
   useEffect(() => {
