@@ -1,4 +1,4 @@
-import { Clock3, DoorOpen, ShieldAlert, UserCheck, Wallet } from "lucide-react";
+import { Clock3, DoorOpen, ShieldAlert, UserCheck } from "lucide-react";
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import CatracaLog from "@/components/painel/CatracaLog";
 import HistoricoAcessos from "@/components/painel/HistoricoAcessos";
@@ -12,7 +12,7 @@ import {
   getPlanos,
   getUltimosAcessosPorAluno,
 } from "@/lib/data";
-import { calcularStatusFinanceiro, formatBRL } from "@/lib/utils";
+import { calcularStatusFinanceiro } from "@/lib/utils";
 import type { OrigemAcesso, StatusFinanceiro, StatusLiberacao } from "@/lib/types";
 
 const TAMANHO_PAGINA = 20;
@@ -93,12 +93,6 @@ export default async function RecepcaoPage({
   const negadosHoje = acessosHoje.filter(
     (a) => a.status_liberacao === "negado"
   ).length;
-  // Acesso negado não gera repasse. O filtro também protege o número de
-  // registros antigos, gravados antes de o bloqueio zerar o valor na escrita.
-  const repasseHoje = acessosHoje.reduce(
-    (acc, a) => acc + (a.status_liberacao === "negado" ? 0 : a.valor_repasse ?? 0),
-    0
-  );
   const ativos = alunos.filter((a) => a.status_matricula === "ativa").length;
 
   // Horário com mais entradas hoje, calculado a partir de dados reais.
@@ -126,7 +120,11 @@ export default async function RecepcaoPage({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      {/* "Repasse hoje" (Gympass + TotalPass) foi retirado: o valor vinha de
+          constantes fixas no código, não de um contrato ou fonte real de
+          repasse. O histórico de acessos, os check-ins e as integrações
+          continuam intactos. */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatTile
           icon={DoorOpen}
           label="Acessos hoje"
@@ -147,13 +145,6 @@ export default async function RecepcaoPage({
           value={String(ativos)}
           hint={`${alunos.length} no total`}
           accent="cyan"
-        />
-        <StatTile
-          icon={Wallet}
-          label="Repasse hoje"
-          value={formatBRL(repasseHoje)}
-          hint="Gympass + TotalPass"
-          accent="magenta"
         />
         <StatTile
           icon={Clock3}

@@ -21,7 +21,13 @@ export function linkWhats(
   return `https://wa.me/${comDDI}?text=${encodeURIComponent(texto)}`;
 }
 
-/** Mensagem com o link pessoal de acesso do aluno (app do aluno / credencial de QR). */
+/**
+ * Mensagem com o link pessoal de acesso do aluno.
+ *
+ * Diz "apresentar seu QR Code na recepção" — e não "catraca" — porque é isso
+ * que o sistema realmente faz desde o Bloco 1: a entrada é confirmada por um
+ * membro da equipe no painel, não liberada automaticamente por hardware.
+ */
 export function mensagemAcesso(opts: {
   nome: string;
   academia: string;
@@ -29,10 +35,10 @@ export function mensagemAcesso(opts: {
 }): string {
   const primeiroNome = opts.nome.split(" ")[0];
   return (
-    `Olá, ${primeiroNome}! 👋\n\n` +
-    `Aqui está o seu link pessoal de acesso na ${opts.academia}: ${opts.url}\n\n` +
-    `Guarde este link — é sua credencial de acesso (treinos, mensalidades e QR Code da catraca). ` +
-    `Não compartilhe com outras pessoas.`
+    `Olá, ${primeiroNome}! Seu acesso ao aplicativo da ${opts.academia} está pronto. ` +
+    `Pelo link abaixo você pode consultar seus treinos, mensalidades, frequência e ` +
+    `apresentar seu QR Code na recepção: ${opts.url}\n\n` +
+    `Este link é pessoal. Não compartilhe com outras pessoas.`
   );
 }
 

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { linkWhats, mensagemAcesso } from "@/lib/whats";
 import { origemPublica } from "@/lib/site-url";
+import { cn } from "@/lib/utils";
 import {
   regenerarTokenAluno,
   regenerarTokenQrAluno,
@@ -35,6 +36,7 @@ export default function AcessoAlunoCard({
   tokenAcessoPublico,
   isDono,
   isDemo,
+  recemCadastrado = false,
 }: {
   slug: string;
   alunoId: string;
@@ -44,6 +46,8 @@ export default function AcessoAlunoCard({
   tokenAcessoPublico: string;
   isDono: boolean;
   isDemo: boolean;
+  /** true logo após o cadastro deste aluno — destaca o envio do acesso. */
+  recemCadastrado?: boolean;
 }) {
   // O token NUNCA é copiado para estado a partir do prop: era isso que fazia o
   // QR continuar mostrando o aluno anterior quando o React reaproveitava esta
@@ -81,6 +85,13 @@ export default function AcessoAlunoCard({
       )
     : null;
 
+  // Distingue "sem telefone utilizável" de "bloqueado por ser demonstração":
+  // no primeiro caso a recepção precisa saber que basta cadastrar o WhatsApp
+  // do aluno; no segundo, não há nada a corrigir. `linkWhats` já aplica a
+  // mesma regra de dígitos (mínimo 10) — aqui só reproduzimos a checagem para
+  // escolher a mensagem, nunca para montar o link.
+  const telefoneUtilizavel = (telefone ?? "").replace(/\D/g, "").length >= 10;
+
   const copiar = async () => {
     await navigator.clipboard.writeText(url);
     setCopiado(true);
@@ -115,7 +126,19 @@ export default function AcessoAlunoCard({
   };
 
   return (
-    <div className="surface rounded-2xl p-5">
+    <div
+      className={cn(
+        "surface rounded-2xl p-5",
+        recemCadastrado && "border-volt-500/40 ring-1 ring-volt-500/20"
+      )}
+    >
+      {recemCadastrado && (
+        <p className="mb-3 flex items-start gap-2 rounded-lg border border-volt-500/30 bg-volt-500/10 px-3 py-2 text-xs text-volt-200">
+          <Check className="mt-0.5 h-3.5 w-3.5 flex-none" />
+          Aluno cadastrado. Envie o acesso para ele começar a usar o app.
+        </p>
+      )}
+
       <h3 className="flex items-center gap-2 font-semibold text-white">
         <QrCode className="h-4 w-4 text-volt-300" /> Acesso do aluno
       </h3>
@@ -133,16 +156,34 @@ export default function AcessoAlunoCard({
         </p>
       ) : (
         <div className="mt-3 flex flex-wrap gap-2">
-          {whatsHref && (
+          {whatsHref ? (
             <a
               href={whatsHref}
               target="_blank"
-              rel="noreferrer"
-              className="btn-ghost"
-              title="Enviar o link pelo WhatsApp"
+              rel="noopener noreferrer"
+              // Recém-cadastrado: enviar o acesso é a próxima ação óbvia, então
+              // o botão vira primário. Depois volta a ser uma opção entre as
+              // outras (copiar link, mostrar QR).
+              className={recemCadastrado ? "btn-volt" : "btn-ghost"}
+              title="Enviar o link pessoal de acesso pelo WhatsApp"
             >
-              <MessageCircle className="h-4 w-4" /> Enviar por WhatsApp
+              <MessageCircle className="h-4 w-4" /> Enviar acesso pelo WhatsApp
             </a>
+          ) : (
+            !isDemo && (
+              <button
+                type="button"
+                disabled
+                title={
+                  telefoneUtilizavel
+                    ? "WhatsApp indisponível"
+                    : "Cadastre o WhatsApp do aluno para enviar o acesso"
+                }
+                className="btn-ghost cursor-not-allowed opacity-50"
+              >
+                <MessageCircle className="h-4 w-4" /> Enviar acesso pelo WhatsApp
+              </button>
+            )
           )}
           <button type="button" onClick={copiar} className="btn-ghost">
             {copiado ? (
@@ -156,6 +197,13 @@ export default function AcessoAlunoCard({
             <QrCode className="h-4 w-4" /> Mostrar QR Code
           </button>
         </div>
+      )}
+
+      {tokenValido && !whatsHref && !isDemo && !telefoneUtilizavel && (
+        <p className="mt-2 text-xs text-amber-300">
+          Cadastre o WhatsApp do aluno para enviar o acesso por mensagem.
+          Enquanto isso, use &ldquo;Copiar link&rdquo;.
+        </p>
       )}
 
       {isDono && (
@@ -283,12 +331,15 @@ function DialogQR({
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+    // `overflow-y-auto` no fundo + `max-h` no painel: num celular baixo
+    // (ex.: 320x568) o conteúdo do QR ficava mais alto que a tela e as pontas
+    // eram cortadas sem possibilidade de rolar até elas.
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4">
       <div
         className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="surface-strong relative w-full max-w-sm rounded-3xl p-6 text-center">
+      <div className="surface-strong relative my-auto max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-3xl p-6 text-center">
         <button
           onClick={onClose}
           className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:text-white"

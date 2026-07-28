@@ -75,9 +75,11 @@ function Dialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+    // Mesmo tratamento do diálogo de QR do aluno: permite rolar quando o
+    // conteúdo é mais alto que a tela, em vez de cortar as pontas.
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4">
       <div className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="surface-strong relative w-full max-w-sm rounded-3xl p-6 text-center">
+      <div className="surface-strong relative my-auto max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-3xl p-6 text-center">
         <button
           onClick={onClose}
           className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:text-white"

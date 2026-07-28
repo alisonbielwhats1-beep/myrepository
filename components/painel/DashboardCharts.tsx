@@ -55,8 +55,8 @@ export type PontoOrigem = { origem: string; acessos: number };
 export type PontoHora = { hora: string; acessos: number };
 export type PontoFaturamento = {
   dia: string;
-  mensalidades: number;
-  parcerias: number;
+  /** Receitas já pagas do dia (mensalidades, matrículas, produtos). */
+  receitas: number;
 };
 // Definido em lib/types.ts: é um tipo de domínio consumido por lib/financeiro.ts,
 // que não pode depender de um componente. Reexportado aqui por compatibilidade.
@@ -64,6 +64,11 @@ import type { PontoFinanceiroMensal } from "@/lib/types";
 export type { PontoFinanceiroMensal };
 export type PontoEvolucaoAlunos = { mes: string; alunos: number };
 export type PontoPeso = { data: string; peso: number };
+export type PontoFormaPagamento = {
+  forma: string;
+  valor: number;
+  quantidade: number;
+};
 
 const tooltipStyle = {
   backgroundColor: "#12141d",
@@ -137,7 +142,13 @@ export function GraficoHorarios({ dados }: { dados: PontoHora[] }) {
   );
 }
 
-/** Área empilhada: cruzamento do faturamento (mensalidades x parcerias). */
+/**
+ * Área: receitas já pagas dia a dia.
+ *
+ * A série "Parcerias" (repasse diário de Gympass/TotalPass) foi removida — o
+ * valor vinha de constantes fixas no código, não de uma fonte real de repasse.
+ * A contagem de check-ins por origem continua em `GraficoOrigem`.
+ */
 export function GraficoFaturamento({ dados }: { dados: PontoFaturamento[] }) {
   const volt = useCorTema("--volt-300", "#adff42");
   return (
@@ -147,10 +158,6 @@ export function GraficoFaturamento({ dados }: { dados: PontoFaturamento[] }) {
           <linearGradient id="gradMens" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={volt} stopOpacity={0.5} />
             <stop offset="100%" stopColor={volt} stopOpacity={0} />
-          </linearGradient>
-          <linearGradient id="gradParc" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3ee6ff" stopOpacity={0.5} />
-            <stop offset="100%" stopColor="#3ee6ff" stopOpacity={0} />
           </linearGradient>
         </defs>
         <XAxis
@@ -170,25 +177,13 @@ export function GraficoFaturamento({ dados }: { dados: PontoFaturamento[] }) {
             v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
           }
         />
-        <Legend
-          iconType="circle"
-          wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }}
-        />
         <Area
           type="monotone"
-          dataKey="mensalidades"
-          name="Mensalidades"
+          dataKey="receitas"
+          name="Receitas pagas"
           stroke={volt}
           strokeWidth={2}
           fill="url(#gradMens)"
-        />
-        <Area
-          type="monotone"
-          dataKey="parcerias"
-          name="Parcerias"
-          stroke="#3ee6ff"
-          strokeWidth={2}
-          fill="url(#gradParc)"
         />
       </AreaChart>
     </ResponsiveContainer>
@@ -256,6 +251,71 @@ export function GraficoFinanceiroMensal({
           />
         )}
       </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+/**
+ * Barras HORIZONTAIS: receita recebida por forma de pagamento.
+ *
+ * Horizontal (e não vertical) de propósito: os rótulos reais são longos
+ * ("Cartão de débito", "Transferência bancária") e no eixo X de um celular de
+ * 320 px eles se sobrepõem ou giram. Na horizontal cada rótulo tem sua própria
+ * linha e a barra cresce no espaço disponível.
+ *
+ * A barra representa o VALOR; a quantidade de pagamentos aparece no tooltip
+ * junto com o valor — assim as duas informações convivem sem um segundo eixo.
+ * Altura proporcional à quantidade de formas, nunca fixa.
+ */
+export function GraficoFormasPagamento({
+  dados,
+}: {
+  dados: PontoFormaPagamento[];
+}) {
+  const volt = useCorTema("--volt-300", "#adff42");
+  const altura = Math.max(160, dados.length * 46 + 24);
+
+  return (
+    <ResponsiveContainer width="100%" height={altura}>
+      <BarChart
+        data={dados}
+        layout="vertical"
+        margin={{ left: 0, right: 16, top: 4, bottom: 4 }}
+      >
+        <XAxis type="number" hide />
+        <YAxis
+          type="category"
+          dataKey="forma"
+          width={104}
+          tick={{ fill: "#94a3b8", fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          cursor={{ fill: "rgba(120,120,120,0.08)" }}
+          content={({ active, payload }) => {
+            if (!active || !payload?.length) return null;
+            const p = payload[0].payload as PontoFormaPagamento;
+            return (
+              <div style={tooltipStyle} className="px-3 py-2">
+                <p className="font-semibold">{p.forma}</p>
+                <p>
+                  {p.valor.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </p>
+                <p style={{ color: "#94a3b8" }}>
+                  {p.quantidade}{" "}
+                  {p.quantidade === 1 ? "pagamento" : "pagamentos"}
+                </p>
+              </div>
+            );
+          }}
+        />
+        <Bar dataKey="valor" radius={[0, 6, 6, 0]} fill={volt} maxBarSize={26} />
+      </BarChart>
     </ResponsiveContainer>
   );
 }

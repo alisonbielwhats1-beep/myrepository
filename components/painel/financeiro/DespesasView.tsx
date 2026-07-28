@@ -94,7 +94,7 @@ export default function DespesasView({
       )}
 
       <div className="no-print surface flex flex-wrap items-end justify-between gap-3 rounded-2xl p-4">
-        <label className="block">
+        <label className="block min-w-0">
           <span className="mb-1 block text-xs font-medium text-slate-400">Pagamento</span>
           <select
             value={pagamento}
@@ -379,7 +379,7 @@ function FormularioDespesa({
             </Field>
           </>
         )}
-        <label className="block">
+        <label className="block min-w-0">
           <span className="mb-1 block text-xs font-medium text-slate-400">
             Observações
           </span>
@@ -419,7 +419,7 @@ function StatusChip({ status }: { status: "pago" | "pendente" | "cancelada" }) {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1 block text-xs font-medium text-slate-400">
         {label}
       </span>

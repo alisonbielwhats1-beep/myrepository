@@ -173,7 +173,7 @@ export default function ReceitasView({
       {/* Filtros combináveis */}
       <div className="no-print surface rounded-2xl p-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="block">
+          <label className="block min-w-0">
             <span className="mb-1 block text-xs font-medium text-slate-400">Buscar</span>
             <input
               type="search"
@@ -184,7 +184,7 @@ export default function ReceitasView({
               className="inp"
             />
           </label>
-          <label className="block">
+          <label className="block min-w-0">
             <span className="mb-1 block text-xs font-medium text-slate-400">Status</span>
             <select
               value={status}
@@ -197,7 +197,7 @@ export default function ReceitasView({
               <option value="cancelada">Cancelado</option>
             </select>
           </label>
-          <label className="block">
+          <label className="block min-w-0">
             <span className="mb-1 block text-xs font-medium text-slate-400">Pagamento</span>
             <select
               value={pagamento}
@@ -209,7 +209,7 @@ export default function ReceitasView({
               <option value="sem_data">Sem data de pagamento</option>
             </select>
           </label>
-          <label className="block">
+          <label className="block min-w-0">
             <span className="mb-1 block text-xs font-medium text-slate-400">Tipo</span>
             <select
               value={tipo}
@@ -695,7 +695,7 @@ function StatusChip({ status }: { status: "pago" | "pendente" | "cancelada" }) {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1 block text-xs font-medium text-slate-400">
         {label}
       </span>

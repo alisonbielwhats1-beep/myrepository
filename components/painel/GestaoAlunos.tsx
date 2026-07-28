@@ -118,6 +118,10 @@ export default function GestaoAlunos({
   );
   const [mostrarNovoAluno, setMostrarNovoAluno] = useState(totalAlunos === 0);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  // Id do aluno cadastrado agora, só para destacar o envio do acesso logo
+  // depois do cadastro. Comparado com a seleção atual, então trocar de aluno
+  // já desfaz o destaque sem precisar limpar nada.
+  const [recemCadastradoId, setRecemCadastradoId] = useState<string | null>(null);
   const financialRef = useRef<HTMLDivElement>(null);
 
   // NÃO existe fallback de seleção aqui — de propósito.
@@ -199,9 +203,11 @@ export default function GestaoAlunos({
               // selecionado aqui é exatamente como o QR errado era entregue.
               if (!id) {
                 setSelecionadoId(null);
+                setRecemCadastradoId(null);
                 return;
               }
               setSelecionadoId(id);
+              setRecemCadastradoId(id);
               // O recém-cadastrado é o mais recente (ordem criado_em DESC),
               // logo está na primeira página SEM filtros. Com filtro ou página
               // ativos ele poderia não aparecer na lista — e a ficha ficaria
@@ -238,7 +244,10 @@ export default function GestaoAlunos({
             )}
             aria-busy={pendingFiltro}
           >
-            <label className="min-w-[160px] flex-1">
+            {/* `min-w-0` obrigatório: sem ele o <select> de planos não encolhe
+                abaixo da largura do nome de plano mais longo (min-width: auto
+                de item flex) e empurra a linha além da tela no celular. */}
+            <label className="min-w-0 flex-1 basis-[10rem]">
               <span className="mb-1 block text-[11px] font-medium text-slate-400">
                 Buscar
               </span>
@@ -253,7 +262,7 @@ export default function GestaoAlunos({
                 />
               </div>
             </label>
-            <label>
+            <label className="min-w-0 flex-1 basis-[7rem]">
               <span className="mb-1 block text-[11px] font-medium text-slate-400">
                 Status
               </span>
@@ -270,7 +279,7 @@ export default function GestaoAlunos({
                 ))}
               </select>
             </label>
-            <label>
+            <label className="min-w-0 flex-1 basis-[7rem]">
               <span className="mb-1 block text-[11px] font-medium text-slate-400">
                 Plano
               </span>
@@ -407,6 +416,7 @@ export default function GestaoAlunos({
               tokenAcessoPublico={alunoSelecionado.token_acesso_publico}
               isDono={papel === "dono"}
               isDemo={isDemo}
+              recemCadastrado={alunoSelecionado.id === recemCadastradoId}
             />
           </>
         )}

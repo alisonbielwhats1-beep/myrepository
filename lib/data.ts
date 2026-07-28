@@ -668,6 +668,17 @@ export type PontoSerieBanco = {
   despesa_pend: number;
 };
 
+/**
+ * Uma forma de pagamento com o total recebido e a quantidade de pagamentos
+ * no período (migration 048). `forma` é o valor real gravado em
+ * `receitas.forma_pagamento` — ou 'Não informado' quando está vazio.
+ */
+export type LinhaFormaPagamento = {
+  forma: string;
+  total: number;
+  quantidade: number;
+};
+
 /** Caixa do período, pendências, saldo e incompletos — uma linha só. */
 export async function getResumoFinanceiro(
   inicio: string,
@@ -709,6 +720,27 @@ export async function getSerieFinanceira(
   });
   if (error) throw new Error(`Falha ao carregar série financeira: ${error.message}`);
   return (data as PontoSerieBanco[]) ?? [];
+}
+
+/**
+ * Receita RECEBIDA no período agrupada por forma de pagamento (migration 048).
+ * Mesma regra de caixa do resumo: só `status = 'pago'` com `data_pagamento`
+ * dentro do intervalo. Agregada no Postgres e escopada pela academia da
+ * sessão — o histórico detalhado nunca chega ao cliente.
+ */
+export async function getFormasPagamentoFinanceiro(
+  inicio: string,
+  fim: string
+): Promise<LinhaFormaPagamento[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("financeiro_formas_pagamento", {
+    p_inicio: inicio,
+    p_fim: fim,
+  });
+  if (error) {
+    throw new Error(`Falha ao carregar formas de pagamento: ${error.message}`);
+  }
+  return (data as LinhaFormaPagamento[]) ?? [];
 }
 
 /**

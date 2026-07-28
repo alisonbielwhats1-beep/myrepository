@@ -95,15 +95,13 @@ export default async function RelatoriosPage({
     p.acessos > max.acessos ? p : max
   );
 
-  // ---- Faturamento cruzado (últimos 7 dias, dados reais dia a dia) ----
-  const repassePorDia = new Map<string, number>();
-  for (const a of acessos) {
-    const dia = a.data_hora_entrada.slice(0, 10);
-    if (dia < seteDiasAtras) continue;
-    // Acesso negado não entra no faturamento de repasse.
-    if (a.status_liberacao === "negado") continue;
-    repassePorDia.set(dia, (repassePorDia.get(dia) ?? 0) + (a.valor_repasse ?? 0));
-  }
+  // ---- Receitas pagas (últimos 7 dias, dados reais dia a dia) ----
+  //
+  // O repasse diário de parcerias (Gympass/TotalPass) foi retirado daqui: o
+  // valor vinha de constantes fixas no código, não de um contrato ou fonte
+  // real, e somá-lo à receita paga contaminava um número de dinheiro real com
+  // uma estimativa inventada. Os acessos por origem (contagem de check-ins)
+  // continuam no gráfico ao lado, intactos.
   const receitaPorDia = new Map<string, number>();
   for (const r of receitas) {
     if (r.status !== "pago") continue;
@@ -116,14 +114,13 @@ export default async function RelatoriosPage({
       const iso = d.toISOString().slice(0, 10);
       return {
         dia: DIAS_SEMANA[d.getDay()],
-        mensalidades: Math.round((receitaPorDia.get(iso) ?? 0) * 100) / 100,
-        parcerias: Math.round((repassePorDia.get(iso) ?? 0) * 100) / 100,
+        receitas: Math.round((receitaPorDia.get(iso) ?? 0) * 100) / 100,
       };
     }
   );
 
   const faturamentoTotal7d = dadosFaturamento.reduce(
-    (acc, p) => acc + p.mensalidades + p.parcerias,
+    (acc, p) => acc + p.receitas,
     0
   );
   const ativos = contagemAlunos.ativos;
@@ -162,7 +159,7 @@ export default async function RelatoriosPage({
           icon={DollarSign}
           label="Faturamento (7 dias)"
           value={formatBRL(faturamentoTotal7d)}
-          hint="mensalidades + repasses"
+          hint="receitas pagas"
           accent="magenta"
         />
         <StatTile
@@ -209,17 +206,16 @@ export default async function RelatoriosPage({
         </div>
       </div>
 
-      {/* Faturamento cruzado */}
+      {/* Receitas pagas dia a dia */}
       <div className="surface rounded-2xl p-5">
         <div className="flex items-center gap-2">
           <DollarSign className="h-4 w-4 text-magenta-400" />
           <h2 className="font-semibold text-white">
-            Faturamento cruzado (7 dias)
+            Receitas pagas (7 dias)
           </h2>
         </div>
         <p className="mb-2 text-xs text-slate-500">
-          Receitas pagas (mensalidades, matrículas, produtos) x repasses de
-          parcerias (Gympass/TotalPass), dia a dia
+          Mensalidades, matrículas e produtos já pagos, dia a dia
         </p>
         <GraficoFaturamento dados={dadosFaturamento} />
       </div>

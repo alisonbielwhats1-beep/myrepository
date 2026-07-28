@@ -31,7 +31,13 @@ export default async function PainelLayout({
   return (
     <div className="flex min-h-dvh flex-col bg-ink-950 bg-grid-fade">
       {sessao.academia.is_demo && <DemoBanner />}
-      <div className="flex flex-1 lg:flex-row">
+      {/* `flex-col` no celular é essencial: sem ele o container fica em
+          `flex-direction: row` (padrão do `flex`) e a barra superior do menu
+          — que o Sidebar renderiza como irmã do <main> — ficava LADO A LADO
+          com o conteúdo, comprimindo o <main> a uma coluna estreita. Era isso
+          que deixava todas as telas do painel compridas e desproporcionais no
+          celular. No desktop (lg) volta a ser linha: menu lateral + conteúdo. */}
+      <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
       <Sidebar
         slug={params.slug}
         academiaNome={sessao.academia.nome_fantasia}

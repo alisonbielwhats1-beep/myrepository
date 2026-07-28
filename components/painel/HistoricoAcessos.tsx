@@ -69,7 +69,13 @@ export default function HistoricoAcessos({
         )}
         aria-busy={pending}
       >
-        <label>
+        {/* `min-w-0` em cada campo é o que evita o scroll horizontal no
+            celular: um <select> é item flex com `min-width: auto`, ou seja, o
+            navegador nunca o encolhe abaixo da largura da opção mais longa.
+            O filtro "Aluno" lista nomes completos, então um nome comprido
+            esticava a linha inteira além da tela. Com `min-w-0` o campo pode
+            encolher (o texto da opção fica truncado pelo próprio select). */}
+        <label className="min-w-0 flex-1 basis-[8.5rem]">
           <span className="mb-1 block text-[11px] font-medium text-slate-400">De</span>
           <input
             type="date"
@@ -78,7 +84,7 @@ export default function HistoricoAcessos({
             className="inp !py-1.5 text-xs"
           />
         </label>
-        <label>
+        <label className="min-w-0 flex-1 basis-[8.5rem]">
           <span className="mb-1 block text-[11px] font-medium text-slate-400">Até</span>
           <input
             type="date"
@@ -87,7 +93,7 @@ export default function HistoricoAcessos({
             className="inp !py-1.5 text-xs"
           />
         </label>
-        <label>
+        <label className="min-w-0 flex-1 basis-[7.5rem]">
           <span className="mb-1 block text-[11px] font-medium text-slate-400">Resultado</span>
           <select
             defaultValue={params.get("resultado") ?? ""}
@@ -100,7 +106,7 @@ export default function HistoricoAcessos({
             ))}
           </select>
         </label>
-        <label>
+        <label className="min-w-0 flex-1 basis-[7.5rem]">
           <span className="mb-1 block text-[11px] font-medium text-slate-400">Origem</span>
           <select
             defaultValue={params.get("origem") ?? ""}
@@ -113,7 +119,7 @@ export default function HistoricoAcessos({
             ))}
           </select>
         </label>
-        <label className="min-w-[160px] flex-1">
+        <label className="min-w-0 flex-1 basis-[10rem]">
           <span className="mb-1 block text-[11px] font-medium text-slate-400">Aluno</span>
           <select
             defaultValue={params.get("alunoId") ?? ""}
