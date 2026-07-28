@@ -59,6 +59,19 @@ export const LABELS_STATUS_INTEGRACAO: Record<StatusIntegracao, string> = {
   com_erro: "Com erro",
   desativada: "Desativada",
 };
+
+/** Plataformas parceiras com repasse estimado configurável (migration 049). */
+export type PlataformaRepasse = "gympass" | "totalpass";
+
+/** Config do dono: quanto a academia estima receber por check-in de cada
+ *  parceiro. `valor_por_checkin` nulo = "Valor não configurado" — nunca um
+ *  padrão inventado. Nunca use "faturamento por aluno", "receita recebida"
+ *  ou "valor garantido" para descrever isso na interface. */
+export type ConfigRepasseParceiro = {
+  plataforma: PlataformaRepasse;
+  valor_por_checkin: number | null;
+  ativo: boolean;
+};
 export type CategoriaDespesa =
   | "energia_eletrica"
   | "agua"

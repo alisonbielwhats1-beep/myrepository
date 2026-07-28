@@ -14,6 +14,7 @@ import {
   Aluno,
   AlunosPaginados,
   CatalogoExercicio,
+  ConfigRepasseParceiro,
   Despesa,
   Feedback,
   FichaAlunoPublica,
@@ -741,6 +742,50 @@ export async function getFormasPagamentoFinanceiro(
     throw new Error(`Falha ao carregar formas de pagamento: ${error.message}`);
   }
   return (data as LinhaFormaPagamento[]) ?? [];
+}
+
+/**
+ * Config do dono: valor estimado por check-in de TotalPass/Gympass (migration
+ * 049). RLS restringe a leitura a `dono` na própria tabela — quem não é dono
+ * recebe conjunto vazio, não erro. No máximo 2 linhas (uma por plataforma).
+ */
+export async function getConfigRepasseParceiros(): Promise<ConfigRepasseParceiro[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("config_repasse_parceiros")
+    .select("plataforma, valor_por_checkin, ativo");
+  if (error) {
+    throw new Error(`Falha ao carregar config. de repasse: ${error.message}`);
+  }
+  return (data as ConfigRepasseParceiro[]) ?? [];
+}
+
+export type LinhaRepasseParceiro = {
+  plataforma: "gympass" | "totalpass";
+  checkins_validos: number;
+  valor_estimado_total: number;
+  valor_configurado_atual: number | null;
+};
+
+/**
+ * Repasse ESTIMADO de TotalPass/Gympass no período, agregado no Postgres
+ * (migration 049) a partir do valor histórico gravado em cada check-in —
+ * nunca recalculado com o valor atual. Separado de propósito de Receita/
+ * Caixa/Saldo/Meta: é só uma estimativa baseada nos check-ins registrados.
+ */
+export async function getRepassesParceirosFinanceiro(
+  inicio: string,
+  fim: string
+): Promise<LinhaRepasseParceiro[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("repasses_parceiros_resumo", {
+    p_inicio: inicio,
+    p_fim: fim,
+  });
+  if (error) {
+    throw new Error(`Falha ao carregar repasses de parceiros: ${error.message}`);
+  }
+  return (data as LinhaRepasseParceiro[]) ?? [];
 }
 
 /**

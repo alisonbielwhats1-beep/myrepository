@@ -3,8 +3,6 @@ import type { DecisaoAcesso } from "@/lib/types";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { decidirAcesso, statusLiberacaoDe } from "@/lib/utils";
 
-const REPASSE_GYMPASS = 12.5;
-
 function normalizarCpf(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const digits = raw.replace(/\D/g, "");
@@ -110,14 +108,26 @@ export async function POST(
     }
   }
 
-  // 6. Registrar o acesso
+  // 6. Valor vigente configurado pelo dono (migration 049) — copiado agora
+  // para o acesso, para nunca mudar retroativamente se a config mudar depois.
+  // Sem config ou desativado: null, sem inventar um valor padrão.
+  const { data: config } = await supabase
+    .from("config_repasse_parceiros")
+    .select("valor_por_checkin")
+    .eq("academia_id", academia.id)
+    .eq("plataforma", "gympass")
+    .eq("ativo", true)
+    .maybeSingle();
+  const valorRepasseVigente = config?.valor_por_checkin ?? null;
+
+  // 7. Registrar o acesso
   const { error } = await supabase.from("acessos_catraca").insert({
     academia_id: academia.id,
     aluno_id: alunoId,
     origem: "Gympass",
     // Check-in bloqueado permanece registrado, mas sem repasse: a entrada não
     // aconteceu. "alerta" é entrada permitida e mantém o repasse.
-    valor_repasse: decisao?.resultado === "bloqueado" ? 0 : REPASSE_GYMPASS,
+    valor_repasse: decisao?.resultado === "bloqueado" ? 0 : valorRepasseVigente,
     status_liberacao: decisao ? statusLiberacaoDe(decisao.resultado) : "liberado",
     evento_externo_id: eventoId,
     observacao,

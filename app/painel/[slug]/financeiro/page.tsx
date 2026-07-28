@@ -7,12 +7,14 @@ import DREResumo from "@/components/painel/financeiro/DREResumo";
 import FormasPagamentoCard from "@/components/painel/financeiro/FormasPagamentoCard";
 import GraficoFinanceiro from "@/components/painel/financeiro/GraficoFinanceiro";
 import PeriodoFilter from "@/components/painel/financeiro/PeriodoFilter";
+import RepassesParceirosCard from "@/components/painel/financeiro/RepassesParceirosCard";
 import SaldoInicialCard from "@/components/painel/financeiro/SaldoInicialCard";
 import UpgradeGuard from "@/components/ui/UpgradeGuard";
 import { requireSessao } from "@/lib/auth";
 import {
   getDreFinanceiro,
   getFormasPagamentoFinanceiro,
+  getRepassesParceirosFinanceiro,
   getResumoFinanceiro,
   getSerieFinanceira,
 } from "@/lib/data";
@@ -68,11 +70,12 @@ export default async function FinanceiroOverviewPage({
     ) + 1;
   const diario = spanDias <= 62;
 
-  const [resumo, linhasDre, serie, formasPagamento] = await Promise.all([
+  const [resumo, linhasDre, serie, formasPagamento, repasses] = await Promise.all([
     getResumoFinanceiro(periodo.inicio, periodo.fim),
     getDreFinanceiro(periodo.inicio, periodo.fim),
     getSerieFinanceira(periodo.inicio, periodo.fim, diario),
     getFormasPagamentoFinanceiro(periodo.inicio, periodo.fim),
+    getRepassesParceirosFinanceiro(periodo.inicio, periodo.fim),
   ]);
 
   const caixa = caixaDoResumo(resumo);
@@ -210,6 +213,8 @@ export default async function FinanceiroOverviewPage({
       <GraficoFinanceiro dados={dadosPeriodo} periodo={periodo.label} />
 
       <FormasPagamentoCard linhas={formasPagamento} periodo={periodo.label} />
+
+      <RepassesParceirosCard linhas={repasses} periodo={periodo.label} />
 
       <DREResumo dre={dre} periodo={periodo.label} />
 

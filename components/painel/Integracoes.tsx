@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Check, Copy, Dumbbell, RefreshCw, AlertTriangle } from "lucide-react";
+import { Check, Copy, Dumbbell, RefreshCw, AlertTriangle, Coins } from "lucide-react";
 import { origemPublica } from "@/lib/site-url";
 import {
   rotarSecretIntegracao,
   atualizarStatusIntegracao,
+  definirRepasseParceiro,
 } from "@/app/painel/[slug]/integracoes/actions";
 import {
   type StatusIntegracao,
   LABELS_STATUS_INTEGRACAO,
 } from "@/lib/types";
+import { formatBRL } from "@/lib/utils";
 
 const STATUS_OPTIONS: StatusIntegracao[] = [
   "nao_configurada",
@@ -81,6 +83,109 @@ function CampoCopiavel({ label, valor }: { label: string; valor: string }) {
   );
 }
 
+/** "Valor estimado por check-in" — nunca "faturamento por aluno", "receita
+ *  recebida" nem "valor garantido": é só uma estimativa que o dono configura,
+ *  varia por contrato de cada academia. Salvamento explícito (botão), não
+ *  auto-save, para não gravar um valor pela metade enquanto o dono digita. */
+function RepasseEstimadoForm({
+  slug,
+  plataforma,
+  valorInicial,
+  ativoInicial,
+}: {
+  slug: string;
+  plataforma: "gympass" | "totalpass";
+  valorInicial: number | null;
+  ativoInicial: boolean;
+}) {
+  const [valor, setValor] = useState(valorInicial != null ? String(valorInicial) : "");
+  const [ativo, setAtivo] = useState(ativoInicial);
+  const [pending, startTransition] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvo, setSalvo] = useState(false);
+
+  function salvar() {
+    setErro(null);
+    setSalvo(false);
+    const texto = valor.trim().replace(",", ".");
+    const numero = texto === "" ? null : Number(texto);
+    if (numero !== null && (!Number.isFinite(numero) || numero < 0 || numero > 500)) {
+      setErro("Informe um valor entre 0 e 500, ou deixe vazio para não configurar.");
+      return;
+    }
+    startTransition(async () => {
+      const res = await definirRepasseParceiro(slug, plataforma, numero, ativo);
+      if (res.erro) setErro(res.erro);
+      else {
+        setSalvo(true);
+        setTimeout(() => setSalvo(false), 2000);
+      }
+    });
+  }
+
+  return (
+    <div className="rounded-lg border border-ink-700 bg-ink-800/50 p-4">
+      <p className="mb-1 flex items-center gap-1.5 text-sm font-medium text-white">
+        <Coins className="h-3.5 w-3.5 text-volt-300" />
+        Valor estimado por check-in
+      </p>
+      <p className="mb-3 text-xs text-slate-500">
+        Quanto você estima receber por check-in validado desta plataforma. Varia por
+        contrato — não é um valor padrão nem garantido.
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex-1 min-w-[140px]">
+          <span className="mb-1 block text-xs font-medium text-slate-400">Valor (R$)</span>
+          <input
+            type="number"
+            min={0}
+            max={500}
+            step="0.01"
+            placeholder="Não configurado"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            disabled={pending}
+            className="inp"
+          />
+        </div>
+        <label className="flex items-center gap-2 pb-2 text-xs text-slate-300">
+          <input
+            type="checkbox"
+            checked={ativo}
+            onChange={(e) => setAtivo(e.target.checked)}
+            disabled={pending}
+            className="h-4 w-4 rounded border-ink-500 bg-ink-800"
+          />
+          Ativo
+        </label>
+        <button
+          type="button"
+          onClick={salvar}
+          disabled={pending}
+          className="btn-ghost pb-2.5 text-xs"
+        >
+          {pending ? "Salvando..." : salvo ? "Salvo ✓" : "Salvar"}
+        </button>
+      </div>
+      <p className="mt-2 text-xs text-slate-500">
+        Atual:{" "}
+        {valorInicial != null ? (
+          <span className="text-slate-300">
+            {formatBRL(valorInicial)} por check-in · {ativoInicial ? "ativo" : "inativo"}
+          </span>
+        ) : (
+          "Valor não configurado"
+        )}
+      </p>
+      {erro && (
+        <p className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-300">
+          {erro}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function BlocoParceiro({
   nome,
   cor,
@@ -89,6 +194,8 @@ function BlocoParceiro({
   status,
   rota,
   plataforma,
+  valorRepasse,
+  repasseAtivo,
   isDemo = false,
 }: {
   nome: string;
@@ -98,6 +205,8 @@ function BlocoParceiro({
   status: StatusIntegracao;
   rota: string;
   plataforma: "gympass" | "totalpass";
+  valorRepasse: number | null;
+  repasseAtivo: boolean;
   isDemo?: boolean;
 }) {
   const [origem, setOrigem] = useState("");
@@ -225,6 +334,13 @@ function BlocoParceiro({
         </select>
       </div>
 
+      <RepasseEstimadoForm
+        slug={slug}
+        plataforma={plataforma}
+        valorInicial={valorRepasse}
+        ativoInicial={repasseAtivo}
+      />
+
       <div className="rounded-lg border border-ink-700 bg-ink-800/50 p-4 text-sm text-slate-300">
         <p className="mb-2 font-medium text-white">Como conectar</p>
         <ol className="list-decimal space-y-1.5 pl-5 text-slate-400">
@@ -271,15 +387,23 @@ export default function Integracoes({
   slug,
   gympassSecretMascarado,
   gympassStatus,
+  gympassValorRepasse,
+  gympassRepasseAtivo,
   totalpassSecretMascarado,
   totalpassStatus,
+  totalpassValorRepasse,
+  totalpassRepasseAtivo,
   isDemo = false,
 }: {
   slug: string;
   gympassSecretMascarado: string;
   gympassStatus: StatusIntegracao;
+  gympassValorRepasse: number | null;
+  gympassRepasseAtivo: boolean;
   totalpassSecretMascarado: string;
   totalpassStatus: StatusIntegracao;
+  totalpassValorRepasse: number | null;
+  totalpassRepasseAtivo: boolean;
   isDemo?: boolean;
 }) {
   return (
@@ -308,6 +432,8 @@ export default function Integracoes({
         status={gympassStatus}
         rota="gympass"
         plataforma="gympass"
+        valorRepasse={gympassValorRepasse}
+        repasseAtivo={gympassRepasseAtivo}
         isDemo={isDemo}
       />
       <BlocoParceiro
@@ -318,6 +444,8 @@ export default function Integracoes({
         status={totalpassStatus}
         rota="totalpass"
         plataforma="totalpass"
+        valorRepasse={totalpassValorRepasse}
+        repasseAtivo={totalpassRepasseAtivo}
         isDemo={isDemo}
       />
     </div>

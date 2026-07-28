@@ -99,3 +99,61 @@ export async function atualizarStatusIntegracao(
   revalidatePath(`/painel/${slug}/configuracoes`);
   return { ok: true, savedAt: Date.now() };
 }
+
+/**
+ * Define o valor estimado por check-in (e se está ativo) de uma plataforma
+ * parceira (migration 049). `valorReais` null grava "não configurado" —
+ * nunca inventa um padrão. A escrita real acontece na RPC
+ * `definir_valor_repasse_parceiro` (valida papel e faixa por dentro); esta
+ * Server Action só traduz a entrada e registra a auditoria (mesmo padrão de
+ * rotarSecretIntegracao/atualizarStatusIntegracao, que já usam
+ * `log_integracoes` para ações de integração).
+ */
+export async function definirRepasseParceiro(
+  slug: string,
+  plataforma: "gympass" | "totalpass",
+  valorReais: number | null,
+  ativo: boolean
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "integracoes");
+
+  if (sessao.academia.is_demo) {
+    return { erro: "Ação indisponível no ambiente de demonstração." };
+  }
+
+  if (valorReais !== null && (!Number.isFinite(valorReais) || valorReais < 0 || valorReais > 500)) {
+    return { erro: "Valor inválido. Use um número entre 0 e 500." };
+  }
+
+  const supabase = createClient();
+
+  const { data: anterior } = await supabase
+    .from("config_repasse_parceiros")
+    .select("valor_por_checkin")
+    .eq("plataforma", plataforma)
+    .maybeSingle();
+
+  const { data: resultado, error } = await supabase.rpc(
+    "definir_valor_repasse_parceiro",
+    { p_plataforma: plataforma, p_valor: valorReais, p_ativo: ativo }
+  );
+
+  if (error) return { erro: `Falha ao salvar: ${error.message}` };
+  if (!resultado || resultado.length === 0) {
+    return { erro: "Você não tem permissão para configurar o repasse." };
+  }
+
+  await supabase.from("log_integracoes").insert({
+    academia_id: sessao.academia.id,
+    usuario_id: sessao.userId,
+    plataforma,
+    acao: "definir_valor_repasse",
+    valor_anterior: anterior?.valor_por_checkin ?? null,
+    valor_novo: valorReais,
+    ativo_novo: ativo,
+  });
+
+  revalidatePath(`/painel/${slug}/integracoes`);
+  revalidatePath(`/painel/${slug}/financeiro`);
+  return { ok: true, savedAt: Date.now() };
+}

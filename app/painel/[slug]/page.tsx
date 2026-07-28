@@ -26,6 +26,7 @@ import {
 import AlertasPainel, {
   AlertaInadimplente,
 } from "@/components/painel/AlertasPainel";
+import RepassesEstimadosCard from "@/components/painel/RepassesEstimadosCard";
 import { requireSessao } from "@/lib/auth";
 import {
   getRetencaoAlunos,
@@ -39,6 +40,7 @@ import {
   getMensalidadesVencidas,
   getProximosVencimentos,
   getFuncionarios,
+  getRepassesParceirosFinanceiro,
 } from "@/lib/data";
 import { agruparFinanceiro, calcularCaixaPeriodo, ultimosMeses } from "@/lib/financeiro";
 import { resolverJanelaDashboard } from "@/lib/periodo";
@@ -63,6 +65,10 @@ export default async function DashboardOverviewPage({
 
   // Dono e gerente veem dados financeiros; recepção e instrutor não.
   const verFinanceiro = sessao.papel === "dono" || sessao.papel === "gerente";
+  // Repasses estimados de parceiros (TotalPass/Gympass): exclusivo do dono,
+  // mesmo critério de Integrações/Financeiro (migration 049) — mais estrito
+  // que verFinanceiro, que também libera gerente.
+  const verDono = sessao.papel === "dono";
 
   // Vencimento sempre comparado em America/Sao_Paulo, igual à ficha do aluno,
   // às notificações e à decisão de acesso da recepção.
@@ -124,6 +130,7 @@ export default async function DashboardOverviewPage({
     retencao,
     vencidas,
     proximosVencimentosRows,
+    repassesParceiros,
   ] = await Promise.all([
     getContagemAlunos(sessao.academia.id),
     verFinanceiro ? getFuncionarios(sessao.academia.id) : Promise.resolve([]),
@@ -140,6 +147,11 @@ export default async function DashboardOverviewPage({
     verFinanceiro
       ? getProximosVencimentos(sessao.academia.id, hojeIso, em14diasIso, 8)
       : Promise.resolve([]),
+    // Exclusivo do dono (verDono, não verFinanceiro): quem não é dono nunca
+    // chama a RPC, e o payload da página nunca carrega esses valores para
+    // gerente/recepção/instrutor. A RPC repasses_parceiros_resumo também se
+    // protege por dentro (migration 049) — dupla trava.
+    verDono ? getRepassesParceirosFinanceiro(janela.desde, janela.ate) : Promise.resolve([]),
   ]);
 
   // Mesma consulta agregada e mesma função de classificação da tela de Retenção.
@@ -408,6 +420,16 @@ export default async function DashboardOverviewPage({
             )}
           </div>
         </div>
+      )}
+
+      {/* Repasses estimados — exclusivo do dono, separado de Receita/Caixa/
+          Lucro/Saldo/Meta acima. Mesma RPC e mesmo período do Financeiro. */}
+      {verDono && (
+        <RepassesEstimadosCard
+          slug={params.slug}
+          linhas={repassesParceiros}
+          hintPeriodo={hintPeriodo}
+        />
       )}
 
       {/* Alertas */}
