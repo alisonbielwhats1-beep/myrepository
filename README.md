@@ -148,10 +148,12 @@ celular/computador para o **Supabase Storage** (bucket `midia-exercicios`,
 migration 053) — sem precisar hospedar em outro lugar antes; colar uma URL
 externa também continua funcionando.
 
-O catálogo padrão já vem com **15 exercícios pré-preenchidos com vídeo real**
-(migration 054), recortados e comprimidos a partir do banco aberto
+O catálogo padrão já vem com **16 exercícios pré-preenchidos com vídeo real**
+(migrations 054 e 055), recortados e comprimidos a partir do banco aberto
 [wger.de](https://wger.de) (CC BY-SA 4.0, autor Goulart) — o crédito aparece
-automaticamente no rodapé de qualquer treino que use um desses clipes.
+automaticamente no rodapé de qualquer treino que use um desses clipes. O
+backfill cobre tanto os treinos-modelo da biblioteca quanto as fichas já
+atribuídas a um aluno.
 
 ---
 

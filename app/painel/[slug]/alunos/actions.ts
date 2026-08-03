@@ -710,8 +710,14 @@ export async function criarTreino(
         series: Number(ex.series) || 0,
         repeticoes: ex.repeticoes || "0",
         carga_kg: Number(ex.carga_kg) || 0,
-        imagem_demonstracao_url: validarUrl(ex.imagem_demonstracao_url),
-        video_demonstracao_url: validarUrl(ex.video_demonstracao_url),
+        // Não usa validarUrl aqui: ela só aceita https:// absoluta e
+        // rejeitaria tanto o data: URL da foto comprimida no navegador
+        // (ImageUpload) quanto o caminho local dos clipes do catálogo
+        // (VideoUpload / /videos/catalogo/..., migration 054) — os dois
+        // caíam como null nesta ação (mas não em criarTreinoBiblioteca, que
+        // nunca teve essa validação). Mesmo tratamento das duas ações agora.
+        imagem_demonstracao_url: ex.imagem_demonstracao_url?.trim() || null,
+        video_demonstracao_url: ex.video_demonstracao_url?.trim() || null,
         ordem: idx + 1,
       }))
     );
