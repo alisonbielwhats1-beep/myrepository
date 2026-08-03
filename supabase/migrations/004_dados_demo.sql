@@ -12,8 +12,12 @@
 -- "v_slug text := 'academia-saude-e-vida';".
 -- =============================================================================
 
--- Tudo roda em uma única transação: se qualquer parte falhar, nada fica
--- registrado pela metade.
+-- O begin/commit abaixo garante a transação única quando este arquivo roda
+-- via `psql`/CLI. O SQL Editor do dashboard do Supabase não garante que
+-- statements colados juntos compartilhem sessão — pode tratar cada
+-- statement como autocommit independente, então uma falha no meio pode
+-- deixar dados parciais lá (por isso o bloco de verificação no passo 0 trava
+-- uma segunda execução, e 004b_remover_dados_demo.sql existe para limpar).
 begin;
 
 -- -----------------------------------------------------------------------------
@@ -62,17 +66,18 @@ where not exists (
 
 -- -----------------------------------------------------------------------------
 -- 2. Funcionários (~4), admitidos em datas espalhadas nos últimos ~20 meses.
+--
+-- NÃO usa `create temporary table`: o SQL Editor do Supabase (dashboard) não
+-- garante que statements colados juntos rodem na mesma sessão/conexão — uma
+-- tabela temporária criada por um statement pode não existir mais para o
+-- statement seguinte ("relation ... does not exist"), mesmo dentro do
+-- begin/commit explícito deste arquivo. Uma tabela real (public.*) não tem
+-- esse problema porque é durável, visível a qualquer conexão assim que o
+-- INSERT anterior roda — só os objetos de sessão (temp table) sofrem com
+-- isso. Por segurança, todo este arquivo evita `create temporary table` e
+-- usa `from (values ...) as t(...)` ou `with t(...) as (values ...)` no
+-- mesmo statement do INSERT/SELECT que usa os dados.
 -- -----------------------------------------------------------------------------
-create temporary table tmp_funcionarios (
-  idx integer, nome text, cargo text, meses_atras integer, salario numeric, dia_pag integer
-) on commit drop;
-
-insert into tmp_funcionarios (idx, nome, cargo, meses_atras, salario, dia_pag) values
-(1, 'Carlos Eduardo Souza', 'Instrutor de musculação', 19, 2200.00, 5),
-(2, 'Renata Alves',         'Recepcionista',           14, 1600.00, 5),
-(3, 'Felipe Nascimento',    'Personal trainer',        10, 2500.00, 10),
-(4, 'Juliana Reis',         'Auxiliar de limpeza',      6, 1450.00, 5);
-
 insert into public.funcionarios (
   academia_id, nome, cargo, telefone, email, cpf, data_admissao, salario, dia_pagamento, status, criado_em, atualizado_em
 )
@@ -89,37 +94,38 @@ select
   'ativo',
   now(),
   now()
-from tmp_funcionarios t;
+from (values
+  (1, 'Carlos Eduardo Souza', 'Instrutor de musculação', 19, 2200.00, 5),
+  (2, 'Renata Alves',         'Recepcionista',           14, 1600.00, 5),
+  (3, 'Felipe Nascimento',    'Personal trainer',        10, 2500.00, 10),
+  (4, 'Juliana Reis',         'Auxiliar de limpeza',      6, 1450.00, 5)
+) as t(idx, nome, cargo, meses_atras, salario, dia_pag);
 
 -- -----------------------------------------------------------------------------
 -- 3. Alunos (~18), matriculados em datas espalhadas nos últimos ~24 meses.
 --    3 propositalmente com mensalidade em atraso (para o alerta de
 --    inadimplência) e 3 sem check-in recente (para o alerta de "sumidos").
 -- -----------------------------------------------------------------------------
-create temporary table tmp_alunos (
-  idx integer, nome text, meses_atras integer, status public.status_matricula_enum, plano_idx integer
-) on commit drop;
-
-insert into tmp_alunos (idx, nome, meses_atras, status, plano_idx) values
-(1,  'Marina Costa',         23, 'ativa',    1),
-(2,  'Lucas Almeida',        21, 'ativa',    1),
-(3,  'Beatriz Ramos',        19, 'ativa',    2),
-(4,  'Pedro Henrique Silva', 17, 'ativa',    1),
-(5,  'Camila Ferreira',      16, 'ativa',    1),
-(6,  'Rafael Souza',         14, 'ativa',    2),
-(7,  'Juliana Martins',      13, 'ativa',    1),
-(8,  'Gabriel Oliveira',     11, 'ativa',    1),
-(9,  'Larissa Rocha',        10, 'ativa',    3),
-(10, 'Thiago Pereira',        9, 'ativa',    1),
-(11, 'Fernanda Lima',         8, 'ativa',    2),
-(12, 'Bruno Carvalho',        7, 'ativa',    1),
-(13, 'Amanda Nogueira',       6, 'ativa',    1),
-(14, 'Diego Santos',          5, 'inativa',  1),
-(15, 'Patrícia Gomes',        4, 'inativa',  2),
-(16, 'Rodrigo Barbosa',       3, 'ativa',    1),
-(17, 'Vanessa Teixeira',      2, 'trancada', 1),
-(18, 'Eduardo Cardoso',       1, 'ativa',    1);
-
+with t (idx, nome, meses_atras, status, plano_idx) as (values
+  (1,  'Marina Costa',         23, 'ativa',    1),
+  (2,  'Lucas Almeida',        21, 'ativa',    1),
+  (3,  'Beatriz Ramos',        19, 'ativa',    2),
+  (4,  'Pedro Henrique Silva', 17, 'ativa',    1),
+  (5,  'Camila Ferreira',      16, 'ativa',    1),
+  (6,  'Rafael Souza',         14, 'ativa',    2),
+  (7,  'Juliana Martins',      13, 'ativa',    1),
+  (8,  'Gabriel Oliveira',     11, 'ativa',    1),
+  (9,  'Larissa Rocha',        10, 'ativa',    3),
+  (10, 'Thiago Pereira',        9, 'ativa',    1),
+  (11, 'Fernanda Lima',         8, 'ativa',    2),
+  (12, 'Bruno Carvalho',        7, 'ativa',    1),
+  (13, 'Amanda Nogueira',       6, 'ativa',    1),
+  (14, 'Diego Santos',          5, 'inativa',  1),
+  (15, 'Patrícia Gomes',        4, 'inativa',  2),
+  (16, 'Rodrigo Barbosa',       3, 'ativa',    1),
+  (17, 'Vanessa Teixeira',      2, 'trancada', 1),
+  (18, 'Eduardo Cardoso',       1, 'ativa',    1)
+)
 insert into public.alunos (
   academia_id, nome, cpf, email, telefone, data_nascimento,
   status_matricula, plano_id, matricula_codigo, criado_em, atualizado_em
@@ -131,12 +137,14 @@ select
   'aluno' || t.idx || '@exemplo.com',
   '(11) 9' || lpad((8100 + t.idx * 3)::text, 4, '0') || '-' || lpad((1200 + t.idx * 7)::text, 4, '0'),
   (date '1988-03-01' + (t.idx * 431) * interval '1 day')::date,
-  t.status,
+  -- cast explícito: dentro de um VALUES sem tabela-destino tipada, o literal
+  -- vira `text`, e Postgres não converte texto pra enum implicitamente.
+  t.status::public.status_matricula_enum,
   pl.id,
   'DEMO-' || lpad(t.idx::text, 3, '0'),
   date_trunc('month', now()) - (t.meses_atras || ' months')::interval + ((t.idx * 2) || ' days')::interval,
   now()
-from tmp_alunos t
+from t
 join lateral (
   select id from public.planos
   where academia_id = (current_setting('gestacad.demo_academia_id')::uuid)
@@ -358,22 +366,18 @@ from checkins c;
 -- 7. Treinos — fichas prontas para alguns alunos, usando o catálogo por
 --    grupo muscular. Um treino fica público (compartilhável por QR).
 -- -----------------------------------------------------------------------------
-create temporary table tmp_treinos (
-  matricula text, nome_treino text, objetivo text, modalidade text, publico boolean
-) on commit drop;
-
-insert into tmp_treinos (matricula, nome_treino, objetivo, modalidade, publico) values
-('DEMO-001', 'Treino A - Peito e Tríceps', 'Hipertrofia', 'Musculação', true),
-('DEMO-002', 'Treino B - Costas e Bíceps', 'Hipertrofia', 'Musculação', false),
-('DEMO-004', 'Treino C - Pernas',          'Força',        'Musculação', false),
-('DEMO-009', 'Treino Full Body',           'Emagrecimento','Funcional',  true);
-
+with t (matricula, nome_treino, objetivo, modalidade, publico) as (values
+  ('DEMO-001', 'Treino A - Peito e Tríceps', 'Hipertrofia', 'Musculação', true),
+  ('DEMO-002', 'Treino B - Costas e Bíceps', 'Hipertrofia', 'Musculação', false),
+  ('DEMO-004', 'Treino C - Pernas',          'Força',        'Musculação', false),
+  ('DEMO-009', 'Treino Full Body',           'Emagrecimento','Funcional',  true)
+)
 insert into public.treinos (academia_id, aluno_id, nome_treino, objetivo, modalidade, ordem, ativo, publico, criado_em, atualizado_em)
 select
   (current_setting('gestacad.demo_academia_id')::uuid),
   a.id,
   t.nome_treino, t.objetivo, t.modalidade, 1, true, t.publico, now(), now()
-from tmp_treinos t
+from t
 join public.alunos a
   on a.matricula_codigo = t.matricula
   and a.academia_id = (current_setting('gestacad.demo_academia_id')::uuid);
