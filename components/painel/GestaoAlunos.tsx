@@ -20,6 +20,7 @@ import {
   Target,
   UserPlus,
   UserRound,
+  Video,
   Wallet,
   X,
 } from "lucide-react";
@@ -44,13 +45,16 @@ import {
 import { origemPublica } from "@/lib/site-url";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
-import ExercicioBuilder from "@/components/painel/ExercicioBuilder";
+import ExercicioBuilder, {
+  type LinhaExercicio,
+} from "@/components/painel/ExercicioBuilder";
 import ProgressoAluno from "@/components/painel/ProgressoAluno";
 import HistoricoPlanoAluno from "@/components/painel/HistoricoPlanoAluno";
 import AcessoAlunoCard from "@/components/painel/AcessoAlunoCard";
 import FotoAlunoAdminCard from "@/components/painel/FotoAlunoAdminCard";
 import {
   atualizarAluno,
+  atualizarTreino,
   criarAluno,
   criarTreino,
   excluirAluno,
@@ -478,39 +482,12 @@ export default function GestaoAlunos({
             ) : (
               <div className="mt-3 space-y-3">
                 {treinosDoAluno.map((t) => (
-                  <div
+                  <CardFichaTreino
                     key={t.id}
-                    className="rounded-xl border border-ink-600 bg-ink-900/40 p-4"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium text-white">{t.nome_treino}</p>
-                      <div className="flex items-center gap-2">
-                        {t.objetivo && (
-                          <span className="chip border-magenta-500/30 bg-magenta-500/10 text-magenta-400">
-                            {t.objetivo}
-                          </span>
-                        )}
-                        <ConfirmButton
-                          action={() => excluirTreino(slug, t.id)}
-                          confirmText={`Excluir a ficha "${t.nome_treino}"?`}
-                          label="Excluir ficha"
-                        />
-                      </div>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {t.exercicios?.length ?? 0} exercícios
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {(t.exercicios ?? []).map((ex) => (
-                        <span
-                          key={ex.id}
-                          className="chip border-ink-600 bg-ink-700/60 text-slate-300"
-                        >
-                          {ex.nome_exercicio} · {ex.series}x{ex.repeticoes}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                    slug={slug}
+                    treino={t}
+                    catalogo={catalogo}
+                  />
                 ))}
               </div>
             )}
@@ -1308,6 +1285,175 @@ function FormularioAluno({
 // ---------------------------------------------------------------------------
 // Formulário de nova ficha de treino
 // ---------------------------------------------------------------------------
+/**
+ * Ficha já montada: resumo dos exercícios e, ao clicar em "Editar", o mesmo
+ * construtor usado na criação — agora pré-preenchido com o que está salvo.
+ *
+ * Antes só existia "Excluir": para trocar um vídeo ou corrigir uma carga o
+ * professor precisava apagar a ficha e remontar tudo. A mídia de cada
+ * exercício aparece como miniatura para ele conferir, sem abrir a edição, se
+ * a foto e o vídeo realmente foram salvos.
+ */
+function CardFichaTreino({
+  slug,
+  treino,
+  catalogo,
+}: {
+  slug: string;
+  treino: Treino;
+  catalogo: CatalogoExercicio[];
+}) {
+  const [editando, setEditando] = useState(false);
+  const exercicios = [...(treino.exercicios ?? [])].sort(
+    (a, b) => a.ordem - b.ordem
+  );
+
+  return (
+    <div className="rounded-xl border border-ink-600 bg-ink-900/40 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-medium text-white">{treino.nome_treino}</p>
+        <div className="flex items-center gap-2">
+          {treino.objetivo && (
+            <span className="chip border-magenta-500/30 bg-magenta-500/10 text-magenta-400">
+              {treino.objetivo}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setEditando((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-lg border border-ink-600 bg-ink-800 px-2.5 py-1 text-xs font-semibold text-slate-200 transition hover:border-volt-500/50 hover:bg-ink-700"
+          >
+            <Pencil className="h-3 w-3 text-volt-300" />
+            {editando ? "Cancelar" : "Editar"}
+          </button>
+          <ConfirmButton
+            action={() => excluirTreino(slug, treino.id)}
+            confirmText={`Excluir a ficha "${treino.nome_treino}"?`}
+            label="Excluir ficha"
+          />
+        </div>
+      </div>
+
+      {editando ? (
+        <FormularioEdicaoTreino
+          slug={slug}
+          treino={treino}
+          exercicios={exercicios}
+          catalogo={catalogo}
+          onSalvo={() => setEditando(false)}
+        />
+      ) : (
+        <>
+          <p className="mt-1 text-xs text-slate-500">
+            {exercicios.length} exercícios
+          </p>
+          <div className="mt-3 space-y-1.5">
+            {exercicios.map((ex) => (
+              <div
+                key={ex.id}
+                className="flex items-center gap-2 text-xs text-slate-300"
+              >
+                {/* Miniatura: confirma visualmente que a mídia foi salva. */}
+                {ex.video_demonstracao_url ? (
+                  <span className="inline-flex flex-none items-center gap-1 rounded bg-volt-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-volt-300">
+                    <Video className="h-3 w-3" /> vídeo
+                  </span>
+                ) : (
+                  <span className="w-[52px] flex-none" />
+                )}
+                {ex.imagem_demonstracao_url ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={ex.imagem_demonstracao_url}
+                    alt=""
+                    className="h-6 w-6 flex-none rounded object-cover"
+                  />
+                ) : (
+                  <span className="h-6 w-6 flex-none rounded bg-ink-700" />
+                )}
+                <span className="truncate">
+                  {ex.nome_exercicio} · {ex.series}x{ex.repeticoes}
+                  {ex.carga_kg ? ` · ${ex.carga_kg}kg` : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function FormularioEdicaoTreino({
+  slug,
+  treino,
+  exercicios,
+  catalogo,
+  onSalvo,
+}: {
+  slug: string;
+  treino: Treino;
+  exercicios: Treino["exercicios"];
+  catalogo: CatalogoExercicio[];
+  onSalvo: () => void;
+}) {
+  const acao = atualizarTreino.bind(null, slug, treino.id);
+  const [estado, formAction] = useFormState(acao, {});
+
+  useEffect(() => {
+    if (estado.ok) onSalvo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado.savedAt]);
+
+  // Converte o que está salvo no banco para as linhas do construtor.
+  const iniciais: LinhaExercicio[] = (exercicios ?? []).map((ex) => ({
+    nome_exercicio: ex.nome_exercicio,
+    series: ex.series,
+    repeticoes: ex.repeticoes,
+    carga_kg: ex.carga_kg ?? 0,
+    descanso_segundos: ex.descanso_segundos ?? 0,
+    observacoes: ex.observacoes ?? "",
+    imagem_demonstracao_url: ex.imagem_demonstracao_url ?? "",
+    video_demonstracao_url: ex.video_demonstracao_url ?? "",
+  }));
+
+  return (
+    <form action={formAction} className="mt-4 space-y-4">
+      {estado.erro && (
+        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          {estado.erro}
+        </p>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Nome do treino">
+          <input
+            name="nome_treino"
+            defaultValue={treino.nome_treino}
+            className="inp"
+            required
+          />
+        </Field>
+        <Field label="Objetivo">
+          <div className="relative">
+            <Target className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <input
+              name="objetivo"
+              defaultValue={treino.objetivo ?? ""}
+              placeholder="Ex: Hipertrofia"
+              className="inp pl-9"
+            />
+          </div>
+        </Field>
+      </div>
+
+      <ExercicioBuilder slug={slug} catalogo={catalogo} iniciais={iniciais} />
+
+      <FormActions salvarLabel="Salvar alterações" />
+    </form>
+  );
+}
+
 function FormularioTreino({
   slug,
   alunoId,

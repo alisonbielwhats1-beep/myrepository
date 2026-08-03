@@ -9,6 +9,10 @@ import { StatusMatricula } from "@/lib/types";
 import { hojeSaoPaulo } from "@/lib/utils";
 import { normalizarCpf, validarUrl } from "@/lib/validacoes";
 import {
+  lerExerciciosDoFormulario,
+  montarLinhasExercicio,
+} from "@/lib/exercicios-treino";
+import {
   enviarFotoPerfil,
   removerFotoAntiga,
   validarArquivoFoto,
@@ -662,23 +666,9 @@ export async function criarTreino(
   const nomeTreino = String(formData.get("nome_treino") ?? "").trim();
   if (!nomeTreino) return { erro: "Informe o nome do treino." };
 
-  let exercicios: Array<{
-    nome_exercicio: string;
-    series: number;
-    repeticoes: string;
-    carga_kg: number;
-    imagem_demonstracao_url: string;
-    video_demonstracao_url: string;
-  }> = [];
-  try {
-    exercicios = JSON.parse(String(formData.get("exercicios_json") ?? "[]"));
-  } catch {
-    return { erro: "Lista de exercícios inválida." };
-  }
-  exercicios = exercicios.filter((e) => e.nome_exercicio?.trim());
-  if (exercicios.length === 0) {
-    return { erro: "Adicione ao menos um exercício com nome." };
-  }
+  const lidos = lerExerciciosDoFormulario(formData.get("exercicios_json"));
+  if ("erro" in lidos) return lidos;
+  const exercicios = lidos.exercicios;
 
   const { count } = await supabase
     .from("treinos")
@@ -703,29 +693,105 @@ export async function criarTreino(
 
   const { error: erroExercicios } = await supabase
     .from("exercicios_treino")
-    .insert(
-      exercicios.map((ex, idx) => ({
-        treino_id: treino.id,
-        nome_exercicio: ex.nome_exercicio.trim(),
-        series: Number(ex.series) || 0,
-        repeticoes: ex.repeticoes || "0",
-        carga_kg: Number(ex.carga_kg) || 0,
-        // Não usa validarUrl aqui: ela só aceita https:// absoluta e
-        // rejeitaria tanto o data: URL da foto comprimida no navegador
-        // (ImageUpload) quanto o caminho local dos clipes do catálogo
-        // (VideoUpload / /videos/catalogo/..., migration 054) — os dois
-        // caíam como null nesta ação (mas não em criarTreinoBiblioteca, que
-        // nunca teve essa validação). Mesmo tratamento das duas ações agora.
-        imagem_demonstracao_url: ex.imagem_demonstracao_url?.trim() || null,
-        video_demonstracao_url: ex.video_demonstracao_url?.trim() || null,
-        ordem: idx + 1,
-      }))
-    );
+    .insert(montarLinhasExercicio(treino.id, exercicios));
 
   if (erroExercicios) {
     // Desfaz o treino se os exercícios falharem, para não deixar ficha vazia.
     await supabase.from("treinos").delete().eq("id", treino.id);
     return { erro: `Falha ao salvar exercícios: ${erroExercicios.message}` };
+  }
+
+  revalidatePath(`/painel/${slug}/alunos`);
+  return { ok: true, savedAt: Date.now() };
+}
+
+/**
+ * Edita uma ficha de treino já existente: nome, objetivo e a lista inteira de
+ * exercícios (séries, reps, carga, descanso, observações, imagem e vídeo).
+ *
+ * Antes desta action não havia NENHUM caminho de UPDATE em `exercicios_treino`
+ * no projeto — só insert. Para trocar um vídeo ou corrigir uma carga, o
+ * professor tinha que excluir a ficha e remontá-la do zero.
+ *
+ * ESTRATÉGIA: substitui os exercícios (delete + insert) em vez de casar linha
+ * por linha, porque o construtor permite reordenar, remover e acrescentar na
+ * mesma edição. Como o cliente Supabase não expõe transação, a lista antiga é
+ * lida ANTES e reinserida se o insert novo falhar — assim uma falha no meio
+ * nunca deixa a ficha vazia.
+ *
+ * O `treinos.id` é preservado (não recria a ficha), então o QR compartilhado
+ * e o `share_token` continuam válidos.
+ */
+export async function atualizarTreino(
+  slug: string,
+  treinoId: string,
+  _estado: EstadoAcao,
+  formData: FormData
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "alunos");
+  const supabase = createClient();
+
+  const nomeTreino = String(formData.get("nome_treino") ?? "").trim();
+  if (!nomeTreino) return { erro: "Informe o nome do treino." };
+
+  const lidos = lerExerciciosDoFormulario(formData.get("exercicios_json"));
+  if ("erro" in lidos) return lidos;
+
+  // Confirma que a ficha é desta academia antes de qualquer escrita. O RLS já
+  // bloquearia, mas aqui a mensagem de erro fica clara em vez de "0 linhas".
+  const { data: treino } = await supabase
+    .from("treinos")
+    .select("id")
+    .eq("id", treinoId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+
+  if (!treino) return { erro: "Ficha não encontrada." };
+
+  const { error: erroTreino } = await supabase
+    .from("treinos")
+    .update({
+      nome_treino: nomeTreino,
+      objetivo: String(formData.get("objetivo") ?? "").trim() || null,
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq("id", treinoId)
+    .eq("academia_id", sessao.academia.id);
+
+  if (erroTreino) {
+    return { erro: `Falha ao atualizar a ficha: ${erroTreino.message}` };
+  }
+
+  // Guarda a lista atual para poder restaurar se o insert novo falhar.
+  const { data: anteriores } = await supabase
+    .from("exercicios_treino")
+    .select(
+      "nome_exercicio, series, repeticoes, carga_kg, descanso_segundos, observacoes, imagem_demonstracao_url, video_demonstracao_url, ordem"
+    )
+    .eq("treino_id", treinoId)
+    .order("ordem", { ascending: true });
+
+  const { error: erroRemocao } = await supabase
+    .from("exercicios_treino")
+    .delete()
+    .eq("treino_id", treinoId);
+
+  if (erroRemocao) {
+    return { erro: `Falha ao atualizar exercícios: ${erroRemocao.message}` };
+  }
+
+  const { error: erroInsercao } = await supabase
+    .from("exercicios_treino")
+    .insert(montarLinhasExercicio(treinoId, lidos.exercicios));
+
+  if (erroInsercao) {
+    // Compensação: devolve os exercícios antigos para a ficha não ficar vazia.
+    if (anteriores && anteriores.length > 0) {
+      await supabase
+        .from("exercicios_treino")
+        .insert(anteriores.map((ex) => ({ ...ex, treino_id: treinoId })));
+    }
+    return { erro: `Falha ao salvar exercícios: ${erroInsercao.message}` };
   }
 
   revalidatePath(`/painel/${slug}/alunos`);
