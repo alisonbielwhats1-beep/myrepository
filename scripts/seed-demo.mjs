@@ -170,19 +170,33 @@ async function main() {
 
   const sqlOriginal = readFileSync(migrationPath, "utf8");
 
-  // Substitui a linha de configuração do slug (única ocorrência no arquivo).
-  // O slug é escapado para evitar injeção SQL via aspas simples.
+  // Substitui a linha de configuração do slug.
+  //
+  // BUG CORRIGIDO: a string de busca "v_slug text := null;" também aparece
+  // dentro do comentário de cabeçalho do arquivo (linha ~11, explicando como
+  // trocar o slug manualmente). `String.replace(string, ...)` troca só a
+  // PRIMEIRA ocorrência — e essa primeira ocorrência é o comentário, não a
+  // declaração real dentro do `do $$ ... declare`. O resultado era um SQL que
+  // parecia correto (a verificação abaixo passava, porque *algo* foi
+  // substituído) mas cujo bloco executável continuava com `v_slug := null`,
+  // fazendo o script mirar "a academia mais antiga do banco inteiro" em vez
+  // do slug pedido — silenciosamente, sem erro nenhum.
+  //
+  // Correção: ancorar a busca no trecho que só existe no código real
+  // (a linha seguinte, `v_academia_id uuid;`, não existe dentro do
+  // comentário), garantindo que a única ocorrência possível é a declaração.
+  // O arquivo usa quebra de linha CRLF (\r\n) — a âncora precisa do \r para
+  // casar com o texto real (confirmado byte a byte; \n sozinho não casava).
   const slugEscapado = slug.replace(/'/g, "''");
-  const sqlModificado = sqlOriginal.replace(
-    "v_slug text := null;",
-    `v_slug text := '${slugEscapado}';`
-  );
+  const anchorOriginal = "v_slug text := null;\r\n  v_academia_id uuid;";
+  const anchorModificado = `v_slug text := '${slugEscapado}';\r\n  v_academia_id uuid;`;
+  const sqlModificado = sqlOriginal.replace(anchorOriginal, anchorModificado);
 
   if (sqlModificado === sqlOriginal) {
     console.error(
       "\n❌  Não foi possível localizar a linha de configuração do slug em\n" +
         "  004_dados_demo.sql. O arquivo pode ter sido modificado.\n" +
-        "  Verifique manualmente a linha: v_slug text := null;\n"
+        "  Verifique manualmente o bloco: declare / v_slug text := null; / v_academia_id uuid;\n"
     );
     process.exit(1);
   }
