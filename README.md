@@ -141,9 +141,17 @@ Cada membro da equipe (`perfis_admin.papel`) enxerga apenas as seções designad
 
 ### Mídia dos exercícios
 Cada exercício tem `imagem_demonstracao_url` e `video_demonstracao_url`
-(clipe curto ≤ 10s, tocado em **loop** e mudo). O card do aluno usa o vídeo
-quando disponível, com fallback para a imagem e, por fim, um ícone. Envie os
-arquivos para o **Supabase Storage** e cole a URL pública ao montar a ficha.
+(clipe curto ≤ 10s, tocado em **loop** e mudo — ou um GIF). O card do aluno
+usa o vídeo/GIF quando disponível, com fallback para a imagem e, por fim, um
+ícone. Ao montar a ficha, o campo de vídeo grava e sobe o arquivo direto do
+celular/computador para o **Supabase Storage** (bucket `midia-exercicios`,
+migration 053) — sem precisar hospedar em outro lugar antes; colar uma URL
+externa também continua funcionando.
+
+O catálogo padrão já vem com **15 exercícios pré-preenchidos com vídeo real**
+(migration 054), recortados e comprimidos a partir do banco aberto
+[wger.de](https://wger.de) (CC BY-SA 4.0, autor Goulart) — o crédito aparece
+automaticamente no rodapé de qualquer treino que use um desses clipes.
 
 ---
 

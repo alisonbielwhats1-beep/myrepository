@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Dumbbell, Target } from "lucide-react";
+import CreditoVideosExercicios from "@/components/aluno/CreditoVideosExercicios";
 import ExercicioCard from "@/components/aluno/ExercicioCard";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ui/ThemeToggle";
@@ -55,6 +56,9 @@ export default async function TreinoPublicoPage({
         <p className="mt-8 text-center text-xs text-slate-500">
           Treino compartilhado por {academia.nome_fantasia} · GestAcad
         </p>
+        <div className="mt-1.5">
+          <CreditoVideosExercicios exercicios={exercicios} />
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    // Limite padrão da Server Action é 1 MB — insuficiente para o clipe de
+    // demonstração do exercício (vídeo curto ou GIF, ver lib/midia-exercicios.ts).
+    // 4 MB fica dentro do teto de payload de Function do Vercel (4.5 MB).
+    serverActions: {
+      bodySizeLimit: "4mb",
+    },
+  },
   images: {
     // Permite servir imagens de alta qualidade (fotos nativas de exercícios,
     // perfis de alunos e mídias hospedadas no Storage do Supabase) sem

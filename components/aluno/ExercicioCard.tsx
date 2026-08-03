@@ -11,6 +11,13 @@ const PROGRESSO_VAZIO: Omit<ProgressoExercicio, "exercicio_id"> = {
   repeticoes_realizadas: "",
 };
 
+// GIF não é um formato de vídeo — a tag <video> não reproduz .gif. Quem
+// preencheu video_demonstracao_url com um GIF (VideoUpload aceita os dois)
+// precisa cair no ramo de imagem, não no de vídeo.
+function ehGif(url: string) {
+  return /\.gif($|\?)/i.test(url);
+}
+
 /**
  * Card de exercício. Dentro de uma sessão de treino ativa (Bloco 1),
  * "concluído", carga e repetições realizadas vêm de `progresso` (persistido
@@ -41,7 +48,19 @@ export default function ExercicioCard({
     >
       {/* Mídia nativa do movimento — sem retângulo de fundo poluindo a mídia */}
       <div className="relative aspect-[16/10] w-full bg-ink-900">
-        {ex.video_demonstracao_url ? (
+        {ex.video_demonstracao_url && ehGif(ex.video_demonstracao_url) ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={ex.video_demonstracao_url}
+              alt={ex.nome_exercicio}
+              className="media-native h-full w-full object-cover"
+            />
+            <span className="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink-950/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-200 backdrop-blur-sm">
+              <PlayCircle className="h-3 w-3 text-volt-300" /> Demonstração
+            </span>
+          </>
+        ) : ex.video_demonstracao_url ? (
           <>
             <video
               src={ex.video_demonstracao_url}

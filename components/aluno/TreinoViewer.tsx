@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { CheckCircle2, Clock3, PlayCircle, RotateCcw, Target } from "lucide-react";
 import { FichaTreinoPublico, ProgressoExercicio, SessaoTreino } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import CreditoVideosExercicios from "./CreditoVideosExercicios";
 import ExercicioCard from "./ExercicioCard";
 
 type EstadoSessao = { erro?: string; sessao?: SessaoTreino };
@@ -262,6 +263,8 @@ function ExecucaoTreino({
         <CheckCircle2 className="h-4 w-4" />
         {pending ? "Finalizando..." : "Finalizar treino"}
       </button>
+
+      <CreditoVideosExercicios exercicios={exercicios} />
     </div>
   );
 }

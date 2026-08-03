@@ -4,6 +4,10 @@ import type { EstadoAcao } from "@/lib/types";
 
 import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
+import {
+  enviarMidiaExercicio,
+  validarArquivoMidiaExercicio,
+} from "@/lib/midia-exercicios";
 import { createClient } from "@/lib/supabase/server";
 
 /** Cria um treino da biblioteca (modelo, sem aluno), com seus exercícios. */
@@ -81,6 +85,29 @@ export async function criarTreinoBiblioteca(
 
   revalidatePath(`/painel/${slug}/treinos`);
   return { ok: true, savedAt: Date.now() };
+}
+
+/**
+ * Upload do clipe de demonstração (vídeo curto ou GIF) de um exercício.
+ * Chamada diretamente pelo client (components/ui/VideoUpload.tsx) enquanto o
+ * professor monta o treino — antes de o formulário do treino em si ser
+ * enviado, por isso não recebe `treinoId`: o resultado é só a URL pública,
+ * guardada no estado do ExercicioBuilder até o treino ser salvo.
+ */
+export async function enviarClipeExercicio(
+  slug: string,
+  formData: FormData
+): Promise<{ url: string } | { erro: string }> {
+  const sessao = await requireSecao(slug, "treinos");
+
+  const arquivo = formData.get("arquivo");
+  if (!(arquivo instanceof File)) {
+    return { erro: "Selecione um vídeo ou GIF." };
+  }
+  const validacao = validarArquivoMidiaExercicio(arquivo);
+  if ("erro" in validacao) return validacao;
+
+  return enviarMidiaExercicio(sessao.academia.id, arquivo, validacao.extensao);
 }
 
 export async function excluirTreinoBiblioteca(

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Trash2, Video, Zap } from "lucide-react";
 import ImageUpload from "@/components/ui/ImageUpload";
+import VideoUpload from "@/components/ui/VideoUpload";
 import { CatalogoExercicio, GRUPOS_MUSCULARES, GrupoMuscular } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -32,9 +33,11 @@ const VAZIO: LinhaExercicio = {
  * (quando disponível). Também é possível adicionar exercícios manualmente.
  */
 export default function ExercicioBuilder({
+  slug,
   catalogo = [],
   iniciais = [],
 }: {
+  slug: string;
   catalogo?: CatalogoExercicio[];
   iniciais?: LinhaExercicio[];
 }) {
@@ -152,65 +155,57 @@ export default function ExercicioBuilder({
             </button>
           </div>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-[1fr_minmax(0,180px)]">
-            <div className="space-y-3">
-              <input
-                value={ex.nome_exercicio}
-                onChange={(e) => setEx(i, { nome_exercicio: e.target.value })}
-                placeholder="Nome do exercício (ex: Supino reto)"
-                className="inp"
-              />
-              <div className="grid grid-cols-3 gap-2">
-                <Campo label="Séries">
-                  <input
-                    type="number"
-                    min={0}
-                    value={ex.series}
-                    onChange={(e) => setEx(i, { series: Number(e.target.value) })}
-                    className="inp"
-                  />
-                </Campo>
-                <Campo label="Reps">
-                  <input
-                    value={ex.repeticoes}
-                    onChange={(e) => setEx(i, { repeticoes: e.target.value })}
-                    placeholder="10-12"
-                    className="inp"
-                  />
-                </Campo>
-                <Campo label="Carga (kg)">
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.5"
-                    value={ex.carga_kg}
-                    onChange={(e) => setEx(i, { carga_kg: Number(e.target.value) })}
-                    className="inp"
-                  />
-                </Campo>
-              </div>
-              <Campo label="Vídeo de demonstração (≤ 10s)">
-                <div className="flex items-center gap-2">
-                  <Video className="h-4 w-4 flex-none text-volt-300" />
-                  <input
-                    type="url"
-                    value={ex.video_demonstracao_url}
-                    onChange={(e) =>
-                      setEx(i, { video_demonstracao_url: e.target.value })
-                    }
-                    placeholder="URL do clipe (mp4/webm)"
-                    className="inp"
-                  />
-                </div>
+          <div className="mt-3 space-y-3">
+            <input
+              value={ex.nome_exercicio}
+              onChange={(e) => setEx(i, { nome_exercicio: e.target.value })}
+              placeholder="Nome do exercício (ex: Supino reto)"
+              className="inp"
+            />
+            <div className="grid grid-cols-3 gap-2">
+              <Campo label="Séries">
+                <input
+                  type="number"
+                  min={0}
+                  value={ex.series}
+                  onChange={(e) => setEx(i, { series: Number(e.target.value) })}
+                  className="inp"
+                />
+              </Campo>
+              <Campo label="Reps">
+                <input
+                  value={ex.repeticoes}
+                  onChange={(e) => setEx(i, { repeticoes: e.target.value })}
+                  placeholder="10-12"
+                  className="inp"
+                />
+              </Campo>
+              <Campo label="Carga (kg)">
+                <input
+                  type="number"
+                  min={0}
+                  step="0.5"
+                  value={ex.carga_kg}
+                  onChange={(e) => setEx(i, { carga_kg: Number(e.target.value) })}
+                  className="inp"
+                />
               </Campo>
             </div>
 
-            <ImageUpload
-              value={ex.imagem_demonstracao_url}
-              onChange={(url) => setEx(i, { imagem_demonstracao_url: url })}
-              aspect="aspect-[4/3]"
-              hint="Imagem do movimento"
-            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <VideoUpload
+                slug={slug}
+                value={ex.video_demonstracao_url}
+                onChange={(url) => setEx(i, { video_demonstracao_url: url })}
+                hint="Vídeo ou GIF (≤ 10s, pessoas reais)"
+              />
+              <ImageUpload
+                value={ex.imagem_demonstracao_url}
+                onChange={(url) => setEx(i, { imagem_demonstracao_url: url })}
+                aspect="aspect-[4/3]"
+                hint="Imagem do movimento"
+              />
+            </div>
           </div>
         </div>
       ))}

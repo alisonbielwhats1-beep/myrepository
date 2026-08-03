@@ -392,7 +392,7 @@ function FormularioTreino({
       </div>
 
       <div className="mt-4">
-        <ExercicioBuilder key={resetKey} catalogo={catalogo} />
+        <ExercicioBuilder key={resetKey} slug={slug} catalogo={catalogo} />
       </div>
 
       <FormActions salvarLabel="Salvar treino" className="mt-4" />

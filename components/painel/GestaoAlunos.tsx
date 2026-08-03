@@ -1367,7 +1367,7 @@ function FormularioTreino({
         </Field>
       </div>
 
-      <ExercicioBuilder key={resetKey} catalogo={catalogo} />
+      <ExercicioBuilder key={resetKey} slug={slug} catalogo={catalogo} />
 
       <FormActions salvarLabel="Salvar ficha de treino" />
     </form>
