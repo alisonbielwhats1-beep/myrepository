@@ -5,6 +5,10 @@ import type { EstadoAcao } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import {
+  lerExerciciosDoFormulario,
+  montarLinhasExercicio,
+} from "@/lib/exercicios-treino";
+import {
   enviarMidiaExercicio,
   validarArquivoMidiaExercicio,
 } from "@/lib/midia-exercicios";
@@ -22,23 +26,9 @@ export async function criarTreinoBiblioteca(
   const nomeTreino = String(formData.get("nome_treino") ?? "").trim();
   if (!nomeTreino) return { erro: "Informe o nome do treino." };
 
-  let exercicios: Array<{
-    nome_exercicio: string;
-    series: number;
-    repeticoes: string;
-    carga_kg: number;
-    imagem_demonstracao_url: string;
-    video_demonstracao_url: string;
-  }> = [];
-  try {
-    exercicios = JSON.parse(String(formData.get("exercicios_json") ?? "[]"));
-  } catch {
-    return { erro: "Lista de exercícios inválida." };
-  }
-  exercicios = exercicios.filter((e) => e.nome_exercicio?.trim());
-  if (exercicios.length === 0) {
-    return { erro: "Adicione ao menos um exercício com nome." };
-  }
+  const lidos = lerExerciciosDoFormulario(formData.get("exercicios_json"));
+  if ("erro" in lidos) return lidos;
+  const exercicios = lidos.exercicios;
 
   const { count } = await supabase
     .from("treinos")
@@ -65,18 +55,7 @@ export async function criarTreinoBiblioteca(
 
   const { error: erroExercicios } = await supabase
     .from("exercicios_treino")
-    .insert(
-      exercicios.map((ex, idx) => ({
-        treino_id: treino.id,
-        nome_exercicio: ex.nome_exercicio.trim(),
-        series: Number(ex.series) || 0,
-        repeticoes: ex.repeticoes || "0",
-        carga_kg: Number(ex.carga_kg) || 0,
-        imagem_demonstracao_url: ex.imagem_demonstracao_url?.trim() || null,
-        video_demonstracao_url: ex.video_demonstracao_url?.trim() || null,
-        ordem: idx + 1,
-      }))
-    );
+    .insert(montarLinhasExercicio(treino.id, exercicios));
 
   if (erroExercicios) {
     await supabase.from("treinos").delete().eq("id", treino.id);

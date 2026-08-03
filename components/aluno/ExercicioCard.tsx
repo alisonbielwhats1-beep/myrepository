@@ -1,7 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
-import { Check, Dumbbell, PlayCircle, RotateCcw, Timer, Weight } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  Dumbbell,
+  Loader2,
+  PlayCircle,
+  RotateCcw,
+  Timer,
+  Weight,
+} from "lucide-react";
 import { ExercicioTreino, ProgressoExercicio } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -11,11 +21,144 @@ const PROGRESSO_VAZIO: Omit<ProgressoExercicio, "exercicio_id"> = {
   repeticoes_realizadas: "",
 };
 
-// GIF não é um formato de vídeo — a tag <video> não reproduz .gif. Quem
-// preencheu video_demonstracao_url com um GIF (VideoUpload aceita os dois)
-// precisa cair no ramo de imagem, não no de vídeo.
+// GIF não é formato de vídeo — a tag <video> não reproduz .gif. Um GIF já
+// anima sozinho, então é exibido como imagem e dispensa player.
 function ehGif(url: string) {
   return /\.gif($|\?)/i.test(url);
+}
+
+/**
+ * Mídia do exercício.
+ *
+ * POR QUE ESTE COMPONENTE EXISTE (bug do treino do Raimundo)
+ *   A versão anterior renderizava `<video autoPlay muted loop playsInline>`
+ *   com `poster={imagem_demonstracao_url}` e SEM `controls`. Quando o
+ *   navegador bloqueia o autoplay — iPhone em Modo de Baixo Consumo bloqueia
+ *   até vídeo mudo, Android com Economia de dados também — o resultado era:
+ *     1. o navegador desenhava o `poster`, que é exatamente a FOTO;
+ *     2. não havia `controls`, logo nenhum botão de play;
+ *     3. o selo "Demonstração" por cima era `pointer-events-none`.
+ *   Ou seja: aparecia só a foto, e tocar nela não fazia nada. Era esse o
+ *   relato "adicionei imagem e vídeo, mas no app só a imagem apareceu".
+ *
+ * COMO FUNCIONA AGORA
+ *   A imagem é a capa. Havendo vídeo, aparece um botão "Ver demonstração"
+ *   que troca para o player com `controls` (play, pause e tela cheia). O
+ *   vídeo só é baixado quando o aluno pede — economiza dados no celular e
+ *   elimina a dependência de autoplay. Falha de rede ou formato não
+ *   suportado cai numa mensagem clara com opção de voltar para a foto, em
+ *   vez de um retângulo parado indistinguível de sucesso.
+ *
+ *   Imagem e vídeo coexistem: a presença de uma nunca esconde o outro.
+ */
+function MidiaExercicio({ ex }: { ex: ExercicioTreino }) {
+  const [modo, setModo] = useState<"capa" | "video">("capa");
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState(false);
+
+  const temVideo = Boolean(ex.video_demonstracao_url);
+  const videoEhGif = temVideo && ehGif(ex.video_demonstracao_url!);
+
+  // GIF: anima sozinho, não precisa de player nem de interação.
+  if (videoEhGif) {
+    return (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={ex.video_demonstracao_url!}
+          alt={`Demonstração de ${ex.nome_exercicio}`}
+          className="media-native h-full w-full object-cover"
+        />
+        <span className="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink-950/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-200 backdrop-blur-sm">
+          <PlayCircle className="h-3 w-3 text-volt-300" /> Demonstração
+        </span>
+      </>
+    );
+  }
+
+  // Player, depois que o aluno pediu para ver.
+  if (modo === "video" && temVideo && !erro) {
+    return (
+      <>
+        <video
+          src={ex.video_demonstracao_url!}
+          controls
+          autoPlay
+          playsInline
+          preload="auto"
+          onLoadStart={() => setCarregando(true)}
+          onCanPlay={() => setCarregando(false)}
+          onError={() => {
+            setCarregando(false);
+            setErro(true);
+          }}
+          className="media-native h-full w-full bg-ink-950 object-contain"
+        />
+        {carregando && (
+          <div className="pointer-events-none absolute inset-0 grid place-items-center bg-ink-950/40">
+            <Loader2 className="h-7 w-7 animate-spin text-volt-300" />
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // Falha ao carregar o vídeo — mensagem clara, com volta para a foto.
+  if (erro) {
+    return (
+      <div className="grid h-full w-full place-items-center bg-ink-900 px-4 text-center">
+        <div>
+          <AlertCircle className="mx-auto h-7 w-7 text-amber-400" />
+          <p className="mt-2 text-xs text-slate-300">
+            Não foi possível carregar o vídeo.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setErro(false);
+              setModo("capa");
+            }}
+            className="mt-2 text-xs font-semibold text-volt-300 underline"
+          >
+            {ex.imagem_demonstracao_url ? "Ver a foto" : "Voltar"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Capa: foto (ou ícone) + botão de demonstração quando existe vídeo.
+  return (
+    <>
+      {ex.imagem_demonstracao_url ? (
+        <Image
+          src={ex.imagem_demonstracao_url}
+          alt={ex.nome_exercicio}
+          fill
+          sizes="(max-width: 480px) 100vw, 480px"
+          className="media-native object-cover"
+        />
+      ) : (
+        <div className="grid h-full place-items-center text-slate-600">
+          <Dumbbell className="h-10 w-10" />
+        </div>
+      )}
+
+      {temVideo && (
+        <button
+          type="button"
+          onClick={() => setModo("video")}
+          aria-label={`Ver demonstração de ${ex.nome_exercicio}`}
+          className="absolute inset-0 grid place-items-center bg-ink-950/35 transition hover:bg-ink-950/50 active:bg-ink-950/60"
+        >
+          <span className="inline-flex items-center gap-2 rounded-full bg-volt-300 px-4 py-2 text-xs font-bold text-ink-950 shadow-glow">
+            <PlayCircle className="h-4 w-4" />
+            Ver demonstração
+          </span>
+        </button>
+      )}
+    </>
+  );
 }
 
 /**
@@ -48,54 +191,7 @@ export default function ExercicioCard({
     >
       {/* Mídia nativa do movimento — sem retângulo de fundo poluindo a mídia */}
       <div className="relative aspect-[16/10] w-full bg-ink-900">
-        {ex.video_demonstracao_url && ehGif(ex.video_demonstracao_url) ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={ex.video_demonstracao_url}
-              alt={ex.nome_exercicio}
-              className="media-native h-full w-full object-cover"
-            />
-            <span className="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink-950/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-200 backdrop-blur-sm">
-              <PlayCircle className="h-3 w-3 text-volt-300" /> Demonstração
-            </span>
-          </>
-        ) : ex.video_demonstracao_url ? (
-          <>
-            <video
-              src={ex.video_demonstracao_url}
-              poster={ex.imagem_demonstracao_url ?? undefined}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
-              className="media-native h-full w-full object-cover"
-            />
-            <span className="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink-950/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-200 backdrop-blur-sm">
-              <PlayCircle className="h-3 w-3 text-volt-300" /> Demonstração
-            </span>
-          </>
-        ) : ex.imagem_demonstracao_url ? (
-          <Image
-            src={ex.imagem_demonstracao_url}
-            alt={ex.nome_exercicio}
-            fill
-            sizes="(max-width: 480px) 100vw, 480px"
-            className="media-native object-cover"
-          />
-        ) : (
-          <div className="grid h-full place-items-center text-slate-600">
-            <Dumbbell className="h-10 w-10" />
-          </div>
-        )}
-        {realizado.concluido && (
-          <div className="absolute inset-0 grid place-items-center bg-ink-950/55">
-            <span className="chip border-volt-500/40 bg-volt-500/20 text-volt-200">
-              <Check className="h-3.5 w-3.5" /> Concluído
-            </span>
-          </div>
-        )}
+        <MidiaExercicio ex={ex} />
       </div>
 
       <div className="p-4">

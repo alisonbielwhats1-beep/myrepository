@@ -12,6 +12,8 @@ export type LinhaExercicio = {
   series: number;
   repeticoes: string;
   carga_kg: number;
+  descanso_segundos: number;
+  observacoes: string;
   imagem_demonstracao_url: string;
   video_demonstracao_url: string;
 };
@@ -21,6 +23,8 @@ const VAZIO: LinhaExercicio = {
   series: 3,
   repeticoes: "12",
   carga_kg: 0,
+  descanso_segundos: 60,
+  observacoes: "",
   imagem_demonstracao_url: "",
   video_demonstracao_url: "",
 };
@@ -69,6 +73,8 @@ export default function ExercicioBuilder({
       series: item.series_padrao,
       repeticoes: item.repeticoes_padrao,
       carga_kg: 0,
+      descanso_segundos: 60,
+      observacoes: "",
       imagem_demonstracao_url: item.imagem_demonstracao_url ?? "",
       video_demonstracao_url: item.video_demonstracao_url ?? "",
     });
@@ -162,7 +168,7 @@ export default function ExercicioBuilder({
               placeholder="Nome do exercício (ex: Supino reto)"
               className="inp"
             />
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <Campo label="Séries">
                 <input
                   type="number"
@@ -190,7 +196,28 @@ export default function ExercicioBuilder({
                   className="inp"
                 />
               </Campo>
+              <Campo label="Descanso (s)">
+                <input
+                  type="number"
+                  min={0}
+                  step="15"
+                  value={ex.descanso_segundos}
+                  onChange={(e) =>
+                    setEx(i, { descanso_segundos: Number(e.target.value) })
+                  }
+                  className="inp"
+                />
+              </Campo>
             </div>
+
+            <Campo label="Observações do professor (opcional)">
+              <input
+                value={ex.observacoes}
+                onChange={(e) => setEx(i, { observacoes: e.target.value })}
+                placeholder="Ex: descer devagar, sem travar o cotovelo"
+                className="inp"
+              />
+            </Campo>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <VideoUpload
