@@ -12,7 +12,6 @@ import {
   FileSpreadsheet,
   Heart,
   LogIn,
-  MessageCircle,
   Package,
   QrCode,
   ShieldCheck,
@@ -24,21 +23,19 @@ import Logo from "@/components/Logo";
 import SiteHeader from "@/components/site/SiteHeader";
 import HeroProduto from "@/components/site/HeroProduto";
 import FaqLista from "@/components/site/FaqLista";
-import {
-  PLANO_COMERCIAL_NOME,
-  PRECO_MENSAL_LABEL,
-  linkWhatsappComercial,
-} from "@/lib/site-config";
+import { PRECO_MENSAL_LABEL, linkWhatsappComercial } from "@/lib/site-config";
+
+const TITULO_SITE = "GestAcad | Sistema de gestão para academias";
+const DESCRICAO_SITE =
+  "Gerencie alunos, mensalidades, acessos, treinos, financeiro e resultados da sua academia em uma única plataforma.";
 
 export const metadata: Metadata = {
-  title: "GestAcad — Gestão completa para academias de bairro",
-  description:
-    "Gerencie alunos, mensalidades, acessos, treinos e financeiro em um sistema moderno criado para academias de bairro.",
+  title: TITULO_SITE,
+  description: DESCRICAO_SITE,
   alternates: { canonical: "/" },
   openGraph: {
-    title: "GestAcad — Gestão completa para academias de bairro",
-    description:
-      "Gerencie alunos, mensalidades, acessos, treinos e financeiro em um sistema moderno criado para academias de bairro.",
+    title: TITULO_SITE,
+    description: DESCRICAO_SITE,
     url: "/",
     siteName: "GestAcad",
     locale: "pt_BR",
@@ -46,9 +43,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "GestAcad — Gestão completa para academias de bairro",
-    description:
-      "Gerencie alunos, mensalidades, acessos, treinos e financeiro em um sistema moderno criado para academias de bairro.",
+    title: TITULO_SITE,
+    description: DESCRICAO_SITE,
   },
 };
 
@@ -210,7 +206,7 @@ export default function Home() {
           <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:py-24">
             <div className="animate-fade-up motion-reduce:animate-none">
               <span className="chip border-volt-500/30 bg-volt-500/10 text-volt-300">
-                Sistema completo para academias de bairro
+                Gestão completa para academias
               </span>
               <h1 className="mt-5 text-[2.1rem] font-bold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
                 Sua academia organizada.{" "}
@@ -220,22 +216,17 @@ export default function Home() {
               </h1>
               <p className="mt-5 max-w-xl text-base text-slate-300 sm:text-lg">
                 Controle alunos, mensalidades, acessos, treinos, financeiro e
-                estoque em um único sistema moderno e fácil de usar.
+                resultados em um único sistema.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <a href={HREF_DEMO} {...PROPS_DEMO} className="btn-volt !py-3 text-base">
-                  Quero conhecer o GestAcad
+                  Agendar demonstração
                 </a>
                 <a href="#funcionalidades" className="btn-ghost !py-3 text-base">
                   Ver como funciona
                 </a>
               </div>
-
-              <p className="mt-6 text-sm text-slate-400">
-                Implantação assistida · Suporte direto · Dados separados por
-                academia
-              </p>
             </div>
 
             <div className="animate-fade-up motion-reduce:animate-none lg:pb-12">
@@ -255,8 +246,8 @@ export default function Home() {
                 Menos planilhas, atrasos e tarefas manuais
               </h2>
               <p className="mt-3 text-slate-400">
-                Os problemas que mais aparecem no dia a dia de uma academia de
-                bairro — e como o GestAcad resolve cada um deles.
+                Os problemas que mais aparecem no dia a dia de uma academia — e
+                como o GestAcad resolve cada um deles.
               </p>
             </div>
 
@@ -556,26 +547,26 @@ export default function Home() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-                Um plano, todos os recursos
+                Um plano que acompanha o crescimento da sua academia
               </h2>
               <p className="mt-3 text-slate-400">
-                Todos os recursos do GestAcad em um único plano.
+                O valor é definido de acordo com a quantidade de alunos ativos e
+                as necessidades da operação.
               </p>
             </div>
 
             <div className="mx-auto mt-10 max-w-lg">
               <div className="surface-strong rounded-3xl border-volt-500/30 p-8 shadow-card">
-                <p className="text-sm font-semibold text-volt-300">
-                  {PLANO_COMERCIAL_NOME}
-                </p>
-                <p className="mt-1 text-sm text-slate-400">
-                  Gestão completa para sua academia
-                </p>
-                <p className="mt-5 flex items-baseline gap-1.5">
+                <p className="text-sm text-slate-400">Planos a partir de</p>
+                <p className="mt-1 flex items-baseline gap-1.5">
                   <span className="text-4xl font-bold tracking-tight text-white">
                     {PRECO_MENSAL_LABEL}
                   </span>
                   <span className="text-sm text-slate-400">/mês</span>
+                </p>
+                <p className="mt-3 text-sm text-slate-400">
+                  Agende uma demonstração e conheça a melhor configuração para
+                  sua academia.
                 </p>
 
                 <ul className="mt-7 space-y-2.5">
@@ -591,8 +582,18 @@ export default function Home() {
                 </ul>
 
                 <a href={HREF_DEMO} {...PROPS_DEMO} className="btn-volt mt-8 w-full !py-3">
-                  Solicitar demonstração
+                  Agendar demonstração
                 </a>
+
+                <p className="mt-5 text-xs leading-relaxed text-slate-500">
+                  O valor pode variar de acordo com a quantidade de alunos
+                  ativos, integrações e serviços contratados.
+                </p>
+                <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                  Integrações específicas, equipamentos de acesso, mensagens
+                  automatizadas e serviços personalizados podem possuir
+                  condições adicionais.
+                </p>
               </div>
             </div>
           </div>
@@ -606,9 +607,9 @@ export default function Home() {
             </h2>
             <p className="mt-4 leading-relaxed text-slate-400">
               O GestAcad está sendo desenvolvido e validado junto à rotina real
-              de academias de bairro, priorizando simplicidade, suporte e
-              melhoria contínua. Preferimos mostrar o sistema funcionando a
-              exibir números que ainda não temos.
+              de academias, priorizando simplicidade, suporte e melhoria
+              contínua. Preferimos mostrar o sistema funcionando a exibir
+              números que ainda não temos.
             </p>
           </div>
         </section>
@@ -652,16 +653,10 @@ export default function Home() {
                   rel="noopener noreferrer"
                   className="btn-volt !py-3 text-base"
                 >
-                  Solicitar demonstração
+                  Agendar demonstração
                 </a>
-                <a
-                  href={linkWhatsappComercial}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-ghost !py-3 text-base"
-                >
-                  <MessageCircle className="h-4 w-4" aria-hidden="true" /> Falar
-                  pelo WhatsApp
+                <a href="#funcionalidades" className="btn-ghost !py-3 text-base">
+                  Ver como funciona
                 </a>
               </div>
             ) : (
@@ -690,8 +685,8 @@ export default function Home() {
               <div className="max-w-xs">
                 <Logo />
                 <p className="mt-3 text-sm leading-relaxed text-slate-400">
-                  Gestão completa para academias de bairro: alunos,
-                  mensalidades, acessos, treinos e financeiro em um só lugar.
+                  Gestão completa para academias: alunos, mensalidades,
+                  acessos, treinos e financeiro em um só lugar.
                 </p>
               </div>
 

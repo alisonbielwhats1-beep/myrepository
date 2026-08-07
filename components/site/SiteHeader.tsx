@@ -82,7 +82,7 @@ export default function SiteHeader({
             {...propsDemo}
             className="btn-volt hidden !py-2 text-sm md:inline-flex"
           >
-            Solicitar demonstração
+            Agendar demonstração
           </a>
 
           <button
@@ -128,7 +128,7 @@ export default function SiteHeader({
               onClick={() => setAberto(false)}
               className="btn-volt w-full"
             >
-              Solicitar demonstração
+              Agendar demonstração
             </a>
             <Link
               href="/login"

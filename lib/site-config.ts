@@ -33,5 +33,5 @@ export const linkWhatsappComercial = WHATSAPP_COMERCIAL
  * administrativo interno — este aqui é o valor de vitrine, confirmado
  * explicitamente para a landing page.
  */
-export const PRECO_MENSAL_LABEL = "R$ 99";
+export const PRECO_MENSAL_LABEL = "R$ 99,90";
 export const PLANO_COMERCIAL_NOME = "GestAcad Premium";

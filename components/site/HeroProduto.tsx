@@ -91,7 +91,7 @@ export default function HeroProduto() {
       <div className="mt-4 flex justify-center lg:absolute lg:-bottom-10 lg:-right-6 lg:mt-0 lg:justify-end">
         <div className="w-[190px] rounded-[1.75rem] border border-ink-600 bg-ink-900 p-2.5 shadow-card sm:w-[210px]">
           <div className="rounded-[1.35rem] bg-ink-950 p-3.5">
-            <p className="text-[10px] text-slate-400">Academia Bairro Novo</p>
+            <p className="text-[10px] text-slate-400">Academia Movimento</p>
             <p className="text-sm font-bold text-white">Olá, Marina 👋</p>
 
             {/* QR — credencial apresentada à recepção */}
