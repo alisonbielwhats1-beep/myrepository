@@ -15,8 +15,21 @@ const TITULO_SEO = "GestAcad | Sistema de gestão para academias";
 const DESCRICAO_SEO =
   "Gerencie alunos, mensalidades, acessos, treinos, financeiro e resultados da sua academia em uma única plataforma.";
 
+// Origem pública canônica do site (metadataBase + og:url). Mesma variável que
+// lib/site-url.ts e lib/actions/auth.ts já usam, para os links compartilhados,
+// o app do aluno e o e-mail de reset apontarem todos para a MESMA origem. Sem
+// NEXT_PUBLIC_SITE_URL, cai na URL de produção que a Vercel injeta sozinha
+// (VERCEL_PROJECT_PRODUCTION_URL) — que é um domínio que existe — e só então no
+// domínio final. Assim o preview de compartilhamento nunca aponta para um
+// domínio sem DNS.
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "") ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "https://gestacad.com.br");
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://gestacad.com.br"),
+  metadataBase: new URL(SITE_URL),
   title: TITULO_SEO,
   description: DESCRICAO_SEO,
   manifest: "/manifest.json",
@@ -28,7 +41,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: TITULO_SEO,
     description: DESCRICAO_SEO,
-    url: "https://gestacad.com.br",
+    url: SITE_URL,
     siteName: "GestAcad",
     locale: "pt_BR",
     type: "website",
