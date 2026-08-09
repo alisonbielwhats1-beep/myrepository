@@ -9,11 +9,16 @@ const inter = Inter({
   display: "swap",
 });
 
+// Fallback de todas as rotas (a landing sobrescreve em app/page.tsx). Mesmo
+// título e descrição, para a marca aparecer igual em qualquer compartilhamento.
+const TITULO_SEO = "GestAcad | Sistema de gestão para academias";
+const DESCRICAO_SEO =
+  "Gerencie alunos, mensalidades, acessos, treinos, financeiro e resultados da sua academia em uma única plataforma.";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://gestacad.com.br"),
-  title: "GestAcad — Gestão de Academias",
-  description:
-    "SaaS multi-tenant (PWA) para academias: treinos, catraca e inteligência de negócio.",
+  title: TITULO_SEO,
+  description: DESCRICAO_SEO,
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -21,8 +26,8 @@ export const metadata: Metadata = {
     title: "GestAcad",
   },
   openGraph: {
-    title: "GestAcad — Gestão de Academias",
-    description: "SaaS multi-tenant (PWA) para academias: treinos, catraca e inteligência de negócio.",
+    title: TITULO_SEO,
+    description: DESCRICAO_SEO,
     url: "https://gestacad.com.br",
     siteName: "GestAcad",
     locale: "pt_BR",
@@ -30,8 +35,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "GestAcad — Gestão de Academias",
-    description: "SaaS multi-tenant (PWA) para academias: treinos, catraca e inteligência de negócio.",
+    title: TITULO_SEO,
+    description: DESCRICAO_SEO,
   },
 };
 

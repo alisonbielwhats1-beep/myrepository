@@ -17,6 +17,9 @@ import {
   ConfigRepasseParceiro,
   Despesa,
   Feedback,
+  FeedbackDoAluno,
+  Atendimento,
+  AtendimentoDoAluno,
   FichaAlunoPublica,
   FiltroAcessos,
   FiltroAlunos,
@@ -162,6 +165,35 @@ export async function getAlunosResumo(academiaId: string): Promise<Aluno[]> {
     .order("nome", { ascending: true });
   if (error) throw new Error(`Falha ao carregar alunos: ${error.message}`);
   return (data as Aluno[]) ?? [];
+}
+
+/**
+ * Telefones de um conjunto específico de alunos, para os botões de WhatsApp do
+ * Dashboard. Traz só id+telefone (a RPC de retenção não devolve telefone) em
+ * vez de carregar a lista inteira de alunos só por causa disso.
+ *
+ * Sempre filtrado por academia_id além do `in`: os ids vêm de uma consulta já
+ * tenant-scoped, mas repetir o filtro é a defesa em profundidade que o resto
+ * do arquivo usa. Lista vazia devolve mapa vazio sem ir ao banco.
+ */
+export async function getTelefonesDosAlunos(
+  academiaId: string,
+  alunoIds: string[]
+): Promise<Map<string, string | null>> {
+  if (alunoIds.length === 0) return new Map();
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("alunos")
+    .select("id, telefone")
+    .eq("academia_id", academiaId)
+    .in("id", alunoIds);
+  if (error) throw new Error(`Falha ao carregar telefones: ${error.message}`);
+  return new Map(
+    ((data as { id: string; telefone: string | null }[]) ?? []).map((a) => [
+      a.id,
+      a.telefone,
+    ])
+  );
 }
 
 /** Contagem de alunos (total e ativos) sem transferir nenhuma linha — só o
@@ -1229,6 +1261,67 @@ export async function getFeedbacks(academiaId: string): Promise<Feedback[]> {
     .order("criado_em", { ascending: false });
   if (error) throw new Error(`Falha ao carregar feedbacks: ${error.message}`);
   return (data as Feedback[]) ?? [];
+}
+
+/**
+ * Atendimentos da academia com o histórico de mensagens de cada um
+ * (migration 058). Tenant-scoped por academia_id, com a RLS por trás.
+ * Uma consulta só: o embed traz as mensagens junto, sem N+1 por ticket.
+ */
+export async function getAtendimentos(
+  academiaId: string
+): Promise<Atendimento[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("atendimentos")
+    .select(
+      "*, aluno:alunos(id, nome), mensagens:atendimento_mensagens(id, autor_tipo, autor_nome, mensagem, criado_em)"
+    )
+    .eq("academia_id", academiaId)
+    .order("atualizado_em", { ascending: false });
+  if (error) throw new Error(`Falha ao carregar atendimentos: ${error.message}`);
+
+  // O embed do PostgREST não garante ordem do filho: ordena aqui para a
+  // conversa aparecer sempre do mais antigo para o mais recente.
+  return ((data as Atendimento[]) ?? []).map((t) => ({
+    ...t,
+    mensagens: [...(t.mensagens ?? [])].sort((a, b) =>
+      a.criado_em.localeCompare(b.criado_em)
+    ),
+  }));
+}
+
+/**
+ * Feedbacks do próprio aluno, com a resposta da academia, via RPC resolvida
+ * por token + slug (migration 057). Mesmo padrão de getFichaAlunoPublica.
+ */
+export async function getFeedbacksDoAluno(
+  token: string,
+  slug: string
+): Promise<FeedbackDoAluno[]> {
+  if (!tokenTemFormatoValido(token)) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_feedbacks_aluno", {
+    p_token: token,
+    p_slug: slug,
+  });
+  if (error) throw new Error(`Falha ao carregar seus feedbacks: ${error.message}`);
+  return (data as FeedbackDoAluno[]) ?? [];
+}
+
+/** Atendimentos do próprio aluno, com histórico, via RPC (migration 058). */
+export async function getAtendimentosDoAluno(
+  token: string,
+  slug: string
+): Promise<AtendimentoDoAluno[]> {
+  if (!tokenTemFormatoValido(token)) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_atendimentos_aluno", {
+    p_token: token,
+    p_slug: slug,
+  });
+  if (error) throw new Error(`Falha ao carregar seus atendimentos: ${error.message}`);
+  return (data as AtendimentoDoAluno[]) ?? [];
 }
 
 /** Perfis (equipe) da academia. */

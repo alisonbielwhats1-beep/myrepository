@@ -12,6 +12,7 @@
 /.test-build-val
 /.test-build-aluno
 /.test-build-pag
+/.test-build-faixas
 
 # next.js
 /.next/

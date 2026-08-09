@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertTriangle, ArrowUpRight, UserX } from "lucide-react";
 import { formatBRL } from "@/lib/utils";
 import BotaoCobrancaWhats from "@/components/painel/BotaoCobrancaWhats";
+import BotaoReativacaoWhats from "@/components/painel/BotaoReativacaoWhats";
 
 export interface AlertaInadimplente {
   alunoId: string;
@@ -18,6 +19,9 @@ export interface AlertaSumido {
   ultimoAcesso: string | null; // ISO date, null = nunca veio
   /** Texto vindo de classificarRetencao — evita repetir a regra aqui. */
   explicacao: string;
+  telefone?: string | null;
+  /** Vem de classificarRetencao; null quando o aluno nunca acessou. */
+  diasSemAcesso?: number | null;
 }
 
 /** Painel de alertas: inadimplência e alunos que sumiram da academia. */
@@ -107,9 +111,24 @@ export default function AlertasPainel({
         ) : (
           <ul className="divide-y divide-ink-700/70">
             {sumidos.slice(0, 8).map((a) => (
-              <li key={a.alunoId} className="flex items-center justify-between gap-3 py-3">
-                <p className="truncate text-sm font-medium text-white">{a.nome}</p>
-                <span className="flex-none text-xs text-slate-500">{a.explicacao}</span>
+              <li key={a.alunoId} className="flex items-center justify-between gap-2 py-3">
+                {/* Mesma estrutura do item de inadimplente: nome + motivo
+                    empilhados à esquerda, ação à direita. Mantém a explicação
+                    (dias sem acesso) visível, agora sem disputar a linha. */}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-white">{a.nome}</p>
+                  <p className="text-xs text-amber-400">{a.explicacao}</p>
+                </div>
+                <div className="flex-none">
+                  <BotaoReativacaoWhats
+                    nome={a.nome}
+                    telefone={a.telefone}
+                    academia={academiaNome ?? "sua academia"}
+                    diasSemAcesso={a.diasSemAcesso ?? null}
+                    compacto
+                    isDemo={isDemo}
+                  />
+                </div>
               </li>
             ))}
           </ul>

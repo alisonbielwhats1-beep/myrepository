@@ -63,12 +63,24 @@ export function mensagemAniversario(nome: string, academia: string): string {
   );
 }
 
-/** Mensagem de retenção — botão de WhatsApp do alerta "aluno sem acesso". */
-export function mensagemAusencia(nome: string, academia: string, dias: number): string {
+/**
+ * Mensagem de retenção — botão de WhatsApp do alerta "aluno sem acesso" e da
+ * reativação de alunos sumidos no Dashboard.
+ *
+ * `dias` aceita null porque o aluno pode estar sumido sem NUNCA ter acessado
+ * (classificarRetencao devolve diasSemAcesso = null nesse caso). Escrever
+ * "há null dias" seria pior do que omitir o número.
+ */
+export function mensagemAusencia(
+  nome: string,
+  academia: string,
+  dias: number | null
+): string {
   const primeiroNome = nome.split(" ")[0];
+  const tempo = dias && dias > 0 ? `há ${dias} dias` : "faz um tempo";
   return (
     `Olá, ${primeiroNome}! 👋\n\n` +
-    `Notamos que você não aparece na ${academia} há ${dias} dias. Sentimos sua falta — ` +
+    `Notamos que você não aparece na ${academia} ${tempo}. Sentimos sua falta — ` +
     `precisa de ajuda com algo?`
   );
 }

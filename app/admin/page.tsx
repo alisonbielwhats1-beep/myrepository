@@ -1,25 +1,18 @@
-import { redirect } from "next/navigation";
-import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import Link from "next/link";
+import { createServiceRoleClient } from "@/lib/supabase/server";
+import { requireAdminPlataforma } from "@/lib/admin-plataforma";
 import { PLANOS_SAAS } from "@/lib/planos";
+import { rotuloFaixaSugerida } from "@/lib/faixas-comerciais";
+import { FaixaComercial } from "@/lib/types";
 import { sairAction } from "@/lib/actions/auth";
 import NovaAcademiaModal from "./NovaAcademiaModal";
 import AcademiaLista from "./AcademiaLista";
-import { LogOut } from "lucide-react";
+import { LogOut, Tags } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const adminEmails = (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase());
-
-  if (!adminEmails.includes(user.email?.toLowerCase() ?? "")) {
-    redirect("/painel");
-  }
+  const { email: emailAdmin } = await requireAdminPlataforma();
 
   const admin = createServiceRoleClient();
   const { data: academiasDados } = await admin
@@ -52,6 +45,50 @@ export default async function AdminPage() {
     ).length,
   }));
 
+  // ---------------------------------------------------------------------------
+  // Faixa comercial sugerida (migration 056) — RECOMENDAÇÃO de leitura para a
+  // conversa comercial. Nada aqui altera plano, contrato ou cobrança.
+  //
+  // A contagem usa `count: "exact", head: true` por academia, o mesmo idioma de
+  // getContagemAlunos (lib/data.ts). Um `select("academia_id")` agregando no
+  // cliente seria mais barato em queries, mas o PostgREST corta a resposta em
+  // 1000 linhas por padrão e a contagem sairia silenciosamente errada.
+  //
+  // Enquanto a migration 056 não for aplicada, `faixas` fica vazia e a coluna
+  // simplesmente não aparece — a página continua funcionando igual.
+  // ---------------------------------------------------------------------------
+  const { data: faixasDados } = await admin
+    .from("faixas_comerciais")
+    .select("*")
+    .eq("ativo", true)
+    .order("ordem");
+
+  const faixas = (faixasDados ?? []) as FaixaComercial[];
+
+  const ativosPorAcademia = new Map<string, number>();
+  if (faixas.length > 0 && academias.length > 0) {
+    const contagens = await Promise.all(
+      academias.map(async (a) => {
+        const { count } = await admin
+          .from("alunos")
+          .select("id", { count: "exact", head: true })
+          .eq("academia_id", a.id)
+          .eq("status_matricula", "ativa");
+        return [a.id, count ?? 0] as const;
+      })
+    );
+    for (const [id, total] of contagens) ativosPorAcademia.set(id, total);
+  }
+
+  const academiasComFaixa = academias.map((a) => ({
+    ...a,
+    alunos_ativos: ativosPorAcademia.get(a.id) ?? null,
+    faixa_sugerida:
+      faixas.length > 0
+        ? rotuloFaixaSugerida(ativosPorAcademia.get(a.id) ?? 0, faixas)
+        : null,
+  }));
+
   return (
     <div className="min-h-screen bg-ink-950 p-6 text-white">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -61,10 +98,17 @@ export default async function AdminPage() {
           <div>
             <h1 className="text-2xl font-bold text-white">Admin GestAcad</h1>
             <p className="text-sm text-slate-400">
-              Painel interno — acesso restrito · {user.email}
+              Painel interno — acesso restrito · {emailAdmin}
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              href="/admin/planos"
+              className="flex items-center gap-2 rounded-xl border border-ink-600 bg-ink-800 px-3 py-2 text-sm text-slate-300 transition-colors hover:border-volt-500/40 hover:text-volt-300"
+            >
+              <Tags className="h-4 w-4" />
+              Planos e preços
+            </Link>
             <NovaAcademiaModal />
             <span className="chip border-magenta-500/30 bg-magenta-500/10 text-magenta-300 text-xs font-semibold uppercase tracking-wide">
               Super Admin
@@ -121,7 +165,7 @@ export default async function AdminPage() {
         </div>
 
         {/* Tabela */}
-        <AcademiaLista academias={academias} />
+        <AcademiaLista academias={academiasComFaixa} />
 
         <p className="text-center text-xs text-slate-600">
           Alterações no plano têm efeito imediato · Remoção exclui academia e

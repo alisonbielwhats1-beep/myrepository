@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getFichaAlunoPublica } from "@/lib/data";
 
@@ -59,5 +60,90 @@ export async function enviarFeedback(
   });
 
   if (error) return { erro: `Não foi possível enviar: ${error.message}` };
+  return { ok: true, savedAt: Date.now() };
+}
+
+/**
+ * Abre um atendimento (migration 058).
+ *
+ * A RPC `abrir_atendimento` resolve aluno e academia por token+slug DENTRO do
+ * banco — nenhum id vem do formulário. Mesmo rate-limit por IP+token do
+ * feedback, porque este endpoint também é acessível sem login.
+ */
+export async function abrirAtendimento(
+  slug: string,
+  token: string,
+  _estado: EstadoFeedback,
+  formData: FormData
+): Promise<EstadoFeedback> {
+  const categoria = String(formData.get("categoria") ?? "").trim();
+  const assunto = String(formData.get("assunto") ?? "").trim();
+  const mensagem = String(formData.get("mensagem") ?? "").trim();
+
+  if (!categoria) return { erro: "Escolha uma categoria." };
+  if (!assunto) return { erro: "Escreva o assunto." };
+  if (!mensagem) return { erro: "Escreva sua mensagem." };
+  if (assunto.length > 120) return { erro: "O assunto deve ter no máximo 120 caracteres." };
+  if (mensagem.length > 2000) return { erro: "A mensagem deve ter no máximo 2000 caracteres." };
+
+  const supabase = createClient();
+
+  const { data: liberado } = await supabase.rpc("acao_permitida", {
+    p_chave: `at:${token}:${ipCliente()}`,
+    p_max: 5,
+    p_janela_seg: 300,
+  });
+  if (liberado === false) {
+    return { erro: "Muitos envios em pouco tempo. Tente novamente em alguns minutos." };
+  }
+
+  const { error } = await supabase.rpc("abrir_atendimento", {
+    p_token: token,
+    p_slug: slug,
+    p_categoria: categoria,
+    p_assunto: assunto,
+    p_mensagem: mensagem,
+  });
+  if (error) return { erro: `Não foi possível abrir a solicitação: ${error.message}` };
+
+  revalidatePath(`/aluno/${slug}/${token}/atendimento`);
+  return { ok: true, savedAt: Date.now() };
+}
+
+/**
+ * Aluno responde um atendimento dele. A RPC amarra o ticket ao aluno do token:
+ * mandar o id de outro aluno não encontra linha e levanta exceção no banco.
+ */
+export async function responderAtendimentoAluno(
+  slug: string,
+  token: string,
+  atendimentoId: string,
+  _estado: EstadoFeedback,
+  formData: FormData
+): Promise<EstadoFeedback> {
+  const mensagem = String(formData.get("mensagem") ?? "").trim();
+  if (!mensagem) return { erro: "Escreva sua mensagem." };
+  if (mensagem.length > 2000) return { erro: "A mensagem deve ter no máximo 2000 caracteres." };
+
+  const supabase = createClient();
+
+  const { data: liberado } = await supabase.rpc("acao_permitida", {
+    p_chave: `at:${token}:${ipCliente()}`,
+    p_max: 10,
+    p_janela_seg: 300,
+  });
+  if (liberado === false) {
+    return { erro: "Muitos envios em pouco tempo. Tente novamente em alguns minutos." };
+  }
+
+  const { error } = await supabase.rpc("responder_atendimento_aluno", {
+    p_token: token,
+    p_slug: slug,
+    p_atendimento_id: atendimentoId,
+    p_mensagem: mensagem,
+  });
+  if (error) return { erro: `Não foi possível enviar: ${error.message}` };
+
+  revalidatePath(`/aluno/${slug}/${token}/atendimento`);
   return { ok: true, savedAt: Date.now() };
 }

@@ -19,6 +19,10 @@ type AcademiaRow = {
   alunos: unknown;
   perfis: unknown;
   donos?: unknown;
+  /** null enquanto a migration 056 não estiver aplicada. */
+  alunos_ativos?: number | null;
+  /** Recomendação de leitura, nunca aplicada automaticamente (migration 056). */
+  faixa_sugerida?: string | null;
 };
 
 /** Escolhe o login "principal" da academia: papel 'dono' e mais antigo. */
@@ -34,6 +38,10 @@ function emailDoDono(donos: unknown): string {
 
 export default function AcademiaLista({ academias }: { academias: AcademiaRow[] }) {
   const [busca, setBusca] = useState("");
+
+  // A coluna de faixa comercial só existe depois que a migration 056 é
+  // aplicada. Sem ela, a tabela fica exatamente como era antes.
+  const temFaixas = academias.some((a) => a.faixa_sugerida != null);
 
   const filtradas = busca
     ? academias.filter(
@@ -73,13 +81,19 @@ export default function AcademiaLista({ academias }: { academias: AcademiaRow[] 
               <th className="px-5 py-3 font-medium">Usuários</th>
               <th className="px-5 py-3 font-medium">Cadastro</th>
               <th className="px-5 py-3 font-medium">Plano</th>
+              {temFaixas && (
+                <th className="px-5 py-3 font-medium">Faixa sugerida</th>
+              )}
               <th className="px-5 py-3 font-medium">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-700/70">
             {filtradas.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-5 py-10 text-center text-slate-500">
+                <td
+                  colSpan={temFaixas ? 8 : 7}
+                  className="px-5 py-10 text-center text-slate-500"
+                >
                   {busca
                     ? `Nenhuma academia encontrada para "${busca}".`
                     : "Nenhuma academia cadastrada."}
@@ -112,6 +126,21 @@ export default function AcademiaLista({ academias }: { academias: AcademiaRow[] 
                   <td className="px-5 py-3">
                     <PlanoSelect academiaId={a.id} planoAtual={plano} />
                   </td>
+                  {temFaixas && (
+                    <td className="px-5 py-3">
+                      {/* Somente leitura: sugestão para a conversa comercial.
+                          Mudar de faixa é decisão humana, nunca automática. */}
+                      <span className="text-xs text-slate-400">
+                        {a.faixa_sugerida ?? "—"}
+                      </span>
+                      {a.alunos_ativos != null && (
+                        <span className="mt-0.5 block text-[11px] tabular-nums text-slate-600">
+                          {a.alunos_ativos} ativo
+                          {a.alunos_ativos === 1 ? "" : "s"}
+                        </span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-1">
                       <CopiarLinkBtn slug={a.slug_url} />

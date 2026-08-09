@@ -78,13 +78,10 @@ export default function PlanoSaasCard({
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-lg font-bold text-white">
-                R${" "}
-                <span className="tabular-nums">
-                  {p.preco.toFixed(2).replace(".", ",")}
-                </span>
-                <span className="text-xs font-normal text-slate-500">/mês</span>
-              </p>
+              {/* Valor comercial não aparece para o cliente: condição depende
+                  da quantidade de alunos ativos e do que a operação contrata,
+                  e quem negocia isso é o comercial. A tabela interna fica em
+                  /admin/planos, só para o superadministrador. */}
               <ul className="mt-3 space-y-1.5">
                 {FEATURES.filter(
                   (f) => ORDEM.indexOf(f.plano) <= ORDEM.indexOf(p.value)
@@ -102,7 +99,8 @@ export default function PlanoSaasCard({
 
       {planoAtual !== "premium" && (
         <p className="mt-4 text-center text-xs text-slate-500">
-          Para fazer upgrade, entre em contato pelo WhatsApp ou e-mail.{" "}
+          Para fazer upgrade e conhecer as condições, entre em contato pelo
+          WhatsApp ou e-mail.{" "}
           <span className="text-volt-400">Cancele quando quiser.</span>
         </p>
       )}

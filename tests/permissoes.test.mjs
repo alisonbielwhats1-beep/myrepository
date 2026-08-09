@@ -21,8 +21,8 @@ function check(nome, cond, detalhe = "") {
 
 const TODAS_SECOES = [
   "dashboard", "recepcao", "alunos", "treinos", "funcionarios", "loja",
-  "financeiro", "feedback", "relatorios", "retencao", "configuracoes",
-  "integracoes", "equipe",
+  "financeiro", "feedback", "atendimento", "relatorios", "retencao",
+  "configuracoes", "integracoes", "equipe",
 ];
 
 console.log("\n1. Dono acessa toda a área administrativa");
@@ -34,7 +34,7 @@ console.log("\n1. Dono acessa toda a área administrativa");
 
 console.log("\n2. Gerente: operação e relatórios, nunca propriedade/config crítica");
 {
-  for (const secao of ["dashboard", "recepcao", "alunos", "treinos", "loja", "funcionarios", "retencao", "relatorios", "feedback"]) {
+  for (const secao of ["dashboard", "recepcao", "alunos", "treinos", "loja", "funcionarios", "retencao", "relatorios", "feedback", "atendimento"]) {
     check(`gerente -> ${secao} liberado`, podeAcessar("gerente", secao) === true);
   }
   for (const secao of ["financeiro", "configuracoes", "integracoes", "equipe"]) {
@@ -44,7 +44,8 @@ console.log("\n2. Gerente: operação e relatórios, nunca propriedade/config cr
 
 console.log("\n3. Recepcionista: recepção e alunos, sem DRE/config/equipe");
 {
-  for (const secao of ["dashboard", "recepcao", "alunos", "treinos", "loja"]) {
+  // Recepção atende aluno o dia inteiro: "atendimento" é o trabalho dela.
+  for (const secao of ["dashboard", "recepcao", "alunos", "treinos", "loja", "atendimento"]) {
     check(`recepcao -> ${secao} liberado`, podeAcessar("recepcao", secao) === true);
   }
   for (const secao of ["financeiro", "configuracoes", "integracoes", "equipe", "funcionarios", "retencao", "relatorios"]) {
@@ -57,7 +58,7 @@ console.log("\n4. Professor (instrutor): treinos e alunos, sem financeiro/config
   for (const secao of ["dashboard", "recepcao", "alunos", "treinos"]) {
     check(`instrutor -> ${secao} liberado`, podeAcessar("instrutor", secao) === true);
   }
-  for (const secao of ["financeiro", "configuracoes", "integracoes", "equipe", "funcionarios", "retencao", "relatorios", "loja"]) {
+  for (const secao of ["financeiro", "configuracoes", "integracoes", "equipe", "funcionarios", "retencao", "relatorios", "loja", "atendimento", "feedback"]) {
     check(`instrutor -> ${secao} bloqueado`, podeAcessar("instrutor", secao) === false);
   }
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Lock, Zap } from "lucide-react";
-import { PlanoSaas, PLANOS_SAAS, labelPlano } from "@/lib/planos";
+import { PlanoSaas, labelPlano } from "@/lib/planos";
 
 interface Props {
   recurso: string;
@@ -20,7 +20,6 @@ export default function UpgradeGuard({
 }: Props) {
   const planoLabel = labelPlano(planoNecessario);
   const planoAtualLabel = labelPlano(planoAtual);
-  const precoPlano = PLANOS_SAAS.find((p) => p.value === planoNecessario)?.preco ?? 0;
 
   return (
     <div className="flex min-h-[50vh] items-center justify-center p-6">
@@ -34,16 +33,14 @@ export default function UpgradeGuard({
             `Você está no plano ${planoAtualLabel}. Este recurso está disponível a partir do plano ${planoLabel}.`}
         </p>
 
+        {/* Sem valor aqui: a condição depende da quantidade de alunos ativos e
+            do que a operação contrata. Quem apresenta o preço é o comercial. */}
         <div className="my-6 rounded-xl border border-volt-500/30 bg-volt-500/5 p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-volt-400">
-            Plano {planoLabel}
+            Disponível no plano {planoLabel}
           </p>
-          <p className="mt-1 text-2xl font-bold text-white">
-            R${" "}
-            <span className="tabular-nums">
-              {precoPlano.toFixed(2).replace(".", ",")}
-            </span>
-            <span className="text-base font-normal text-slate-400">/mês</span>
+          <p className="mt-1 text-sm text-slate-400">
+            Fale com a gente para conhecer as condições da sua academia.
           </p>
         </div>
 

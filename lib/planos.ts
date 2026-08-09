@@ -25,6 +25,10 @@ const RECURSOS: Record<PlanoSaas, string[]> = {
     "alunos",
     "treinos",
     "configuracoes",
+    // Canal de comunicação com o aluno: liberado em todos os planos de
+    // propósito. Transformar atendimento em item pago é decisão comercial,
+    // não técnica — se um dia for, basta tirar daqui.
+    "atendimento",
   ],
   profissional: [
     "dashboard",
@@ -38,6 +42,7 @@ const RECURSOS: Record<PlanoSaas, string[]> = {
     "retencao",
     "loja",
     "feedback",
+    "atendimento",
     "relatorios",
     "integracoes",
   ],
@@ -53,6 +58,7 @@ const RECURSOS: Record<PlanoSaas, string[]> = {
     "retencao",
     "loja",
     "feedback",
+    "atendimento",
     "relatorios",
     "integracoes",
   ],

@@ -36,6 +36,7 @@ import {
   getReceitasJanela,
   getDespesasJanela,
   getContagemAlunos,
+  getTelefonesDosAlunos,
   getContagemAlunosCriadosEntre,
   getEvolucaoAlunosContagem,
   getMensalidadesVencidas,
@@ -174,7 +175,21 @@ export default async function DashboardOverviewPage({
       nome: x.linha.nome,
       ultimoAcesso: x.ultimoAcesso,
       explicacao: x.explicacao,
+      diasSemAcesso: x.diasSemAcesso,
     }));
+
+  // Telefones só dos sumidos que o painel realmente exibe (o card corta em 8),
+  // para o botão de reativação por WhatsApp. A RPC de retenção não devolve
+  // telefone e não vale alterá-la só por isso.
+  const sumidosExibidos = sumidos.slice(0, 8);
+  const telefonesSumidos = await getTelefonesDosAlunos(
+    sessao.academia.id,
+    sumidosExibidos.map((s) => s.alunoId)
+  );
+  const sumidosComContato = sumidosExibidos.map((s) => ({
+    ...s,
+    telefone: telefonesSumidos.get(s.alunoId) ?? null,
+  }));
 
   const totalAlunos = contagemAlunos.total;
   const alunosAtivos = contagemAlunos.ativos;
@@ -457,7 +472,7 @@ export default async function DashboardOverviewPage({
       <AlertasPainel
         slug={params.slug}
         inadimplentes={inadimplentes}
-        sumidos={sumidos}
+        sumidos={sumidosComContato}
         academiaNome={sessao.academia.nome_fantasia}
         isDemo={sessao.academia.is_demo}
       />

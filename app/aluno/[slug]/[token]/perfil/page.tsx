@@ -6,6 +6,7 @@ import {
   FileText,
   Lock,
   MessageSquare,
+  MessagesSquare,
   Ruler,
   ShieldCheck,
   ShoppingBag,
@@ -145,6 +146,11 @@ export default async function PerfilPage({
           inferior fixa no Bloco 2) e documentos legais do piloto. */}
       <div className="surface divide-y divide-ink-600/60 overflow-hidden rounded-2xl">
         <LinkSecundario href={`/aluno/${params.slug}/${params.token}/loja`} icon={ShoppingBag} label="Loja" />
+        <LinkSecundario
+          href={`/aluno/${params.slug}/${params.token}/atendimento`}
+          icon={MessagesSquare}
+          label="Fale com a academia"
+        />
         <LinkSecundario
           href={`/aluno/${params.slug}/${params.token}/feedback`}
           icon={MessageSquare}

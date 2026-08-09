@@ -13,6 +13,7 @@ export type Secao =
   | "loja"
   | "financeiro"
   | "feedback"
+  | "atendimento"
   | "relatorios"
   | "retencao"
   | "configuracoes"
@@ -33,8 +34,11 @@ const PERMISSOES: Record<Papel, Secao[] | "all"> = {
     "retencao",
     "relatorios",
     "feedback",
+    "atendimento",
   ],
-  recepcao: ["dashboard", "recepcao", "alunos", "treinos", "loja"],
+  // Recepção fala com aluno o dia inteiro: atender dúvida e solicitação é
+  // exatamente o trabalho dela.
+  recepcao: ["dashboard", "recepcao", "alunos", "treinos", "loja", "atendimento"],
   instrutor: ["dashboard", "recepcao", "alunos", "treinos"],
 };
 

@@ -206,6 +206,31 @@ export interface Plano {
   atualizado_em: string;
 }
 
+/**
+ * Faixa de preço por quantidade de alunos ativos (migration 056).
+ *
+ * NÃO confundir com `Plano` (o que a academia vende ao aluno dela) nem com
+ * `PlanoSaas` (tier de funcionalidade). Esta é referência interna do processo
+ * comercial do GestAcad, visível só para o superadministrador da plataforma.
+ */
+export interface FaixaComercial {
+  id: string;
+  nome: string;
+  alunos_min: number;
+  /** null = faixa sem teto. */
+  alunos_max: number | null;
+  preco_mensal: number;
+  ativo: boolean;
+  /** Nasce false: a landing pública nunca exibe a tabela completa. */
+  publico: boolean;
+  disponivel_novos_clientes: boolean;
+  ordem: number;
+  descricao_interna: string | null;
+  observacoes_comerciais: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
 export interface Aluno {
   id: string;
   academia_id: string;
@@ -479,6 +504,16 @@ export interface ProdutoPublico {
   destaque: boolean;
 }
 
+/** Fila de tratamento do feedback (migration 057). Independente de `lido`. */
+export type StatusFeedback = "novo" | "em_analise" | "respondido" | "concluido";
+
+export const STATUS_FEEDBACK: { value: StatusFeedback; label: string }[] = [
+  { value: "novo", label: "Novo" },
+  { value: "em_analise", label: "Em análise" },
+  { value: "respondido", label: "Respondido" },
+  { value: "concluido", label: "Concluído" },
+];
+
 export interface Feedback {
   id: string;
   academia_id: string;
@@ -489,7 +524,101 @@ export interface Feedback {
   lido: boolean;
   criado_em: string;
   aluno?: Pick<Aluno, "id" | "nome"> | null;
+  /** Migration 057 — tratamento pela academia. */
+  status?: StatusFeedback;
+  resposta?: string | null;
+  respondido_em?: string | null;
+  respondido_por?: string | null;
+  respondido_por_nome?: string | null;
+  atualizado_em?: string | null;
 }
+
+/** Feedback como o ALUNO vê (RPC obter_feedbacks_aluno, migration 057). */
+export interface FeedbackDoAluno {
+  id: string;
+  nota: number;
+  categoria: string | null;
+  comentario: string | null;
+  status: StatusFeedback;
+  resposta: string | null;
+  respondido_em: string | null;
+  criado_em: string;
+}
+
+// ---------------------------------------------------------------------------
+// Atendimento (migration 058) — solicitações do aluno, com histórico.
+// Não confundir com Feedback: lá a academia responde uma vez e conclui.
+// ---------------------------------------------------------------------------
+export type CategoriaAtendimento =
+  | "financeiro"
+  | "plano"
+  | "treino"
+  | "horarios"
+  | "cadastro"
+  | "estrutura"
+  | "outros";
+
+export const CATEGORIAS_ATENDIMENTO: {
+  value: CategoriaAtendimento;
+  label: string;
+}[] = [
+  { value: "financeiro", label: "Financeiro" },
+  { value: "plano", label: "Plano/Mensalidade" },
+  { value: "treino", label: "Treino" },
+  { value: "horarios", label: "Horários/Aulas" },
+  { value: "cadastro", label: "Cadastro" },
+  { value: "estrutura", label: "Estrutura" },
+  { value: "outros", label: "Outros" },
+];
+
+export type StatusAtendimento =
+  | "novo"
+  | "em_atendimento"
+  | "aguardando_aluno"
+  | "resolvido";
+
+export const STATUS_ATENDIMENTO: {
+  value: StatusAtendimento;
+  label: string;
+}[] = [
+  { value: "novo", label: "Novo" },
+  { value: "em_atendimento", label: "Em atendimento" },
+  { value: "aguardando_aluno", label: "Aguardando aluno" },
+  { value: "resolvido", label: "Resolvido" },
+];
+
+export interface AtendimentoMensagem {
+  id: string;
+  autor_tipo: "aluno" | "academia";
+  autor_nome: string;
+  mensagem: string;
+  criado_em: string;
+}
+
+/**
+ * Ticket como a ACADEMIA vê (linha da tabela + aluno + histórico).
+ *
+ * O aluno usa `AtendimentoDoAluno`: a RPC obter_atendimentos_aluno não devolve
+ * academia_id nem aluno_id de propósito — ele já sabe quem é, e expor ids
+ * internos na área pública não serve para nada.
+ */
+export interface Atendimento {
+  id: string;
+  academia_id: string;
+  aluno_id: string;
+  categoria: CategoriaAtendimento;
+  assunto: string;
+  status: StatusAtendimento;
+  criado_em: string;
+  atualizado_em: string;
+  aluno?: Pick<Aluno, "id" | "nome"> | null;
+  mensagens: AtendimentoMensagem[];
+}
+
+export type AtendimentoDoAluno = Omit<
+  Atendimento,
+  "academia_id" | "aluno_id" | "aluno"
+>;
 
 /** Retorno padrão de Server Actions: erro, sucesso e timestamp para forçar re-render.
  *  `id` traz o registro criado/atualizado, para o cliente selecioná-lo após salvar. */

@@ -1,18 +1,49 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Check, Loader2, MessageSquare, Star, UserRound } from "lucide-react";
-import { CATEGORIAS_FEEDBACK, Feedback } from "@/lib/types";
+import { useFormState, useFormStatus } from "react-dom";
+import {
+  Check,
+  Loader2,
+  MessageSquare,
+  Reply,
+  Star,
+  UserRound,
+} from "lucide-react";
+import {
+  CATEGORIAS_FEEDBACK,
+  Feedback,
+  STATUS_FEEDBACK,
+  StatusFeedback,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 import ConfirmButton from "@/components/ui/ConfirmButton";
 import {
+  atualizarStatusFeedback,
   excluirFeedback,
   marcarFeedbackLido,
+  responderFeedback,
 } from "@/app/painel/[slug]/feedback/actions";
 
 function rotuloCategoria(c: string | null): string {
   if (!c) return "Geral";
   return CATEGORIAS_FEEDBACK.find((x) => x.value === c)?.label ?? c;
+}
+
+/** Feedback anterior à migration 057 não tem status: trata como 'novo'. */
+function statusDe(f: Feedback): StatusFeedback {
+  return f.status ?? "novo";
+}
+
+const CLASSE_STATUS: Record<StatusFeedback, string> = {
+  novo: "border-volt-500/30 bg-volt-500/10 text-volt-300",
+  em_analise: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+  respondido: "border-cyanx-500/30 bg-cyanx-500/10 text-cyanx-400",
+  concluido: "border-ink-600 bg-ink-700/60 text-slate-400",
+};
+
+function rotuloStatus(s: StatusFeedback): string {
+  return STATUS_FEEDBACK.find((x) => x.value === s)?.label ?? s;
 }
 
 export default function FeedbackPainel({
@@ -22,7 +53,9 @@ export default function FeedbackPainel({
   slug: string;
   feedbacks: Feedback[];
 }) {
-  const [filtro, setFiltro] = useState<"todos" | "nao_lidos">("todos");
+  const [filtro, setFiltro] = useState<"todos" | "nao_lidos" | "pendentes">(
+    "todos"
+  );
   const [lendoPending, startLendoTransition] = useTransition();
   const [lendoId, setLendoId] = useState<string | null>(null);
 
@@ -32,7 +65,14 @@ export default function FeedbackPainel({
   }, [feedbacks]);
 
   const naoLidos = feedbacks.filter((f) => !f.lido).length;
-  const lista = filtro === "nao_lidos" ? feedbacks.filter((f) => !f.lido) : feedbacks;
+  // "Pendentes" é a fila de trabalho: tudo que ainda não foi concluído.
+  const pendentes = feedbacks.filter((f) => statusDe(f) !== "concluido").length;
+  const lista =
+    filtro === "nao_lidos"
+      ? feedbacks.filter((f) => !f.lido)
+      : filtro === "pendentes"
+        ? feedbacks.filter((f) => statusDe(f) !== "concluido")
+        : feedbacks;
 
   return (
     <div className="space-y-5">
@@ -67,6 +107,7 @@ export default function FeedbackPainel({
         {(
           [
             { v: "todos", l: "Todos" },
+            { v: "pendentes", l: `A tratar (${pendentes})` },
             { v: "nao_lidos", l: `Não lidos (${naoLidos})` },
           ] as const
         ).map((op) => (
@@ -114,11 +155,9 @@ export default function FeedbackPainel({
                   <span className="chip border-ink-600 bg-ink-700/60 text-slate-300">
                     {rotuloCategoria(f.categoria)}
                   </span>
-                  {!f.lido && (
-                    <span className="chip border-volt-500/30 bg-volt-500/10 text-volt-300">
-                      novo
-                    </span>
-                  )}
+                  <span className={cn("chip", CLASSE_STATUS[statusDe(f)])}>
+                    {rotuloStatus(statusDe(f))}
+                  </span>
                 </div>
                 <div className="flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5].map((n) => (
@@ -139,7 +178,9 @@ export default function FeedbackPainel({
                 <p className="mt-2 text-sm text-slate-300">“{f.comentario}”</p>
               )}
 
-              <div className="mt-3 flex items-center justify-between border-t border-ink-700 pt-3">
+              <Tratamento slug={slug} feedback={f} />
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-ink-700 pt-3">
                 <span className="text-xs text-slate-500">
                   {new Date(f.criado_em).toLocaleDateString("pt-BR", {
                     day: "2-digit",
@@ -178,5 +219,122 @@ export default function FeedbackPainel({
         </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * Tratamento do feedback: resposta única + movimentação na fila.
+ *
+ * Uma resposta só, de propósito — feedback não é chat. Se a academia
+ * reescrever, substitui a anterior. Conversa com ida e volta é Atendimento.
+ */
+function Tratamento({ slug, feedback }: { slug: string; feedback: Feedback }) {
+  const acao = responderFeedback.bind(null, slug, feedback.id);
+  const [estado, formAction] = useFormState(acao, {});
+  const [aberto, setAberto] = useState(false);
+  const [statusPending, startStatusTransition] = useTransition();
+  const status = statusDe(feedback);
+
+  return (
+    <div className="mt-3 space-y-3">
+      {feedback.resposta && (
+        <div className="rounded-xl border border-ink-600 bg-ink-800/60 p-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Resposta da academia
+          </p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">
+            {feedback.resposta}
+          </p>
+          <p className="mt-2 text-[11px] text-slate-600">
+            {feedback.respondido_por_nome ?? "Equipe"}
+            {feedback.respondido_em &&
+              ` · ${new Date(feedback.respondido_em).toLocaleString("pt-BR")}`}
+          </p>
+        </div>
+      )}
+
+      {/* Fila de tratamento. O aluno vê a resposta, não o status. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[11px] uppercase tracking-wide text-slate-600">
+          Situação
+        </span>
+        {STATUS_FEEDBACK.map((s) => (
+          <button
+            key={s.value}
+            type="button"
+            disabled={statusPending || s.value === status}
+            onClick={() =>
+              startStatusTransition(async () => {
+                await atualizarStatusFeedback(slug, feedback.id, s.value);
+              })
+            }
+            className={cn(
+              "rounded-lg px-2 py-1 text-xs font-medium transition disabled:cursor-default",
+              s.value === status
+                ? "bg-volt-300 text-ink-950"
+                : "text-slate-400 hover:bg-ink-700 hover:text-slate-200 disabled:opacity-50"
+            )}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {!aberto ? (
+        <button
+          type="button"
+          onClick={() => setAberto(true)}
+          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-400 transition hover:bg-ink-700 hover:text-white"
+        >
+          <Reply className="h-3.5 w-3.5" />
+          {feedback.resposta ? "Editar resposta" : "Responder feedback"}
+        </button>
+      ) : (
+        <form action={formAction} className="space-y-2" key={estado.savedAt}>
+          <textarea
+            name="resposta"
+            rows={3}
+            required
+            maxLength={2000}
+            defaultValue={feedback.resposta ?? ""}
+            placeholder="Escreva a resposta que o aluno vai ver na área dele."
+            className="inp resize-y"
+          />
+          {estado.erro && (
+            <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              {estado.erro}
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAberto(false)}
+              className="btn-ghost !py-1.5 text-xs"
+            >
+              Cancelar
+            </button>
+            <BotaoResponder />
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function BotaoResponder() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="btn-volt ml-auto !py-1.5 text-xs"
+    >
+      {pending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Reply className="h-3.5 w-3.5" />
+      )}
+      {pending ? "Enviando..." : "Salvar resposta"}
+    </button>
   );
 }

@@ -1,23 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
+import { requireAdminPlataforma as requireAdmin } from "@/lib/admin-plataforma";
 import { PlanoSaas } from "@/lib/types";
-
-async function requireAdmin() {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const adminEmails = (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase());
-
-  if (!adminEmails.includes(user.email?.toLowerCase() ?? "")) {
-    redirect("/painel");
-  }
-}
 
 export async function alterarPlano(academiaId: string, plano: PlanoSaas) {
   await requireAdmin();
