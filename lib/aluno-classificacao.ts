@@ -106,6 +106,56 @@ export function ultimoAcessoEfetivo(acessos: AcessoAlunoPublico[]): string | nul
   );
 }
 
+/**
+ * Sequência de treino em SEMANAS (segunda a domingo), para gamificar a Home.
+ *
+ * `semanasSeguidas`: semanas consecutivas — terminando na semana atual — em que
+ * houve pelo menos um acesso efetivo. Se a semana atual ainda não tem acesso
+ * (ex.: segunda de manhã), a contagem começa da semana passada em vez de zerar
+ * a conquista — perdoa o começo de semana sem mentir: só conta semanas que
+ * realmente tiveram treino. Zera de verdade quando uma semana é pulada.
+ *
+ * `treinosSemana`: dias distintos com acesso na semana atual (segunda..hoje).
+ *
+ * Puro e ancorado em America/Sao_Paulo, mesmo idioma de frequenciaSemanaEMes —
+ * e sem nenhuma query nova: a Home já carrega os acessos.
+ */
+export function sequenciaSemanalTreino(
+  acessos: AcessoAlunoPublico[],
+  hoje: string = hojeSaoPaulo()
+): { semanasSeguidas: number; treinosSemana: number } {
+  const dias = new Set(
+    apenasEfetivos(acessos).map((a) => dataCalendarioSP(a.data_hora_entrada))
+  );
+
+  // Segunda-feira da semana de uma data-calendário (segunda = 0).
+  const inicioSemanaDe = (dataISO: string): string => {
+    const dow = (new Date(`${dataISO}T00:00:00Z`).getUTCDay() + 6) % 7;
+    return subtrairDias(dataISO, dow);
+  };
+  const semanaTemAcesso = (ini: string): boolean => {
+    const fim = subtrairDias(ini, -6); // domingo da mesma semana
+    for (const d of dias) if (d >= ini && d <= fim) return true;
+    return false;
+  };
+
+  const iniAtual = inicioSemanaDe(hoje);
+
+  let treinosSemana = 0;
+  for (const d of dias) if (d >= iniAtual && d <= hoje) treinosSemana++;
+
+  let semanasSeguidas = 0;
+  let cursor = iniAtual;
+  // Semana atual ainda vazia não zera a sequência — retrocede uma semana.
+  if (!semanaTemAcesso(cursor)) cursor = subtrairDias(cursor, 7);
+  while (semanaTemAcesso(cursor)) {
+    semanasSeguidas++;
+    cursor = subtrairDias(cursor, 7);
+  }
+
+  return { semanasSeguidas, treinosSemana };
+}
+
 /** true se a URL de foto é utilizável (perfil sem foto → avatar padrão). */
 export function temFotoValida(url: string | null | undefined): boolean {
   return !!url && url.trim().length > 0;

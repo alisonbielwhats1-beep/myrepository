@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Dumbbell,
+  Flame,
   HelpCircle,
   MessageCircle,
   User,
@@ -14,7 +15,11 @@ import {
 } from "lucide-react";
 import AvatarAluno from "@/components/aluno/AvatarAluno";
 import QRCodeCard from "@/components/aluno/QRCodeCard";
-import { requireFichaAluno, ultimoAcessoEfetivo } from "@/lib/aluno-publico";
+import {
+  requireFichaAluno,
+  sequenciaSemanalTreino,
+  ultimoAcessoEfetivo,
+} from "@/lib/aluno-publico";
 import {
   getAcademiaPublica,
   getFrequenciaAlunoPublico,
@@ -92,6 +97,7 @@ export default async function AlunoHome({
     .filter((m) => m.status === "pendente")
     .sort((a, b) => (a.data < b.data ? -1 : 1))[0];
   const ultimoAcesso = ultimoAcessoEfetivo(acessos);
+  const seq = sequenciaSemanalTreino(acessos);
 
   // Mesma regra oficial da recepção (decidirAcesso) — nenhuma lógica de
   // acesso paralela. Só falta, do lado do aluno, a política da academia
@@ -135,6 +141,38 @@ export default async function AlunoHome({
         tokenQrAcesso={tokenQrAcesso}
         matriculaCodigo={aluno.matricula_codigo}
       />
+
+      {/* Sequência de treinos — motivação calculada da própria frequência
+          (sem query nova; `acessos` já veio no Promise.all acima). */}
+      <div className="surface flex items-center gap-4 rounded-2xl p-4">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-volt-300/15 text-volt-300">
+          <Flame className="h-6 w-6" />
+        </span>
+        <div className="min-w-0 flex-1">
+          {seq.semanasSeguidas > 0 ? (
+            <>
+              <p className="font-bold text-white">
+                {seq.semanasSeguidas}{" "}
+                {seq.semanasSeguidas === 1 ? "semana" : "semanas"} seguidas 🔥
+              </p>
+              <p className="text-sm text-slate-400">
+                {seq.treinosSemana > 0
+                  ? `${seq.treinosSemana} ${
+                      seq.treinosSemana === 1 ? "treino" : "treinos"
+                    } essa semana. Continue assim!`
+                  : "Treine essa semana pra manter a sequência."}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-bold text-white">Comece sua sequência 💪</p>
+              <p className="text-sm text-slate-400">
+                Faça seu primeiro treino da semana.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* Resumo da matrícula e situação financeira */}
       <div className="surface space-y-3 rounded-2xl p-4">

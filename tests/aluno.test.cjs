@@ -14,6 +14,7 @@ const {
   fichaPertenceAoSlug,
   frequenciaSemanaEMes,
   iniciaisNome,
+  sequenciaSemanalTreino,
   temFotoValida,
   ultimoAcessoEfetivo,
 } = require("../.test-build-aluno/aluno-classificacao.js");
@@ -139,6 +140,32 @@ console.log("\n6. Validação da edição de foto de perfil");
   check("texto que não é URL é rejeitado", validarUrl("nao-e-url") === null);
   check("string vazia (limpar foto) vira null, não erro", validarUrl("") === null);
   check("javascript: não é aceito como URL de foto", validarUrl("javascript:alert(1)") === null);
+}
+
+console.log("\n7. Sequência semanal de treino (streak da Home)");
+{
+  const lib = (n) => ({ data_hora_entrada: isoHaDias(n), status_liberacao: "liberado" });
+  const s = (acessos) => sequenciaSemanalTreino(acessos, hoje);
+
+  check("sem acessos -> 0 semanas, 0 treinos", (() => {
+    const r = s([]);
+    return r.semanasSeguidas === 0 && r.treinosSemana === 0;
+  })());
+  check("acesso hoje -> 1 semana, 1 treino", (() => {
+    const r = s([lib(0)]);
+    return r.semanasSeguidas === 1 && r.treinosSemana === 1;
+  })());
+  check("hoje, -7 e -14 -> 3 semanas seguidas", (() => s([lib(0), lib(7), lib(14)]).semanasSeguidas === 3)());
+  check("semana pulada quebra a sequência (hoje e -14, sem -7) -> 1", (() => s([lib(0), lib(14)]).semanasSeguidas === 1)());
+  check("começo de semana sem treino não zera: só -7 -> 1 semana, 0 treinos", (() => {
+    const r = s([lib(7)]);
+    return r.semanasSeguidas === 1 && r.treinosSemana === 0;
+  })());
+  check("dois acessos no mesmo dia contam 1 treino", (() => s([lib(0), lib(0)]).treinosSemana === 1)());
+  check("só acesso negado não conta", (() => {
+    const r = s([{ data_hora_entrada: isoHaDias(0), status_liberacao: "negado" }]);
+    return r.semanasSeguidas === 0 && r.treinosSemana === 0;
+  })());
 }
 
 console.log(`\n=== ${passou} passaram, ${falhou} falharam ===`);
