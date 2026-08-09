@@ -22,10 +22,13 @@ type Acoes = {
 export default function TreinoViewer({
   treinos,
   sessoesAtivas,
+  recordes,
   ...acoes
 }: {
   treinos: FichaTreinoPublico[];
   sessoesAtivas: SessaoTreino[];
+  /** Recorde de carga (kg) por exercicio_id. Vazio antes da migration 059. */
+  recordes: Record<string, number>;
 } & Acoes) {
   const [ativo, setAtivo] = useState(0);
 
@@ -64,7 +67,13 @@ export default function TreinoViewer({
           isso, o estado de sessão de um treino podia vazar para outro (mesma
           classe de bug já corrigida no acesso do aluno: estado local
           copiado de props precisa de key quando o id muda). */}
-      <ExecucaoTreino key={treino.id} treino={treino} sessaoInicial={sessaoAtiva} {...acoes} />
+      <ExecucaoTreino
+        key={treino.id}
+        treino={treino}
+        sessaoInicial={sessaoAtiva}
+        recordes={recordes}
+        {...acoes}
+      />
     </div>
   );
 }
@@ -72,12 +81,14 @@ export default function TreinoViewer({
 function ExecucaoTreino({
   treino,
   sessaoInicial,
+  recordes,
   iniciar,
   salvarProgresso,
   finalizar,
 }: {
   treino: FichaTreinoPublico;
   sessaoInicial: SessaoTreino | null;
+  recordes: Record<string, number>;
 } & Acoes) {
   const [sessao, setSessao] = useState<SessaoTreino | null>(sessaoInicial);
   const [resumo, setResumo] = useState<SessaoTreino | null>(null);
@@ -250,6 +261,7 @@ function ExecucaoTreino({
             key={ex.id}
             ex={ex}
             progresso={progressoPorExercicio.get(ex.id)}
+            recorde={recordes[ex.id] ?? null}
             onAlterar={(patch) => handleAlterar(ex.id, patch)}
           />
         ))}

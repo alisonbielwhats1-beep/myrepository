@@ -175,13 +175,18 @@ function MidiaExercicio({ ex }: { ex: ExercicioTreino }) {
 export default function ExercicioCard({
   ex,
   progresso,
+  recorde,
   onAlterar,
 }: {
   ex: ExercicioTreino;
   progresso?: ProgressoExercicio;
+  /** Maior carga já registrada neste exercício (kg). null/0 = ainda sem recorde. */
+  recorde?: number | null;
   onAlterar?: (patch: Partial<Omit<ProgressoExercicio, "exercicio_id">>) => void;
 }) {
   const realizado = progresso ?? { exercicio_id: ex.id, ...PROGRESSO_VAZIO };
+  const temRecorde = recorde != null && recorde > 0;
+  const novoRecorde = temRecorde && realizado.carga_realizada_kg > recorde;
 
   return (
     <div
@@ -266,6 +271,21 @@ export default function ExercicioCard({
                 />
               </label>
             </div>
+
+            {/* Recorde de carga (migration 059). Antes dela, `recorde` chega
+                sempre null e nada é mostrado — a tela não depende do recurso. */}
+            {temRecorde && (
+              <p
+                className={cn(
+                  "mt-2 text-xs font-semibold",
+                  novoRecorde ? "text-volt-300" : "text-amber-300/90"
+                )}
+              >
+                {novoRecorde
+                  ? `🎉 Novo recorde! Você superou ${recorde} kg`
+                  : `🏆 Seu recorde: ${recorde} kg`}
+              </p>
+            )}
 
             {/* Cronômetro de descanso — puramente client-side, usa o descanso
                 prescrito como padrão. Só aparece no modo sessão (aqui dentro do

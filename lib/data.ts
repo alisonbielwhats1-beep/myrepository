@@ -1103,6 +1103,35 @@ export async function getSessoesAtivasTreino(
   return (data as SessaoTreino[]) ?? [];
 }
 
+/**
+ * Recorde de carga (kg) por exercício do próprio aluno — o maior peso já
+ * registrado em qualquer sessão — via RPC `obter_recordes_aluno` (migration
+ * 059), resolvida por token+slug. Devolve um mapa exercicio_id -> kg.
+ *
+ * Degradação graciosa: antes da migration 059 a RPC não existe; em vez de
+ * quebrar a tela de treino, devolve vazio (nenhum recorde é exibido). Mesmo
+ * espírito do fallback de atendimento antes da 058.
+ */
+export async function getRecordesAluno(
+  token: string,
+  slug: string
+): Promise<Record<string, number>> {
+  if (!tokenTemFormatoValido(token)) return {};
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_recordes_aluno", {
+    p_token: token,
+    p_slug: slug,
+  });
+  if (error) return {};
+  const bruto = (data ?? {}) as Record<string, unknown>;
+  const recordes: Record<string, number> = {};
+  for (const [exercicioId, kg] of Object.entries(bruto)) {
+    const n = Number(kg);
+    if (Number.isFinite(n) && n > 0) recordes[exercicioId] = n;
+  }
+  return recordes;
+}
+
 /** Treino compartilhado por QR (público) via RPC obter_treino_publico. */
 export async function getTreinoPublico(
   token: string

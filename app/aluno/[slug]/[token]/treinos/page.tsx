@@ -1,6 +1,6 @@
 import TreinoViewer from "@/components/aluno/TreinoViewer";
 import { requireFichaAluno } from "@/lib/aluno-publico";
-import { getSessoesAtivasTreino } from "@/lib/data";
+import { getRecordesAluno, getSessoesAtivasTreino } from "@/lib/data";
 import {
   finalizarSessaoTreino,
   iniciarSessaoTreino,
@@ -15,7 +15,10 @@ export default async function TreinosPage({
   params: { slug: string; token: string };
 }) {
   const ficha = await requireFichaAluno(params.slug, params.token);
-  const sessoesAtivas = await getSessoesAtivasTreino(params.token, params.slug);
+  const [sessoesAtivas, recordes] = await Promise.all([
+    getSessoesAtivasTreino(params.token, params.slug),
+    getRecordesAluno(params.token, params.slug),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -27,6 +30,7 @@ export default async function TreinosPage({
       <TreinoViewer
         treinos={ficha.treinos}
         sessoesAtivas={sessoesAtivas}
+        recordes={recordes}
         iniciar={iniciarSessaoTreino.bind(null, params.slug, params.token)}
         salvarProgresso={salvarProgressoTreino.bind(null, params.slug, params.token)}
         finalizar={finalizarSessaoTreino.bind(null, params.slug, params.token)}
