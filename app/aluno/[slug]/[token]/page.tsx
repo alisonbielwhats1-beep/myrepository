@@ -9,6 +9,7 @@ import {
   Flame,
   HelpCircle,
   MessageCircle,
+  Trophy,
   User,
   Wallet,
   XCircle,
@@ -25,6 +26,7 @@ import {
   getFrequenciaAlunoPublico,
   getMensalidadesAlunoPublico,
   getPoliticaAcessoAlunoPublico,
+  getRecordesAluno,
   getTokenQrAlunoPublico,
 } from "@/lib/data";
 import {
@@ -81,14 +83,21 @@ export default async function AlunoHome({
   const ficha = await requireFichaAluno(params.slug, params.token);
   const { aluno, academia, treinos } = ficha;
 
-  const [mensalidades, acessos, tokenQrAcesso, politicaAcesso, academiaPublica] =
-    await Promise.all([
-      getMensalidadesAlunoPublico(params.token, params.slug),
-      getFrequenciaAlunoPublico(params.token, params.slug),
-      getTokenQrAlunoPublico(params.token, params.slug),
-      getPoliticaAcessoAlunoPublico(params.token, params.slug),
-      getAcademiaPublica(params.slug),
-    ]);
+  const [
+    mensalidades,
+    acessos,
+    tokenQrAcesso,
+    politicaAcesso,
+    academiaPublica,
+    recordes,
+  ] = await Promise.all([
+    getMensalidadesAlunoPublico(params.token, params.slug),
+    getFrequenciaAlunoPublico(params.token, params.slug),
+    getTokenQrAlunoPublico(params.token, params.slug),
+    getPoliticaAcessoAlunoPublico(params.token, params.slug),
+    getAcademiaPublica(params.slug),
+    getRecordesAluno(params.token, params.slug),
+  ]);
 
   const primeiroNome = aluno.nome.split(" ")[0];
   const statusFinanceiro = calcularStatusFinanceiro(mensalidades);
@@ -98,6 +107,18 @@ export default async function AlunoHome({
     .sort((a, b) => (a.data < b.data ? -1 : 1))[0];
   const ultimoAcesso = ultimoAcessoEfetivo(acessos);
   const seq = sequenciaSemanalTreino(acessos);
+
+  // Top recordes de carga para a Home. A RPC devolve exercicio_id -> kg; os
+  // nomes vêm da própria ficha (treinos já carregados). Some sozinho se ainda
+  // não há recorde ou a migration 059 não foi aplicada (recordes = {}).
+  const nomePorExercicio = new Map(
+    treinos.flatMap((t) => t.exercicios ?? []).map((e) => [e.id, e.nome_exercicio])
+  );
+  const recordesTop = Object.entries(recordes)
+    .map(([id, kg]) => ({ id, nome: nomePorExercicio.get(id) ?? null, kg }))
+    .filter((r): r is { id: string; nome: string; kg: number } => r.nome !== null)
+    .sort((a, b) => b.kg - a.kg)
+    .slice(0, 3);
 
   // Mesma regra oficial da recepção (decidirAcesso) — nenhuma lógica de
   // acesso paralela. Só falta, do lado do aluno, a política da academia
@@ -173,6 +194,30 @@ export default async function AlunoHome({
           )}
         </div>
       </div>
+
+      {/* Seus recordes — top 3 cargas do histórico (migration 059). Some
+          sozinho quando ainda não há recorde ou a RPC não foi aplicada. */}
+      {recordesTop.length > 0 && (
+        <div className="surface rounded-2xl p-4">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-4 w-4 text-amber-400" />
+            <h2 className="font-semibold text-white">Seus recordes</h2>
+          </div>
+          <ul className="mt-3 space-y-2">
+            {recordesTop.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between gap-3 text-sm"
+              >
+                <span className="truncate text-slate-300">{r.nome}</span>
+                <span className="flex-none font-bold tabular-nums text-amber-300">
+                  {r.kg} kg
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Resumo da matrícula e situação financeira */}
       <div className="surface space-y-3 rounded-2xl p-4">
