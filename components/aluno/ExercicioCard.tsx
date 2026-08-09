@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { ExercicioTreino, ProgressoExercicio } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import CronometroDescanso from "./CronometroDescanso";
 
 const PROGRESSO_VAZIO: Omit<ProgressoExercicio, "exercicio_id"> = {
   concluido: false,
@@ -265,6 +266,11 @@ export default function ExercicioCard({
                 />
               </label>
             </div>
+
+            {/* Cronômetro de descanso — puramente client-side, usa o descanso
+                prescrito como padrão. Só aparece no modo sessão (aqui dentro do
+                onAlterar), nunca na ficha pública read-only. */}
+            <CronometroDescanso segundosPadrao={ex.descanso_segundos ?? 0} />
 
             <button
               onClick={() => onAlterar({ concluido: !realizado.concluido })}
