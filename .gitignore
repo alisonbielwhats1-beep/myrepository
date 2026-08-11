@@ -41,3 +41,4 @@ next-env.d.ts
 # editor
 .vscode/
 .idea/
+/.test-build-import

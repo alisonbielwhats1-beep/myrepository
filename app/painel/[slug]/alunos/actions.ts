@@ -18,6 +18,8 @@ import {
   validarArquivoFoto,
 } from "@/lib/fotos-perfil";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { inserirAlunoComMatricula } from "@/lib/alunos-cadastro";
+import { analisarPlanilha } from "@/lib/importar-alunos";
 
 // ---------------------------------------------------------------------------
 // Helpers de data no fuso America/Sao_Paulo
@@ -336,16 +338,12 @@ export async function criarAluno(
     ? diaVencimentoRaw
     : Math.min(new Date().getDate(), 28);
 
-  // Gera código de matrícula de forma atômica (sem race condition)
-  const { data: codigoData } = await supabase.rpc("nextval_matricula", {
-    p_academia_id: sessao.academia.id,
-  });
-  const matriculaCodigo = (codigoData as string | null) ?? `AL-${Date.now()}`;
-
-  const { data: novoInserido, error } = await supabase
-    .from("alunos")
-    .insert({
-      academia_id: sessao.academia.id,
+  // Insere gerando a matrícula de forma atômica (helper compartilhado com a
+  // importação em massa — mesma regra de insert, sem divergência).
+  const { data: novoInserido, error } = await inserirAlunoComMatricula(
+    supabase,
+    sessao.academia.id,
+    {
       nome,
       cpf: cpf.cpf,
       email: String(formData.get("email") ?? "").trim() || null,
@@ -355,12 +353,10 @@ export async function criarAluno(
       status_matricula: statusInicial,
       plano_id: planoId,
       dia_vencimento: diaVencimento,
-      matricula_codigo: matriculaCodigo,
       chave_idempotencia: chaveIdempotencia,
       ...lerCamposSaude(formData),
-    })
-    .select("id")
-    .single();
+    }
+  );
 
   let novo = novoInserido;
 
@@ -430,6 +426,99 @@ export async function criarAluno(
   revalidatePath(`/painel/${slug}/alunos`);
   revalidatePath(`/painel/${slug}`);
   return { ok: true, savedAt: Date.now(), id: novo?.id };
+}
+
+export type ResultadoImportacao = {
+  erro?: string;
+  criados?: number;
+  /** Já existiam (colisão de CPF) — não duplicamos. */
+  ignorados?: number;
+  errosLinha?: { linha: number; motivo: string }[];
+  avisos?: { linha: number; motivo: string }[];
+  savedAt?: number;
+};
+
+/**
+ * Importa alunos em massa a partir de um CSV (Bloco de vendas).
+ *
+ * Reusa o MESMO insert do cadastro (inserirAlunoComMatricula) — sem caminho
+ * paralelo. `academia_id` sempre da sessão, nunca do arquivo. Best-effort:
+ * grava os válidos e relata os problemas por linha; CPF que já existe na
+ * academia (23505) é IGNORADO, não duplicado. Não gera cobranças nem histórico
+ * de plano (migração de base existente) — o ciclo normal cuida disso depois.
+ */
+export async function importarAlunos(
+  slug: string,
+  _estado: ResultadoImportacao,
+  formData: FormData
+): Promise<ResultadoImportacao> {
+  const sessao = await requireSecao(slug, "alunos");
+  const supabase = createClient();
+
+  const arquivo = formData.get("arquivo");
+  if (!(arquivo instanceof File) || arquivo.size === 0) {
+    return { erro: "Selecione um arquivo CSV." };
+  }
+  if (arquivo.size > 5 * 1024 * 1024) {
+    return { erro: "Arquivo muito grande — máximo 5 MB." };
+  }
+  const texto = await arquivo.text();
+
+  const { data: planos } = await supabase
+    .from("planos")
+    .select("id, nome")
+    .eq("academia_id", sessao.academia.id);
+
+  const analise = analisarPlanilha(
+    texto,
+    (planos ?? []) as { id: string; nome: string }[]
+  );
+
+  if (analise.validos.length === 0) {
+    return {
+      erro: analise.erros[0]?.motivo ?? "Nenhum aluno válido na planilha.",
+      errosLinha: analise.erros,
+      avisos: analise.avisos,
+    };
+  }
+
+  const diaPadrao = Math.min(new Date().getDate(), 28);
+  let criados = 0;
+  let ignorados = 0;
+  const errosLinha = [...analise.erros];
+
+  for (const a of analise.validos) {
+    const { error } = await inserirAlunoComMatricula(supabase, sessao.academia.id, {
+      nome: a.nome,
+      cpf: a.cpf,
+      email: a.email,
+      telefone: a.telefone,
+      status_matricula: a.status_matricula,
+      plano_id: a.plano_id,
+      dia_vencimento: a.dia_vencimento ?? diaPadrao,
+      chave_idempotencia: null,
+    });
+    if (error) {
+      // 23505 = unique(academia_id, cpf): o aluno já existe → ignora.
+      if (error.code === "23505") ignorados++;
+      else errosLinha.push({ linha: a.linha, motivo: `Falha ao gravar: ${error.message}` });
+    } else {
+      criados++;
+    }
+  }
+
+  if (criados > 0) {
+    revalidatePath(`/painel/${slug}/alunos`);
+    revalidatePath(`/painel/${slug}`);
+  }
+
+  return {
+    criados,
+    ignorados,
+    errosLinha,
+    avisos: analise.avisos,
+    savedAt: Date.now(),
+  };
 }
 
 export async function atualizarAluno(

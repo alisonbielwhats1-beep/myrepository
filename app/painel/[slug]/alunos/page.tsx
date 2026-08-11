@@ -1,6 +1,8 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import GestaoAlunos from "@/components/painel/GestaoAlunos";
+import ImportarAlunos from "@/components/painel/ImportarAlunos";
 import { requireSessao } from "@/lib/auth";
+import { podeAcessar } from "@/lib/permissoes";
 import {
   getAlunosPaginado,
   getCatalogoExercicios,
@@ -77,13 +79,18 @@ export default async function AlunosPage({
   return (
     <div className="space-y-6">
       <Breadcrumbs slug={params.slug} items={[{ label: "Alunos" }]} />
-      <div>
-        <h1 className="text-2xl font-bold text-white">Alunos</h1>
-        <p className="text-sm text-slate-400">
-          Cadastre alunos e monte a ficha individual de cada um. Treinos-modelo
-          para compartilhar por QR ficam na aba{" "}
-          <span className="text-slate-300">Treinos</span>.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Alunos</h1>
+          <p className="text-sm text-slate-400">
+            Cadastre alunos e monte a ficha individual de cada um. Treinos-modelo
+            para compartilhar por QR ficam na aba{" "}
+            <span className="text-slate-300">Treinos</span>.
+          </p>
+        </div>
+        {podeAcessar(sessao.papel, "alunos") && (
+          <ImportarAlunos slug={params.slug} planos={planos} />
+        )}
       </div>
 
       <GestaoAlunos
