@@ -21,9 +21,15 @@ import { atualizarAcademia } from "@/app/painel/[slug]/configuracoes/actions";
 export default function ConfiguracoesAcademia({
   slug,
   academia,
+  meuNome,
+  meuEmail,
 }: {
   slug: string;
   academia: Academia;
+  /** Nome de exibição de quem está logado (perfis_admin.nome). */
+  meuNome: string;
+  /** Só para mostrar: o e-mail é a credencial de login e não é editável aqui. */
+  meuEmail: string;
 }) {
   const acao = atualizarAcademia.bind(null, slug);
   const [estado, formAction] = useFormState(acao, {});
@@ -55,6 +61,18 @@ export default function ConfiguracoesAcademia({
               className="inp"
               required
             />
+          </Field>
+          <Field label="Seu nome (aparece no painel)">
+            <input
+              name="meu_nome"
+              defaultValue={meuNome}
+              className="inp"
+              placeholder="Ex: Maria Silva"
+            />
+            <span className="mt-1 block text-xs text-slate-500">
+              É o nome exibido no painel e no histórico de ações. O e-mail de
+              login continua o mesmo: {meuEmail}
+            </span>
           </Field>
           <Field label="Cor de destaque">
             <input

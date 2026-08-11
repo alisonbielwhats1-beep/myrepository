@@ -43,7 +43,12 @@ export default async function ConfiguracoesPage({
 
       <PlanoSaasCard slug={params.slug} planoAtual={sessao.academia.plano_saas} />
 
-      <ConfiguracoesAcademia slug={params.slug} academia={sessao.academia} />
+      <ConfiguracoesAcademia
+        slug={params.slug}
+        academia={sessao.academia}
+        meuNome={sessao.nome}
+        meuEmail={sessao.email}
+      />
 
       <NotificacoesConfigCard slug={params.slug} configuracoes={configNotificacoes} />
 

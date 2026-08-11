@@ -3,8 +3,9 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
-import { AlertCircle, CheckCircle2, Loader2, Lock, Save } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Save } from "lucide-react";
 import { redefinirSenhaAction, EstadoReset } from "@/lib/actions/auth";
+import CampoSenha from "@/components/ui/CampoSenha";
 
 const INICIAL: EstadoReset = {};
 
@@ -46,34 +47,24 @@ export default function RedefinirSenhaForm() {
 
       <label className="block">
         <span className="mb-1 block text-xs font-medium text-slate-400">Nova senha</span>
-        <div className="relative">
-          <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          <input
-            name="senha"
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            placeholder="mínimo 8 caracteres"
-            className="inp pl-9"
-          />
-        </div>
+        <CampoSenha
+          name="senha"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          placeholder="mínimo 8 caracteres"
+        />
       </label>
 
       <label className="block">
         <span className="mb-1 block text-xs font-medium text-slate-400">Confirmar nova senha</span>
-        <div className="relative">
-          <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          <input
-            name="confirmar"
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            placeholder="repita a senha"
-            className="inp pl-9"
-          />
-        </div>
+        <CampoSenha
+          name="confirmar"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          placeholder="repita a senha"
+        />
       </label>
 
       <BotaoSalvar />

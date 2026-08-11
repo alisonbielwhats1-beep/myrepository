@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { POLITICAS_INADIMPLENCIA } from "@/lib/types";
 import { validarUrl } from "@/lib/validacoes";
 import { erroAmigavel } from "@/lib/erros-servidor";
-import { normalizarTelefone } from "@/lib/normalizacao";
+import { normalizarNomeProprio, normalizarTelefone } from "@/lib/normalizacao";
 
 export async function atualizarAcademia(
   slug: string,
@@ -23,6 +23,11 @@ export async function atualizarAcademia(
 
   const nomeFantasia = String(formData.get("nome_fantasia") ?? "").trim();
   if (!nomeFantasia) return { erro: "Informe o nome da academia." };
+
+  // Nome de exibição de quem está logado (pedido do cliente, 11/08/2026).
+  // Padronizado como qualquer outro nome do sistema; o e-mail NÃO entra aqui —
+  // ele é a credencial de login e trocá-lo é outra operação, com outro risco.
+  const meuNome = normalizarNomeProprio(formData.get("meu_nome") as string);
 
   // Política de inadimplência: só aceita valor da lista branca. Qualquer coisa
   // fora dela cai no padrão seguro, que é não bloquear ninguém.
@@ -84,7 +89,22 @@ export async function atualizarAcademia(
 
   if (error) return { erro: await erroAmigavel(error, "salvar") };
 
+  // Nome de exibição, gravado à parte porque mora em outra tabela. Só a linha
+  // de QUEM ESTÁ LOGADO (`sessao.userId`) — nunca um id vindo do formulário,
+  // que permitiria renomear outra pessoa da equipe por requisição forjada.
+  // Campo vazio significa "não quis mudar", e não "apagar o nome".
+  if (meuNome) {
+    const { error: erroNome } = await supabase
+      .from("perfis_admin")
+      .update({ nome: meuNome })
+      .eq("id", sessao.userId)
+      .eq("academia_id", sessao.academia.id);
+
+    if (erroNome) return { erro: await erroAmigavel(erroNome, "salvar o seu nome") };
+  }
+
   revalidatePath(`/painel/${slug}/configuracoes`);
+  revalidatePath(`/painel/${slug}/equipe`, "layout");
   revalidatePath(`/painel/${slug}/recepcao`);
   revalidatePath(`/painel/${slug}/retencao`);
   revalidatePath(`/painel/${slug}`);

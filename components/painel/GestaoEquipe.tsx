@@ -19,6 +19,7 @@ import { PAPEIS, Papel, PerfilEquipe } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import ConfirmButton from "@/components/ui/ConfirmButton";
 import FormActions from "@/components/ui/FormActions";
+import CampoSenha from "@/components/ui/CampoSenha";
 import {
   alterarPapel,
   criarMembroEquipe,
@@ -144,11 +145,10 @@ function FormularioMembro({
             própria tela dizia ser outro. */}
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-400">Senha provisória</span>
-          <input
+          <CampoSenha
             name="senha"
-            type="password"
+            autoComplete="new-password"
             placeholder="mínimo 8 caracteres"
-            className="inp"
             minLength={8}
             required
           />

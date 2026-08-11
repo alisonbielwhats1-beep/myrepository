@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
-import { AlertCircle, Loader2, LogIn, Lock, Mail } from "lucide-react";
+import { AlertCircle, Loader2, LogIn, Mail } from "lucide-react";
 import { entrarAction, EstadoLogin } from "@/lib/actions/auth";
+import CampoSenha from "@/components/ui/CampoSenha";
 
 const ESTADO_INICIAL: EstadoLogin = {};
 
@@ -46,17 +47,12 @@ export default function LoginForm() {
         <span className="mb-1 block text-xs font-medium text-slate-400">
           Senha
         </span>
-        <div className="relative">
-          <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          <input
-            name="senha"
-            type="password"
-            autoComplete="current-password"
-            required
-            placeholder="••••••••"
-            className="inp pl-9"
-          />
-        </div>
+        <CampoSenha
+          name="senha"
+          autoComplete="current-password"
+          required
+          placeholder="••••••••"
+        />
         <div className="mt-1.5 text-right">
           <Link
             href="/recuperar-senha"
