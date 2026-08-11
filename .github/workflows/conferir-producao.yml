@@ -1,0 +1,131 @@
+name: Conferir produção (migration pendente)
+
+# =============================================================================
+# DETECÇÃO DE MIGRATION PENDENTE
+#
+# POR QUE ESTE WORKFLOW EXISTE
+#   As migrations são aplicadas à mão, no SQL Editor do Supabase. Não existe
+#   nenhum controle de quais já foram — e uma que ficou para trás não derruba o
+#   sistema: a tela some, ou a gravação falha em silêncio.
+#
+#   Foi o que aconteceu em 11/08/2026. A migration 040 (auditoria) nunca tinha
+#   sido aplicada. Durante meses, nenhuma ação foi registrada e ninguém soube,
+#   até o cliente ver "Could not find the table 'public.logs_auditoria' in the
+#   schema cache" na tela ao cadastrar um aluno.
+#
+# COMO ELE FUNCIONA
+#   1. Sobe um Postgres descartável e aplica schema.sql + todas as migrations.
+#      Esse banco é a REFERÊNCIA: o estado que produção deveria ter.
+#   2. Roda supabase/ci/30_inventario_objetos.sql nos dois bancos — referência
+#      e produção — gerando uma linha por tabela, coluna, função, policy,
+#      constraint e índice.
+#   3. Compara. O que existe na referência e falta em produção é migration
+#      pendente, e o job FALHA dizendo exatamente o que falta.
+#
+#   A referência sai dos próprios arquivos .sql, então nunca desatualiza: quem
+#   adicionar a migration 064 amanhã não precisa lembrar de mexer aqui.
+#
+# SEGURANÇA — ler com atenção antes de alterar
+#   Este é um dos DOIS workflows que tocam produção (o outro é backup-banco).
+#   Ele usa `secrets.SUPABASE_DB_URL` e executa APENAS consultas a catálogo
+#   (pg_class, pg_proc, pg_policies). Nenhum insert, update, delete ou DDL —
+#   e nenhum dado de aluno, financeiro ou pessoal é lido: só nomes de objetos
+#   do banco.
+#
+#   Se algum dia alguém precisar mudar o SQL executado contra produção, a regra
+#   é: só `select` em catálogo. Qualquer coisa além disso vira outro workflow.
+#
+# QUANDO RODA
+#   - Toda segunda de manhã, para pegar drift antes do cliente.
+#   - Manualmente (Run workflow), que é o uso mais comum: depois de aplicar uma
+#     migration, para confirmar que não sobrou nada.
+#   Deliberadamente NÃO roda a cada push: produção não muda por causa de push.
+# =============================================================================
+
+on:
+  schedule:
+    - cron: "0 11 * * 1" # 11:00 UTC = 08:00 de Brasília, segunda-feira
+  workflow_dispatch: {}
+
+jobs:
+  conferir:
+    name: Comparar produção com as migrations do repositório
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gestacad_referencia
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGREF: postgresql://postgres:postgres@localhost:5432/gestacad_referencia
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar o cliente psql
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Montar o banco de referência (schema.sql + migrations)
+        run: |
+          set -euo pipefail
+          psql "$PGREF" -v ON_ERROR_STOP=1 -q -f supabase/ci/00_bootstrap.sql
+          psql "$PGREF" -v ON_ERROR_STOP=1 -q -f supabase/schema.sql
+          for arquivo in $(ls supabase/migrations/*.sql | grep -v '_rollback\.sql$' | sort); do
+            psql "$PGREF" -v ON_ERROR_STOP=1 -q -f "$arquivo"
+          done
+          echo "Referência montada."
+
+      - name: Inventariar a referência
+        run: psql "$PGREF" -v ON_ERROR_STOP=1 -f supabase/ci/30_inventario_objetos.sql | sort > referencia.txt
+
+      - name: Inventariar produção (somente leitura)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_DB_URL:-}" ]; then
+            echo "::error::O secret SUPABASE_DB_URL não está configurado. Sem ele não há como conferir produção."
+            exit 1
+          fi
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/ci/30_inventario_objetos.sql | sort > producao.txt
+
+      - name: Comparar
+        run: |
+          set -euo pipefail
+
+          # Na referência e ausente em produção = migration pendente.
+          comm -23 referencia.txt producao.txt > faltando.txt || true
+          # Em produção e ausente na referência = criado à mão, ou sobra de algo
+          # já removido do repositório. Não reprova: é informação.
+          comm -13 referencia.txt producao.txt > sobrando.txt || true
+
+          if [ -s sobrando.txt ]; then
+            echo "ℹ️  Existe em produção e não no repositório ($(wc -l < sobrando.txt) item(ns)):"
+            sed 's/^/    /' sobrando.txt
+            echo ""
+          fi
+
+          if [ -s faltando.txt ]; then
+            echo "❌ MIGRATION PENDENTE — falta em produção ($(wc -l < faltando.txt) item(ns)):"
+            echo ""
+            sed 's/^/    /' faltando.txt
+            echo ""
+            echo "Aplique no SQL Editor do Supabase, em ordem numérica, as migrations"
+            echo "de supabase/migrations/ que criam os objetos acima (pule os *_rollback.sql)."
+            exit 1
+          fi
+
+          echo "✅ Produção está em dia com todas as migrations do repositório."
+          echo "   $(wc -l < referencia.txt) objetos conferidos."
