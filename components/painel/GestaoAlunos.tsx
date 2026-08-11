@@ -1138,12 +1138,20 @@ function FormularioAluno({
               }
               className="inp"
             />
-            {/* Sem esta linha, quem escolhe 29, 30 ou 31 fica sem saber o que
-                acontece em fevereiro — a dúvida que o próprio cliente levantou. */}
-            {diaVencimento > 28 && (
+            {/* Duas mensagens, nunca as duas ao mesmo tempo:
+                - a fixa ensina que existe a opção de "último dia do mês", que
+                  ninguém descobre sozinho olhando um campo numérico;
+                - a de aviso só aparece depois de escolher 29, 30 ou 31, e
+                  responde na hora a dúvida de "e fevereiro?" — a mesma que o
+                  dono levantou quando pediu o dia 31. */}
+            {diaVencimento > 28 ? (
+              <p className="mt-1 text-xs text-amber-300/80">
+                Nos meses que não têm dia {diaVencimento}, a cobrança cai no último
+                dia do mês — em fevereiro, dia 28 (29 em ano bissexto).
+              </p>
+            ) : (
               <p className="mt-1 text-xs text-slate-400">
-                Em meses menores, a cobrança cai no último dia (fevereiro: dia 28,
-                ou 29 em ano bissexto).
+                De 1 a 31. Use 31 para cobrar sempre no último dia do mês.
               </p>
             )}
           </Field>
