@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdminPlataforma as requireAdmin } from "@/lib/admin-plataforma";
 import { PlanoSaas } from "@/lib/types";
 import {
@@ -183,32 +183,75 @@ export async function editarLoginAcademia(
   return { ok: true };
 }
 
+/**
+ * Exclui uma academia inteira — ação IRREVERSÍVEL: apaga a academia, todos os
+ * dados por CASCADE (alunos, financeiro, treinos, etc.) e os logins da equipe
+ * em `auth.users`. Apagar os logins é o que impede o e-mail de virar órfão:
+ * sem isso, o endereço continuaria "já cadastrado" mesmo depois da academia
+ * sumir, bloqueando reuso — foi exatamente o que aconteceu com contas de teste
+ * antigas.
+ *
+ * DUAS TRAVAS, além de `requireAdmin` (só o superadmin da plataforma chega aqui):
+ *   1. `confirmacaoNome` tem de bater EXATAMENTE com o nome da academia — obriga
+ *      a olhar o que se está apagando, não é um clique no automático.
+ *   2. `senha` é a senha de login do próprio admin, reconferida agora. Uma
+ *      sessão aberta no balcão não apaga academia de ninguém sem saber a senha.
+ *
+ * A conferência de senha usa a sessão do admin (createClient), não o service
+ * role — é a identidade real de quem está pedindo. A exclusão em si usa o
+ * service role, que ignora RLS.
+ */
 export async function removerAcademia(
-  academiaId: string
+  academiaId: string,
+  confirmacaoNome: string,
+  senha: string
 ): Promise<{ erro?: string }> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
-  const supabase = createServiceRoleClient();
+  if (!senha) return { erro: "Digite sua senha de login para confirmar." };
 
-  // Busca IDs dos usuários vinculados para deletar do Auth
-  const { data: perfis } = await supabase
+  const service = createServiceRoleClient();
+
+  // Nome atual da academia — a confirmação tem de bater com ele.
+  const { data: academia } = await service
+    .from("academias")
+    .select("nome_fantasia")
+    .eq("id", academiaId)
+    .maybeSingle();
+
+  if (!academia) return { erro: "Academia não encontrada. Atualize a página." };
+
+  if (confirmacaoNome.trim() !== academia.nome_fantasia.trim()) {
+    return { erro: "O nome digitado não confere com o da academia." };
+  }
+
+  // Trava 2: reautenticação com a senha do admin logado.
+  const sessao = createClient();
+  const { error: erroSenha } = await sessao.auth.signInWithPassword({
+    email: admin.email,
+    password: senha,
+  });
+  if (erroSenha) return { erro: "Senha incorreta. A academia NÃO foi excluída." };
+
+  // Apaga os logins da equipe no Auth (senão viram órfãos e travam o e-mail).
+  const { data: perfis } = await service
     .from("perfis_admin")
     .select("id")
     .eq("academia_id", academiaId);
 
   if (perfis) {
     for (const perfil of perfis) {
-      await supabase.auth.admin.deleteUser(perfil.id);
+      await service.auth.admin.deleteUser(perfil.id);
     }
   }
 
-  // Deleta a academia (CASCADE remove registros filhos)
-  const { error } = await supabase
+  // Deleta a academia (CASCADE remove alunos, financeiro, treinos, etc.).
+  const { error } = await service
     .from("academias")
     .delete()
     .eq("id", academiaId);
 
-  if (error) return { erro: error.message };
+  if (error) return { erro: `Não foi possível excluir: ${error.message}` };
 
   revalidatePath("/admin");
   return {};
