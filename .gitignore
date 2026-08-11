@@ -42,3 +42,5 @@ next-env.d.ts
 .vscode/
 .idea/
 /.test-build-import
+/.test-build-norm
+/.test-build-erros

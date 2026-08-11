@@ -8,15 +8,23 @@ import { createClient } from "@/lib/supabase/server";
 import { StatusFuncionario } from "@/lib/types";
 import { validarUrl } from "@/lib/validacoes";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { erroAmigavel } from "@/lib/erros-amigaveis";
+import {
+  normalizarEmail,
+  normalizarNomeProprio,
+  normalizarTelefone,
+} from "@/lib/normalizacao";
 
 
 function lerCampos(formData: FormData) {
   const dia = Number(formData.get("dia_pagamento") ?? 0);
   return {
-    nome: String(formData.get("nome") ?? "").trim(),
-    cargo: String(formData.get("cargo") ?? "").trim(),
-    telefone: String(formData.get("telefone") ?? "").trim() || null,
-    email: String(formData.get("email") ?? "").trim() || null,
+    // Padronização (2026-08-11): nome/cargo em capitalização de nome próprio,
+    // e-mail minúsculo e telefone com máscara BR. Não recusa nada — só formata.
+    nome: normalizarNomeProprio(formData.get("nome") as string),
+    cargo: normalizarNomeProprio(formData.get("cargo") as string),
+    telefone: normalizarTelefone(formData.get("telefone") as string),
+    email: normalizarEmail(formData.get("email") as string),
     cpf: String(formData.get("cpf") ?? "").trim() || null,
     foto_url: validarUrl(String(formData.get("foto_url") ?? "")),
     data_admissao: String(formData.get("data_admissao") ?? "").trim() || null,
@@ -50,7 +58,7 @@ export async function criarFuncionario(
     .from("funcionarios")
     .insert({ academia_id: sessao.academia.id, ...campos });
 
-  if (error) return { erro: `Falha ao cadastrar funcionário: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "cadastrar o funcionário") };
 
   // Salário definido -> já lança a despesa da folha deste mês.
   if (campos.salario > 0 && campos.dia_pagamento) {
@@ -82,7 +90,7 @@ export async function atualizarFuncionario(
     .eq("id", funcionarioId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: `Falha ao atualizar funcionário: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "atualizar o funcionário") };
 
   if (campos.salario > 0 && campos.dia_pagamento) {
     await gerarFolhaMesAtual(supabase);
@@ -97,7 +105,7 @@ export async function atualizarFuncionario(
 export async function excluirFuncionario(
   slug: string,
   funcionarioId: string
-): Promise<void> {
+): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "funcionarios");
   const supabase = createClient();
 
@@ -117,7 +125,7 @@ export async function excluirFuncionario(
     .eq("id", funcionarioId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) throw new Error(`Falha ao excluir funcionário: ${error.message}`);
+  if (error) return { erro: erroAmigavel(error, "excluir o funcionário") };
 
   await registrarAuditoria({
     academiaId: sessao.academia.id,

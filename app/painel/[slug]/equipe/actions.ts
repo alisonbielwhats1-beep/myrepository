@@ -7,6 +7,8 @@ import { LIMITE_MEMBROS_EQUIPE, removeriaUltimoDono } from "@/lib/permissoes";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { Papel } from "@/lib/types";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { normalizarEmail, normalizarNomeProprio } from "@/lib/normalizacao";
 
 const PAPEIS_VALIDOS: Papel[] = ["dono", "gerente", "recepcao", "instrutor"];
 
@@ -25,8 +27,10 @@ export async function criarMembroEquipe(
     return { erro: "Apenas o dono pode adicionar membros à equipe." };
   }
 
-  const nome = String(formData.get("nome") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  // Este nome é congelado no log de auditoria (usuario_nome) a cada ação do
+  // membro — padronizar na entrada evita "MARIA" assinando metade do histórico.
+  const nome = normalizarNomeProprio(formData.get("nome") as string);
+  const email = normalizarEmail(formData.get("email") as string) ?? "";
   const senha = String(formData.get("senha") ?? "");
   const papel = String(formData.get("papel") ?? "recepcao") as Papel;
 
@@ -74,7 +78,7 @@ export async function criarMembroEquipe(
 
   if (erroPerfil) {
     await admin.auth.admin.deleteUser(novoUsuario.user.id);
-    return { erro: `Falha ao vincular o perfil: ${erroPerfil.message}` };
+    return { erro: erroAmigavel(erroPerfil, "vincular o perfil de acesso") };
   }
 
   // Nunca a senha: só nome, e-mail e papel — o suficiente para investigação,
@@ -124,7 +128,7 @@ export async function removerMembroEquipe(
 
   const admin = createServiceRoleClient();
   const { error } = await admin.auth.admin.deleteUser(perfilId);
-  if (error) return { erro: `Falha ao remover: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "remover o membro") };
 
   await registrarAuditoria({
     academiaId: sessao.academia.id,
@@ -191,7 +195,7 @@ export async function alterarPapel(
     .update({ papel })
     .eq("id", perfilId)
     .eq("academia_id", sessao.academia.id);
-  if (error) return { erro: `Falha ao atualizar: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "atualizar") };
 
   await registrarAuditoria({
     academiaId: sessao.academia.id,

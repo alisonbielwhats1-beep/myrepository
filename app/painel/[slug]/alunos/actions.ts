@@ -20,6 +20,12 @@ import {
 import { registrarAuditoria } from "@/lib/auditoria";
 import { inserirAlunoComMatricula } from "@/lib/alunos-cadastro";
 import { analisarLinhas, linhasDoArquivo } from "@/lib/importar-alunos";
+import { erroAmigavel } from "@/lib/erros-amigaveis";
+import {
+  normalizarEmail,
+  normalizarNomeProprio,
+  normalizarTelefone,
+} from "@/lib/normalizacao";
 
 // ---------------------------------------------------------------------------
 // Helpers de data no fuso America/Sao_Paulo
@@ -59,7 +65,8 @@ function spCompetencia(): string {
  * dataPagamento: quando pago, a data efetiva do pagamento (YYYY-MM-DD em SP).
  * formaPagamento: forma usada (pix, dinheiro, etc.) — registrada em observacoes.
  *
- * Retorna null em sucesso ou mensagem de erro.
+ * Retorna null em sucesso ou a mensagem de erro JÁ TRADUZIDA para o usuário
+ * (erroAmigavel) — quem chama devolve o texto direto, sem concatenar prefixo.
  */
 async function gerarCobrancaInicial(
   supabase: ReturnType<typeof createClient>,
@@ -101,7 +108,7 @@ async function gerarCobrancaInicial(
     .limit(1)
     .maybeSingle();
 
-  if (errBusca) return errBusca.message;
+  if (errBusca) return erroAmigavel(errBusca, "verificar as mensalidades já lançadas");
   if (existente) return null;
 
   const { error } = await supabase.from("receitas").insert({
@@ -119,7 +126,7 @@ async function gerarCobrancaInicial(
 
   // 23505 = unique_violation: outra requisição criou a mesma competência
   // entre a verificação e o insert. O resultado desejado já está no banco.
-  if (error && error.code !== "23505") return error.message;
+  if (error && error.code !== "23505") return erroAmigavel(error, "gerar a cobrança do plano");
   return null;
 }
 
@@ -275,7 +282,8 @@ function lerCamposSaude(formData: FormData) {
 /**
  * Registra no histórico o plano que o aluno passou a ter.
  * dataInicio: data em SP (YYYY-MM-DD). Padrão: hoje em SP.
- * Retorna null em sucesso ou mensagem de erro.
+ * Retorna null em sucesso ou a mensagem de erro JÁ TRADUZIDA para o usuário
+ * (erroAmigavel) — quem chama devolve o texto direto, sem concatenar prefixo.
  */
 async function registrarHistoricoPlano(
   supabase: ReturnType<typeof createClient>,
@@ -290,8 +298,8 @@ async function registrarHistoricoPlano(
     .eq("id", planoId)
     .eq("academia_id", academiaId)
     .maybeSingle();
-  if (errPlano) return errPlano.message;
-  if (!plano) return "Plano não encontrado.";
+  if (errPlano) return erroAmigavel(errPlano, "carregar os dados do plano");
+  if (!plano) return "O plano escolhido não existe mais. Atualize a página e escolha outro.";
   const { error } = await supabase.from("historico_planos").insert({
     academia_id: academiaId,
     aluno_id: alunoId,
@@ -301,7 +309,7 @@ async function registrarHistoricoPlano(
     recorrencia_meses: plano.recorrencia_meses,
     data_inicio: dataInicio ?? spHojeISO(),
   });
-  return error ? error.message : null;
+  return error ? erroAmigavel(error, "registrar o histórico do plano") : null;
 }
 
 export async function criarAluno(
@@ -312,7 +320,10 @@ export async function criarAluno(
   const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
-  const nome = String(formData.get("nome") ?? "").trim();
+  // Padronização (2026-08-11): "MARIA DA SILVA" é gravado "Maria da Silva".
+  // Normalizar não recusa nada — nome vazio continua sendo o único caso que
+  // barra o cadastro, e a checagem abaixo pega tanto "" quanto "   ".
+  const nome = normalizarNomeProprio(formData.get("nome") as string);
   if (!nome) return { erro: "Informe o nome do aluno." };
 
   const cpf = lerCpf(formData);
@@ -346,8 +357,8 @@ export async function criarAluno(
     {
       nome,
       cpf: cpf.cpf,
-      email: String(formData.get("email") ?? "").trim() || null,
-      telefone: String(formData.get("telefone") ?? "").trim() || null,
+      email: normalizarEmail(formData.get("email") as string),
+      telefone: normalizarTelefone(formData.get("telefone") as string),
       // Foto é enviada à parte, por atualizarFotoAlunoAdmin (upload real via
       // Storage) — este formulário não grava foto_perfil_url.
       status_matricula: statusInicial,
@@ -375,7 +386,7 @@ export async function criarAluno(
         return { ok: true, savedAt: Date.now(), id: existente.id };
       }
     }
-    return { erro: `Falha ao cadastrar aluno: ${error.message}` };
+    return { erro: erroAmigavel(error, "cadastrar o aluno") };
   }
 
   if (planoId && novo) {
@@ -396,7 +407,7 @@ export async function criarAluno(
     );
     if (errHist) {
       await supabase.from("alunos").delete().eq("id", novo.id).eq("academia_id", sessao.academia.id);
-      return { erro: `Falha ao registrar histórico do plano: ${errHist}` };
+      return { erro: errHist };
     }
 
     if (statusInicial === "ativa") {
@@ -406,7 +417,7 @@ export async function criarAluno(
       );
       if (errCobranca) {
         await supabase.from("alunos").delete().eq("id", novo.id).eq("academia_id", sessao.academia.id);
-        return { erro: `Falha ao gerar cobrança inicial: ${errCobranca}` };
+        return { erro: errCobranca };
       }
     }
   }
@@ -510,7 +521,7 @@ export async function importarAlunos(
     if (error) {
       // 23505 = unique(academia_id, cpf): o aluno já existe → ignora.
       if (error.code === "23505") ignorados++;
-      else errosLinha.push({ linha: a.linha, motivo: `Falha ao gravar: ${error.message}` });
+      else errosLinha.push({ linha: a.linha, motivo: erroAmigavel(error, "gravar este aluno") });
     } else {
       criados++;
     }
@@ -539,7 +550,10 @@ export async function atualizarAluno(
   const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
-  const nome = String(formData.get("nome") ?? "").trim();
+  // Padronização (2026-08-11): "MARIA DA SILVA" é gravado "Maria da Silva".
+  // Normalizar não recusa nada — nome vazio continua sendo o único caso que
+  // barra o cadastro, e a checagem abaixo pega tanto "" quanto "   ".
+  const nome = normalizarNomeProprio(formData.get("nome") as string);
   if (!nome) return { erro: "Informe o nome do aluno." };
 
   const cpf = lerCpf(formData);
@@ -571,8 +585,8 @@ export async function atualizarAluno(
     .update({
       nome,
       cpf: cpf.cpf,
-      email: String(formData.get("email") ?? "").trim() || null,
-      telefone: String(formData.get("telefone") ?? "").trim() || null,
+      email: normalizarEmail(formData.get("email") as string),
+      telefone: normalizarTelefone(formData.get("telefone") as string),
       // Foto é enviada à parte, por atualizarFotoAlunoAdmin — edição de dados
       // cadastrais não mexe em foto_perfil_url.
       status_matricula: novoStatus,
@@ -583,7 +597,7 @@ export async function atualizarAluno(
     .eq("id", alunoId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: `Falha ao atualizar aluno: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "atualizar o aluno") };
 
   const statusAnterior = atual?.status_matricula ?? "ativa";
   const trocouPlano = planoId && planoId !== (atual?.plano_id ?? null);
@@ -620,29 +634,29 @@ export async function atualizarAluno(
     // Reativação com troca de plano: fecha ciclo anterior, abre novo e gera cobrança.
     await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId, "Troca de plano na reativação");
     const errHist = await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId, spHojeISO());
-    if (errHist) return { erro: `Falha ao registrar histórico: ${errHist}` };
+    if (errHist) return { erro: errHist };
     const errCob = await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, planoId, diaVencimento, spCompetencia());
-    if (errCob) return { erro: `Falha ao gerar cobrança: ${errCob}` };
+    if (errCob) return { erro: errCob };
   } else if (reativando && planoId) {
     const vigente = await cicloVigente(supabase, sessao.academia.id, alunoId);
     if (!vigente) {
       // Ciclo encerrado (ou inexistente): abre um novo ciclo e cobra.
       await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId, "Ciclo encerrado — reativação");
       const errHist = await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId, spHojeISO());
-      if (errHist) return { erro: `Falha ao registrar histórico: ${errHist}` };
+      if (errHist) return { erro: errHist };
       const errCob = await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, planoId, diaVencimento, spCompetencia());
-      if (errCob) return { erro: `Falha ao gerar cobrança: ${errCob}` };
+      if (errCob) return { erro: errCob };
     } else if (!(await possuiCobrancaNoCicloAtual(supabase, sessao.academia.id, alunoId))) {
       // Ciclo vigente mas ainda sem cobrança — caso do aluno cadastrado com
       // plano e status "pendente", que nunca recebeu a cobrança inicial.
       const errCob = await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, planoId, diaVencimento, spCompetencia());
-      if (errCob) return { erro: `Falha ao gerar cobrança: ${errCob}` };
+      if (errCob) return { erro: errCob };
     }
   } else if (trocouPlano && planoId) {
     // Troca de plano sem reativação: registra histórico, sem gerar cobrança.
     await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId, "Troca de plano");
     const errHist = await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId, spHojeISO());
-    if (errHist) return { erro: `Falha ao registrar histórico: ${errHist}` };
+    if (errHist) return { erro: errHist };
   }
   // Edição de dados comuns (nome, email, dia_vencimento etc.) sem troca de status/plano:
   // nenhuma cobrança gerada.
@@ -710,13 +724,13 @@ export async function renovarPlano(
 
   // Gera a cobrança do novo ciclo (idempotente via unique index).
   const errCob = await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, aluno.plano_id, diaVencimento, competencia);
-  if (errCob) return { erro: `Falha ao gerar cobrança: ${errCob}` };
+  if (errCob) return { erro: errCob };
 
   revalidatePath(`/painel/${slug}/alunos`);
   return { ok: true };
 }
 
-export async function excluirAluno(slug: string, alunoId: string): Promise<void> {
+export async function excluirAluno(slug: string, alunoId: string): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
@@ -736,7 +750,7 @@ export async function excluirAluno(slug: string, alunoId: string): Promise<void>
     .eq("id", alunoId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) throw new Error(`Falha ao excluir aluno: ${error.message}`);
+  if (error) return { erro: erroAmigavel(error, "excluir o aluno") };
 
   await registrarAuditoria({
     academiaId: sessao.academia.id,
@@ -786,7 +800,7 @@ export async function criarTreino(
     .single();
 
   if (erroTreino || !treino) {
-    return { erro: `Falha ao criar treino: ${erroTreino?.message ?? ""}` };
+    return { erro: erroAmigavel(erroTreino, "criar o treino") };
   }
 
   const { error: erroExercicios } = await supabase
@@ -796,7 +810,7 @@ export async function criarTreino(
   if (erroExercicios) {
     // Desfaz o treino se os exercícios falharem, para não deixar ficha vazia.
     await supabase.from("treinos").delete().eq("id", treino.id);
-    return { erro: `Falha ao salvar exercícios: ${erroExercicios.message}` };
+    return { erro: erroAmigavel(erroExercicios, "salvar os exercícios") };
   }
 
   revalidatePath(`/painel/${slug}/alunos`);
@@ -857,7 +871,7 @@ export async function atualizarTreino(
     .eq("academia_id", sessao.academia.id);
 
   if (erroTreino) {
-    return { erro: `Falha ao atualizar a ficha: ${erroTreino.message}` };
+    return { erro: erroAmigavel(erroTreino, "atualizar a ficha") };
   }
 
   // Guarda a lista atual para poder restaurar se o insert novo falhar.
@@ -875,7 +889,7 @@ export async function atualizarTreino(
     .eq("treino_id", treinoId);
 
   if (erroRemocao) {
-    return { erro: `Falha ao atualizar exercícios: ${erroRemocao.message}` };
+    return { erro: erroAmigavel(erroRemocao, "atualizar os exercícios") };
   }
 
   const { error: erroInsercao } = await supabase
@@ -889,14 +903,14 @@ export async function atualizarTreino(
         .from("exercicios_treino")
         .insert(anteriores.map((ex) => ({ ...ex, treino_id: treinoId })));
     }
-    return { erro: `Falha ao salvar exercícios: ${erroInsercao.message}` };
+    return { erro: erroAmigavel(erroInsercao, "salvar os exercícios") };
   }
 
   revalidatePath(`/painel/${slug}/alunos`);
   return { ok: true, savedAt: Date.now() };
 }
 
-export async function excluirTreino(slug: string, treinoId: string): Promise<void> {
+export async function excluirTreino(slug: string, treinoId: string): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
@@ -906,7 +920,7 @@ export async function excluirTreino(slug: string, treinoId: string): Promise<voi
     .eq("id", treinoId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) throw new Error(`Falha ao excluir treino: ${error.message}`);
+  if (error) return { erro: erroAmigavel(error, "excluir a ficha de treino") };
 
   revalidatePath(`/painel/${slug}/alunos`);
 }
@@ -943,7 +957,7 @@ export async function registrarProgresso(
     observacoes: String(formData.get("observacoes") ?? "").trim() || null,
   });
 
-  if (error) return { erro: `Falha ao registrar progresso: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "registrar o progresso") };
 
   revalidatePath(`/painel/${slug}/alunos`);
   return { ok: true, savedAt: Date.now() };
@@ -952,7 +966,7 @@ export async function registrarProgresso(
 export async function excluirProgresso(
   slug: string,
   registroId: string
-): Promise<void> {
+): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "alunos");
   const supabase = createClient();
 
@@ -962,7 +976,7 @@ export async function excluirProgresso(
     .eq("id", registroId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) throw new Error(`Falha ao excluir registro: ${error.message}`);
+  if (error) return { erro: erroAmigavel(error, "excluir o registro de progresso") };
 
   revalidatePath(`/painel/${slug}/alunos`);
 }
@@ -1074,7 +1088,7 @@ export async function atualizarFotoAlunoAdmin(
     .eq("id", alunoId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: `Falha ao salvar a foto: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "salvar a foto") };
 
   await removerFotoAntiga(atual?.foto_perfil_url ?? null);
 
@@ -1104,7 +1118,7 @@ export async function removerFotoAlunoAdmin(
     .eq("id", alunoId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: `Falha ao remover a foto: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "remover a foto") };
 
   await removerFotoAntiga(atual?.foto_perfil_url ?? null);
 

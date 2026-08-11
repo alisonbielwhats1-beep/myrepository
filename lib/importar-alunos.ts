@@ -10,6 +10,11 @@
 // em formato inválido como erro (número torto é pior que vazio).
 
 import { normalizarCpf } from "./validacoes";
+import {
+  normalizarEmail,
+  normalizarNomeProprio,
+  normalizarTelefone,
+} from "./normalizacao";
 import { StatusMatricula } from "./types";
 import { ehXlsx, gerarXlsx, lerXlsx } from "./xlsx-minimo";
 
@@ -246,7 +251,11 @@ export function analisarLinhas(
   dados.slice(0, MAX_LINHAS_IMPORT).forEach(({ celulas, numero: nLinha }) => {
     const val = (nome: string) => (idx(nome) >= 0 ? (celulas[idx(nome)] ?? "").trim() : "");
 
-    const nome = val("nome");
+    // Padronização (2026-08-11): a planilha vinda de outro sistema costuma
+    // trazer a base inteira em CAIXA ALTA. Normalizar aqui (e não só no
+    // formulário) é o que impede a importação de reintroduzir o problema que
+    // a migration 060 acabou de corrigir.
+    const nome = normalizarNomeProprio(val("nome"));
     if (!nome) {
       erros.push({ linha: nLinha, motivo: "Nome em branco." });
       return;
@@ -289,7 +298,8 @@ export function analisarLinhas(
         erros.push({ linha: nLinha, motivo: `Telefone inválido ("${foneBruto}"). Use DDD + número.` });
         return;
       }
-      telefone = foneBruto; // guarda como veio (o link de WhatsApp limpa na hora)
+      // Máscara BR uniforme — os 10/11 dígitos já foram conferidos acima.
+      telefone = normalizarTelefone(foneBruto);
     } else {
       avisos.push({ linha: nLinha, motivo: `${nome}: sem telefone — não receberá WhatsApp até preencher.` });
     }
@@ -299,7 +309,7 @@ export function analisarLinhas(
     const emailBruto = val("email");
     if (emailBruto) {
       if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailBruto)) {
-        email = emailBruto;
+        email = normalizarEmail(emailBruto);
       } else {
         avisos.push({ linha: nLinha, motivo: `${nome}: e-mail inválido ("${emailBruto}") — ignorado.` });
       }

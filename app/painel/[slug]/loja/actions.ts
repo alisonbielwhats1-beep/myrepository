@@ -6,6 +6,8 @@ import type { EstadoAcao } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { CategoriaProduto } from "@/lib/types";
 import { hojeSaoPaulo } from "@/lib/utils";
+import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { normalizarNomeProprio } from "@/lib/normalizacao";
 
 const CATEGORIAS_VALIDAS: CategoriaProduto[] = [
   "suplemento",
@@ -20,7 +22,9 @@ function lerCampos(formData: FormData) {
   const categoria = String(formData.get("categoria") ?? "outro") as CategoriaProduto;
   const estoqueRaw = String(formData.get("estoque") ?? "").trim();
   return {
-    nome: String(formData.get("nome") ?? "").trim(),
+    // Padronização (2026-08-11): mesma regra dos demais cadastros — o nome do
+    // produto aparece no recibo da venda e na vitrine do aluno.
+    nome: normalizarNomeProprio(formData.get("nome") as string),
     descricao: String(formData.get("descricao") ?? "").trim() || null,
     categoria: CATEGORIAS_VALIDAS.includes(categoria) ? categoria : "outro",
     preco: Number(formData.get("preco") ?? 0) || 0,
@@ -54,7 +58,7 @@ export async function criarProduto(
     ordem: (count ?? 0) + 1,
   });
 
-  if (error) return { erro: `Falha ao cadastrar produto: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "cadastrar o produto") };
 
   revalidatePath(`/painel/${slug}/loja`);
   return { ok: true, savedAt: Date.now() };
@@ -78,7 +82,7 @@ export async function atualizarProduto(
     .eq("id", produtoId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: `Falha ao atualizar produto: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "atualizar o produto") };
 
   revalidatePath(`/painel/${slug}/loja`);
   return { ok: true, savedAt: Date.now() };
@@ -96,7 +100,7 @@ export async function alternarAtivoProduto(
     .update({ ativo })
     .eq("id", produtoId)
     .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(`Falha ao atualizar produto: ${error.message}`);
+  if (error) throw new Error(erroAmigavel(error, "atualizar o produto"));
   revalidatePath(`/painel/${slug}/loja`);
 }
 
@@ -127,7 +131,7 @@ export async function registrarVendaProduto(
     "baixar_estoque_venda",
     { p_produto_id: produtoId, p_qtd: qtd }
   );
-  if (eBaixa) return { erro: `Falha ao baixar estoque: ${eBaixa.message}` };
+  if (eBaixa) return { erro: erroAmigavel(eBaixa, "baixar estoque") };
   if (baixou === false) {
     return { erro: "Estoque insuficiente para essa quantidade." };
   }
@@ -147,7 +151,7 @@ export async function registrarVendaProduto(
     status: "pago",
     observacoes: "Baixa de estoque na loja",
   });
-  if (eRec) return { erro: `Falha ao lançar a venda: ${eRec.message}` };
+  if (eRec) return { erro: erroAmigavel(eRec, "lançar a venda") };
 
   revalidatePath(`/painel/${slug}/loja`);
   revalidatePath(`/painel/${slug}/financeiro`, "layout");
@@ -196,7 +200,7 @@ export async function estornarVenda(
     .delete()
     .eq("id", receitaId)
     .eq("academia_id", sessao.academia.id);
-  if (e2) throw new Error(`Falha ao estornar: ${e2.message}`);
+  if (e2) throw new Error(erroAmigavel(e2, "estornar"));
 
   revalidatePath(`/painel/${slug}/loja`);
   revalidatePath(`/painel/${slug}/financeiro`, "layout");
@@ -206,7 +210,7 @@ export async function estornarVenda(
 export async function excluirProduto(
   slug: string,
   produtoId: string
-): Promise<void> {
+): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "loja");
   const supabase = createClient();
   const { error } = await supabase
@@ -214,6 +218,6 @@ export async function excluirProduto(
     .delete()
     .eq("id", produtoId)
     .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(`Falha ao excluir produto: ${error.message}`);
+  if (error) return { erro: erroAmigavel(error, "excluir o produto") };
   revalidatePath(`/painel/${slug}/loja`);
 }

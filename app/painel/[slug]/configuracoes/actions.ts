@@ -7,6 +7,8 @@ import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { POLITICAS_INADIMPLENCIA } from "@/lib/types";
 import { validarUrl } from "@/lib/validacoes";
+import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { normalizarTelefone } from "@/lib/normalizacao";
 
 export async function atualizarAcademia(
   slug: string,
@@ -64,7 +66,10 @@ export async function atualizarAcademia(
     .update({
       nome_fantasia: nomeFantasia,
       endereco: String(formData.get("endereco") ?? "").trim() || null,
-      telefone: String(formData.get("telefone") ?? "").trim() || null,
+      // Só a máscara do telefone é padronizada. `nome_fantasia` fica como o
+      // dono escreveu: é a marca dele, e "CIA ATHLETICA" em caixa alta pode
+      // ser exatamente o nome registrado da academia.
+      telefone: normalizarTelefone(formData.get("telefone") as string),
       whatsapp: String(formData.get("whatsapp") ?? "").trim() || null,
       logo_url: validarUrl(String(formData.get("logo_url") ?? "")),
       cor_primaria: String(formData.get("cor_primaria") ?? "").trim() || "#adff42",
@@ -77,7 +82,7 @@ export async function atualizarAcademia(
     })
     .eq("id", sessao.academia.id);
 
-  if (error) return { erro: `Falha ao salvar: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "salvar") };
 
   revalidatePath(`/painel/${slug}/configuracoes`);
   revalidatePath(`/painel/${slug}/recepcao`);

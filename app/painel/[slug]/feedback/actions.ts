@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EstadoAcao, StatusFeedback } from "@/lib/types";
+import { erroAmigavel } from "@/lib/erros-amigaveis";
 
 const STATUS_VALIDOS: StatusFeedback[] = [
   "novo",
@@ -42,7 +43,7 @@ export async function responderFeedback(
     .eq("id", feedbackId)
     .eq("academia_id", sessao.academia.id)
     .maybeSingle();
-  if (erroLeitura) return { erro: `Falha ao ler o feedback: ${erroLeitura.message}` };
+  if (erroLeitura) return { erro: erroAmigavel(erroLeitura, "abrir o feedback") };
   if (!atual) return { erro: "Feedback não encontrado." };
 
   const { error } = await supabase
@@ -57,7 +58,7 @@ export async function responderFeedback(
     })
     .eq("id", feedbackId)
     .eq("academia_id", sessao.academia.id);
-  if (error) return { erro: `Falha ao responder: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "responder") };
 
   revalidatePath(`/painel/${slug}/feedback`);
   return { ok: true, savedAt: Date.now(), id: feedbackId };
@@ -80,7 +81,7 @@ export async function atualizarStatusFeedback(
     .update({ status })
     .eq("id", feedbackId)
     .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(`Falha ao atualizar status: ${error.message}`);
+  if (error) throw new Error(erroAmigavel(error, "atualizar o status"));
   revalidatePath(`/painel/${slug}/feedback`);
 }
 
@@ -96,14 +97,14 @@ export async function marcarFeedbackLido(
     .update({ lido })
     .eq("id", feedbackId)
     .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(`Falha ao atualizar feedback: ${error.message}`);
+  if (error) throw new Error(erroAmigavel(error, "atualizar feedback"));
   revalidatePath(`/painel/${slug}/feedback`);
 }
 
 export async function excluirFeedback(
   slug: string,
   feedbackId: string
-): Promise<void> {
+): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "feedback");
   const supabase = createClient();
   const { error } = await supabase
@@ -111,6 +112,6 @@ export async function excluirFeedback(
     .delete()
     .eq("id", feedbackId)
     .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(`Falha ao excluir feedback: ${error.message}`);
+  if (error) return { erro: erroAmigavel(error, "excluir o feedback") };
   revalidatePath(`/painel/${slug}/feedback`);
 }

@@ -6,6 +6,7 @@ import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { EstadoAcao } from "@/lib/types";
 import { LABELS_STATUS_INTEGRACAO, type StatusIntegracao } from "@/lib/types";
+import { erroAmigavel } from "@/lib/erros-amigaveis";
 
 /** Gera um novo segredo para o webhook da plataforma.
  *  Registra auditoria com usuário, academia e data/hora — nunca o valor do segredo. */
@@ -33,7 +34,7 @@ export async function rotarSecretIntegracao(
     .update({ [campo]: novoSecret })
     .eq("id", sessao.academia.id);
 
-  if (error) return { erro: `Falha ao rotacionar: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "gerar uma nova chave") };
 
   await supabase.from("log_integracoes").insert({
     academia_id: sessao.academia.id,
@@ -84,7 +85,7 @@ export async function atualizarStatusIntegracao(
     .update({ [campoStatus]: novoStatus })
     .eq("id", sessao.academia.id);
 
-  if (error) return { erro: `Falha ao atualizar status: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "atualizar o status") };
 
   await supabase.from("log_integracoes").insert({
     academia_id: sessao.academia.id,
@@ -138,7 +139,7 @@ export async function definirRepasseParceiro(
     { p_plataforma: plataforma, p_valor: valorReais, p_ativo: ativo }
   );
 
-  if (error) return { erro: `Falha ao salvar: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "salvar") };
   if (!resultado || resultado.length === 0) {
     return { erro: "Você não tem permissão para configurar o repasse." };
   }

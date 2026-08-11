@@ -4,6 +4,28 @@ import { useState, useTransition } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/**
+ * Mensagem para quando a exclusão falha e não veio um motivo utilizável.
+ *
+ * Em produção o Next.js APAGA a mensagem de qualquer erro lançado por uma
+ * Server Action e entrega ao cliente um texto genérico em inglês ("An error
+ * occurred in the Server Action..."). Mostrar `e.message` direto, como era
+ * feito antes, jogava esse inglês técnico na tela da recepção. Por isso as
+ * ações de exclusão passaram a DEVOLVER `{ erro }` (texto já traduzido no
+ * servidor, que sobrevive) em vez de lançar — e o catch abaixo virou só a
+ * rede de segurança para o que ainda lança.
+ */
+const FALHA_GENERICA =
+  "Não foi possível excluir. Atualize a página e tente de novo.";
+
+/** Só aproveita a mensagem do erro se ela for legível para o usuário final. */
+function mensagemUtil(e: unknown): string {
+  if (!(e instanceof Error) || !e.message) return FALHA_GENERICA;
+  const tecnica =
+    /server action|server components|digest|constraint|violates|postgres|fetch failed/i;
+  return tecnica.test(e.message) ? FALHA_GENERICA : e.message;
+}
+
 export default function ConfirmButton({
   action,
   confirmText = "Tem certeza que deseja excluir?",
@@ -11,7 +33,11 @@ export default function ConfirmButton({
   className,
   variant = "icon",
 }: {
-  action: () => Promise<void>;
+  /**
+   * Devolver `{ erro }` é o caminho preferido: a mensagem chega inteira ao
+   * usuário. `void` continua aceito para as ações que ainda lançam.
+   */
+  action: () => Promise<void | { erro?: string } | undefined>;
   confirmText?: string;
   label?: string;
   className?: string;
@@ -25,9 +51,10 @@ export default function ConfirmButton({
     setErro(null);
     startTransition(async () => {
       try {
-        await action();
+        const resultado = await action();
+        if (resultado && resultado.erro) setErro(resultado.erro);
       } catch (e) {
-        setErro(e instanceof Error ? e.message : "Falha ao excluir.");
+        setErro(mensagemUtil(e));
       }
     });
   };

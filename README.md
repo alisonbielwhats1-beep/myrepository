@@ -81,7 +81,24 @@ preenchido, ele não inicia (ver seção abaixo).
    - As RPCs públicas `obter_ficha_aluno` e `obter_academia_publica`,
      usadas pela tela do aluno (sem login).
    - **Nenhum dado de demonstração** é inserido.
-3. Em *Project Settings → API*, copie a `URL`, a chave `anon` e a chave
+3. Ainda no **SQL Editor**, execute os arquivos de
+   [`supabase/migrations/`](./supabase/migrations) **em ordem numérica**
+   (`002…`, `004`, `004b`, … até o maior número), pulando os terminados em
+   `_rollback.sql` — esses só existem para desfazer. O `schema.sql` é apenas a
+   baseline; tudo que veio depois (auditoria, notificações, QR de acesso,
+   atendimento, recordes…) está nas migrations.
+
+   > ⚠️ **Este passo não é opcional e vale também para um banco já em uso.**
+   > Uma migration não aplicada não derruba o sistema — a tela some ou a
+   > gravação falha em silêncio, com um `Could not find the table … in the
+   > schema cache` no log da Vercel. Foi exatamente o que aconteceu com
+   > `logs_auditoria` (migration 040) em 11/08/2026: alunos eram cadastrados
+   > normalmente, mas nenhuma ação era registrada no histórico.
+   >
+   > Para conferir o que falta num banco existente, compare a lista de
+   > arquivos com o que há no banco:
+   > `select tablename from pg_tables where schemaname = 'public' order by 1;`
+4. Em *Project Settings → API*, copie a `URL`, a chave `anon` e a chave
    `service_role` para o seu `.env.local`.
 
 ### Criar a primeira academia + administrador

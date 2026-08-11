@@ -14,6 +14,7 @@ import {
 } from "@/lib/types";
 import { hojeSaoPaulo } from "@/lib/utils";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { erroAmigavel } from "@/lib/erros-amigaveis";
 
 
 /**
@@ -33,7 +34,7 @@ export async function gerarFolha(
   const { data, error } = await supabase.rpc("gerar_folha_do_mes", {
     p_competencia: comp,
   });
-  if (error) return { erro: `Falha ao gerar folha: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "gerar a folha de pagamento") };
 
   revalidatePath(`/painel/${slug}/financeiro`, "layout");
   revalidatePath(`/painel/${slug}`);
@@ -80,7 +81,12 @@ export async function previewCobrancasMensais(
     .gt("planos.valor_mensal", 0);
 
   if (error) {
-    return { competencia: comp, comPlanoAtivo: 0, jaLancados: 0, erro: error.message };
+    return {
+      competencia: comp,
+      comPlanoAtivo: 0,
+      jaLancados: 0,
+      erro: erroAmigavel(error, "consultar os alunos com plano ativo"),
+    };
   }
 
   const ids = (alunos ?? []).map((a) => a.id);
@@ -131,7 +137,7 @@ export async function sincronizarCobrancas(
     .rpc("sincronizar_cobrancas", { p_dias: 7 })
     .maybeSingle();
 
-  if (error) return { erro: `Falha ao sincronizar cobranças: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "sincronizar as cobranças") };
 
   const r = data as {
     criadas: number;
@@ -170,7 +176,7 @@ export async function gerarMensalidades(
   const { data, error } = await supabase.rpc("gerar_mensalidades_do_mes", {
     p_competencia: comp,
   });
-  if (error) return { erro: `Falha ao gerar cobranças: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "gerar as cobranças") };
 
   const criadas = (data as number) ?? 0;
   // O que sobrou de elegível e não virou cobrança nova é ciclo que ainda não
@@ -222,7 +228,7 @@ export async function registrarPagamentoRetroativo(
     .is("data_pagamento", null)
     .select("id");
 
-  if (error) return { erro: `Falha ao salvar: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "salvar") };
   if (!data || data.length === 0) {
     return {
       erro:
@@ -274,7 +280,7 @@ export async function definirSaldoInicial(
     })
     .eq("id", sessao.academia.id);
 
-  if (error) return { erro: `Falha ao salvar saldo inicial: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "salvar o saldo inicial") };
 
   revalidatePath(`/painel/${slug}/financeiro`, "layout");
   revalidatePath(`/painel/${slug}`);
@@ -337,7 +343,7 @@ export async function criarReceita(
     .from("receitas")
     .insert({ academia_id: sessao.academia.id, ...campos });
 
-  if (error) return { erro: `Falha ao lançar receita: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "lançar a receita") };
 
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
@@ -362,7 +368,7 @@ export async function atualizarReceita(
     .eq("id", receitaId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: `Falha ao atualizar receita: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "atualizar a receita") };
 
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
@@ -404,7 +410,7 @@ export async function marcarPago(
     { p_receita_id: receitaId, p_forma_pagamento: formaPagamento?.trim() || null }
   );
 
-  if (error) return { erro: `Falha ao marcar como pago: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "marcar como pago") };
 
   // Zero linhas: ou já estava paga (idempotente, sucesso) ou não existe / é de
   // outra academia / não é mensalidade (erro genérico, sem revelar qual caso).
@@ -484,7 +490,7 @@ export async function cancelarCobranca(
     .eq("id", receitaId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: `Falha ao cancelar: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "cancelar o lançamento") };
 
   await registrarAuditoria({
     academiaId: sessao.academia.id,
@@ -504,7 +510,7 @@ export async function cancelarCobranca(
   return { ok: true, savedAt: Date.now() };
 }
 
-export async function excluirReceita(slug: string, receitaId: string): Promise<void> {
+export async function excluirReceita(slug: string, receitaId: string): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "financeiro");
   const supabase = createClient();
   const { error } = await supabase
@@ -512,7 +518,7 @@ export async function excluirReceita(slug: string, receitaId: string): Promise<v
     .delete()
     .eq("id", receitaId)
     .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(`Falha ao excluir receita: ${error.message}`);
+  if (error) return { erro: erroAmigavel(error, "excluir a receita") };
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
 }
@@ -556,7 +562,7 @@ export async function criarDespesa(
     .from("despesas")
     .insert({ academia_id: sessao.academia.id, ...campos });
 
-  if (error) return { erro: `Falha ao lançar despesa: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "lançar a despesa") };
 
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
@@ -581,14 +587,14 @@ export async function atualizarDespesa(
     .eq("id", despesaId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: `Falha ao atualizar despesa: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "atualizar a despesa") };
 
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
   return { ok: true, savedAt: Date.now() };
 }
 
-export async function excluirDespesa(slug: string, despesaId: string): Promise<void> {
+export async function excluirDespesa(slug: string, despesaId: string): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "financeiro");
   const supabase = createClient();
   const { error } = await supabase
@@ -596,7 +602,7 @@ export async function excluirDespesa(slug: string, despesaId: string): Promise<v
     .delete()
     .eq("id", despesaId)
     .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(`Falha ao excluir despesa: ${error.message}`);
+  if (error) return { erro: erroAmigavel(error, "excluir a despesa") };
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
 }

@@ -13,6 +13,7 @@ import {
   validarArquivoMidiaExercicio,
 } from "@/lib/midia-exercicios";
 import { createClient } from "@/lib/supabase/server";
+import { erroAmigavel } from "@/lib/erros-amigaveis";
 
 /** Cria um treino da biblioteca (modelo, sem aluno), com seus exercícios. */
 export async function criarTreinoBiblioteca(
@@ -50,7 +51,7 @@ export async function criarTreinoBiblioteca(
     .single();
 
   if (erroTreino || !treino) {
-    return { erro: `Falha ao criar treino: ${erroTreino?.message ?? ""}` };
+    return { erro: erroAmigavel(erroTreino, "criar o treino") };
   }
 
   const { error: erroExercicios } = await supabase
@@ -59,7 +60,7 @@ export async function criarTreinoBiblioteca(
 
   if (erroExercicios) {
     await supabase.from("treinos").delete().eq("id", treino.id);
-    return { erro: `Falha ao salvar exercícios: ${erroExercicios.message}` };
+    return { erro: erroAmigavel(erroExercicios, "salvar os exercícios") };
   }
 
   revalidatePath(`/painel/${slug}/treinos`);
@@ -92,7 +93,7 @@ export async function enviarClipeExercicio(
 export async function excluirTreinoBiblioteca(
   slug: string,
   treinoId: string
-): Promise<void> {
+): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "treinos");
   const supabase = createClient();
   const { error } = await supabase
@@ -100,7 +101,7 @@ export async function excluirTreinoBiblioteca(
     .delete()
     .eq("id", treinoId)
     .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(`Falha ao excluir treino: ${error.message}`);
+  if (error) return { erro: erroAmigavel(error, "excluir o treino") };
   revalidatePath(`/painel/${slug}/treinos`);
 }
 
@@ -117,6 +118,6 @@ export async function definirPublicoTreino(
     .update({ publico })
     .eq("id", treinoId)
     .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(`Falha ao atualizar treino: ${error.message}`);
+  if (error) throw new Error(erroAmigavel(error, "atualizar treino"));
   revalidatePath(`/painel/${slug}/treinos`);
 }

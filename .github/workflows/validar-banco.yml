@@ -1,0 +1,211 @@
+name: Validar banco (Postgres efêmero)
+
+# =============================================================================
+# Ambiente de teste do banco SEM gastar um projeto Supabase.
+#
+# POR QUE ESTE WORKFLOW EXISTE
+#   O plano Free do Supabase permite 2 projetos e os 2 já estão em uso, então
+#   não há como manter um projeto de desenvolvimento separado na nuvem. Este
+#   workflow resolve isso: sobe um Postgres descartável aqui no GitHub, aplica
+#   o schema + as 55 migrations nele e roda as verificações. É grátis, é
+#   ilimitado, e o banco é destruído no fim de cada execução.
+#
+# O QUE ELE GARANTE
+#   1. schema.sql + migrations aplicam sem erro em um banco vazio (hoje isso
+#      nunca foi verificado — um ambiente novo ou uma restauração de backup
+#      podiam falhar sem ninguém saber).
+#   2. Nenhuma das falhas de segurança da auditoria de 03/08/2026 volta
+#      (supabase/ci/10_assertivas_seguranca.sql).
+#   3. O isolamento entre academias funciona de fato, com duas academias reais
+#      (supabase/ci/20_teste_rls_multitenant.sql) — o teste que faltava.
+#
+# SEGURANÇA
+#   Este workflow NUNCA toca produção. Não usa nenhum secret, não conhece a
+#   URL do Supabase e não tem credencial de banco nenhuma além do Postgres
+#   temporário que ele mesmo cria. Comparar com backup-banco.yml, que é o
+#   único que usa `secrets.SUPABASE_DB_URL`.
+# =============================================================================
+
+on:
+  push:
+    paths:
+      - "supabase/**"
+      - ".github/workflows/validar-banco.yml"
+  pull_request:
+    paths:
+      - "supabase/**"
+      - ".github/workflows/validar-banco.yml"
+  workflow_dispatch: {}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Ordem canônica: banco vazio -> schema.sql -> migrations 002..055.
+  # É o caminho que um ambiente novo (ou um restore) percorre.
+  # ---------------------------------------------------------------------------
+  ordem-canonica:
+    name: schema.sql + migrations (ordem canônica)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gestacad_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Postgres local e efêmero deste job. Não é produção.
+      PGURL: postgresql://postgres:postgres@localhost:5432/gestacad_ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar ambiente Supabase (roles, auth.uid, storage)
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/ci/00_bootstrap.sql
+
+      - name: Aplicar schema.sql (baseline — não existe migration 001)
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/schema.sql
+
+      - name: Aplicar as migrations em ordem numérica
+        # `sort` simples, NÃO `sort -V`. Todos os prefixos têm 3 dígitos com
+        # zero à esquerda (002..060), então a ordem lexicográfica já é a
+        # numérica — e ela resolve corretamente o par 004/004b, porque `_`
+        # (ASCII 95) vem antes de `b` (98). Com `sort -V` o resultado seria
+        # 004b_remover_dados_demo ANTES de 004_dados_demo, ou seja, removeria
+        # os dados de demonstração antes de inseri-los.
+        #
+        # Os arquivos `*_rollback.sql` ficam de FORA: eles são o desfazer
+        # manual de uma migration, não um passo da sequência. Aplicados aqui,
+        # cairiam logo depois da própria migration ("056_x.sql" vem antes de
+        # "056_x_rollback.sql" na ordem lexicográfica) e desfariam a feature
+        # que acabou de ser criada — o CI validaria um banco sem ela.
+        run: |
+          set -euo pipefail
+          for arquivo in $(ls supabase/migrations/*.sql | grep -v '_rollback\.sql$' | sort); do
+            echo "── $(basename "$arquivo")"
+            psql "$PGURL" -v ON_ERROR_STOP=1 -q -f "$arquivo"
+          done
+          echo "Todas as migrations aplicaram sem erro."
+
+      - name: Assertivas de segurança
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/ci/10_assertivas_seguranca.sql
+
+      - name: Teste de isolamento multi-tenant (duas academias)
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/ci/20_teste_rls_multitenant.sql
+
+      - name: Inventário do schema resultante
+        run: |
+          psql "$PGURL" -c "
+            select
+              (select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
+                where n.nspname='public' and c.relkind='r')            as tabelas,
+              (select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
+                where n.nspname='public' and c.relkind='r' and c.relrowsecurity) as com_rls,
+              (select count(*) from pg_policies where schemaname='public')        as policies,
+              (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+                where n.nspname='public')                                        as funcoes,
+              (select count(*) from storage.buckets)                             as buckets;"
+
+  # ---------------------------------------------------------------------------
+  # Regressão do schema.sql (achado P0-03).
+  #
+  # O README manda colar supabase/schema.sql inteiro no SQL Editor, e o arquivo
+  # é re-executável. Mas ele ainda contém obter_ficha_aluno(uuid) concedida a
+  # anon (linhas 641/723) e a policy permissiva de perfis_admin (531-535) — duas
+  # falhas que as migrations 037 e 014 corrigiram. Re-executá-lo depois das
+  # migrations DESFAZ as correções.
+  #
+  # Este job prova isso rodando schema.sql por último e conferindo as assertivas.
+  # Enquanto o schema.sql não for corrigido, ele FALHA de propósito — por isso
+  # está com continue-on-error, para documentar o risco sem travar o CI.
+  # Depois de corrigir o schema.sql, remova o continue-on-error: aí ele passa a
+  # ser uma defesa permanente.
+  # ---------------------------------------------------------------------------
+  regressao-schema:
+    name: "schema.sql re-executado por último (deve ser seguro)"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gestacad_regressao
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGURL: postgresql://postgres:postgres@localhost:5432/gestacad_regressao
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar ambiente Supabase
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/ci/00_bootstrap.sql
+
+      - name: schema.sql -> migrations -> schema.sql outra vez
+        run: |
+          set -euo pipefail
+          psql "$PGURL" -v ON_ERROR_STOP=1 -q -f supabase/schema.sql
+          for arquivo in $(ls supabase/migrations/*.sql | sort); do
+            psql "$PGURL" -v ON_ERROR_STOP=1 -q -f "$arquivo"
+          done
+          echo "── re-executando schema.sql (é o que o README instrui) ──"
+          psql "$PGURL" -v ON_ERROR_STOP=1 -q -f supabase/schema.sql
+
+      - name: Assertivas de segurança (falha aqui = P0-03 confirmado)
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/ci/10_assertivas_seguranca.sql
+
+      - name: Teste de isolamento multi-tenant
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/ci/20_teste_rls_multitenant.sql
+
+  # ---------------------------------------------------------------------------
+  # Testes de domínio em TypeScript que já existem no projeto e nunca rodaram
+  # em CI — só localmente, quando alguém lembrava.
+  # ---------------------------------------------------------------------------
+  testes-e-build:
+    name: Testes, typecheck, lint e build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Testes de domínio (8 suítes)
+        run: npm test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        # Placeholders: o build do Next não conecta no Supabase, mas as libs
+        # exigem que as variáveis existam. Valores fictícios de propósito —
+        # nenhuma credencial real entra neste workflow.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://exemplo.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: chave-ficticia-de-ci
+          SUPABASE_SERVICE_ROLE_KEY: chave-ficticia-de-ci
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+        run: npm run build

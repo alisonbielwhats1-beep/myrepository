@@ -114,8 +114,31 @@ console.log("\n5. Status derivado e regra 'sem plano nunca ativa'");
 console.log("\n6. Cabeçalho tolerante e vazios");
 {
   const comAlias = analisarPlanilha("nome;celular;plano\nAna;11999998888;Plano Trimestral", PLANOS);
-  check("separador ; + alias 'celular' -> telefone", comAlias.validos[0].telefone === "11999998888");
+  // Desde 2026-08-11 a importação normaliza o telefone (lib/normalizacao.ts):
+  // os dígitos são os mesmos, a máscara passa a ser a única do sistema.
+  check(
+    "separador ; + alias 'celular' -> telefone com máscara BR",
+    comAlias.validos[0].telefone === "(11) 99999-8888",
+    `-> ${comAlias.validos[0].telefone}`
+  );
   check("alias de plano com espaço casa", comAlias.validos[0].plano_id === "p2");
+
+  // Planilha migrada de outro sistema quase sempre vem em CAIXA ALTA — a
+  // importação não pode reintroduzir o que a migration 060 corrigiu.
+  const caixaAlta = analisarPlanilha(
+    "nome,email\nMARIA DA SILVA,MARIA@GMAIL.COM",
+    PLANOS
+  );
+  check(
+    "nome em CAIXA ALTA é normalizado na importação",
+    caixaAlta.validos[0].nome === "Maria da Silva",
+    `-> ${caixaAlta.validos[0].nome}`
+  );
+  check(
+    "e-mail em CAIXA ALTA é normalizado na importação",
+    caixaAlta.validos[0].email === "maria@gmail.com",
+    `-> ${caixaAlta.validos[0].email}`
+  );
 
   check("linha totalmente vazia é ignorada", analisar(["", "Ana,,11999998888,,,,"]).validos.length === 1);
   check(

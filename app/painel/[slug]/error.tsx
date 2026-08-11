@@ -20,9 +20,18 @@ export default function PainelErro({
         <AlertTriangle className="h-8 w-8 text-red-400" />
       </div>
       <div>
-        <h2 className="text-lg font-bold text-white">Algo deu errado</h2>
+        <h2 className="text-lg font-bold text-white">Não conseguimos carregar esta tela</h2>
         <p className="mt-1 max-w-sm text-sm text-slate-400">
-          {error.message ?? "Ocorreu um erro inesperado ao carregar esta página."}
+          {/*
+            Antes esta linha mostrava `error.message`. Em produção o Next.js
+            substitui a mensagem de qualquer erro de servidor por um texto
+            genérico EM INGLÊS ("An error occurred in the Server Components
+            render...") — ou seja, o cliente lia justamente o jargão que não
+            deveria ver. O detalhe técnico continua inteiro no console (efeito
+            acima) e no log da Vercel; aqui fica o que a recepção pode fazer.
+          */}
+          Nenhum dado foi perdido. Clique em &ldquo;Tentar novamente&rdquo; — se o
+          problema continuar, informe o código abaixo ao suporte.
         </p>
         {error.digest && (
           <p className="mt-2 text-xs text-slate-600">Código: {error.digest}</p>

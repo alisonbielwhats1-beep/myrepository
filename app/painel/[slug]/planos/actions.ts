@@ -5,10 +5,15 @@ import type { EstadoAcao } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { normalizarNomeProprio } from "@/lib/normalizacao";
 
 function lerCampos(formData: FormData) {
   return {
-    nome: String(formData.get("nome") ?? "").trim(),
+    // Padronização (2026-08-11): "MENSAL PREMIUM" é gravado "Mensal Premium".
+    // O nome do plano aparece na cobrança e no WhatsApp do aluno — caixa alta
+    // ali vira grito na mensagem que o cliente recebe.
+    nome: normalizarNomeProprio(formData.get("nome") as string),
     descricao: String(formData.get("descricao") ?? "").trim() || null,
     valor_mensal: Number(formData.get("valor_mensal") ?? 0) || 0,
     recorrencia_meses: Math.max(1, Number(formData.get("recorrencia_meses") ?? 1) || 1),
@@ -30,7 +35,7 @@ export async function criarPlano(
   const { error } = await supabase
     .from("planos")
     .insert({ academia_id: sessao.academia.id, ...campos });
-  if (error) return { erro: `Falha ao criar plano: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "criar o plano") };
 
   revalidatePath(`/painel/${slug}/configuracoes`);
   return { ok: true, savedAt: Date.now() };
@@ -52,13 +57,13 @@ export async function atualizarPlano(
     .update(campos)
     .eq("id", planoId)
     .eq("academia_id", sessao.academia.id);
-  if (error) return { erro: `Falha ao atualizar plano: ${error.message}` };
+  if (error) return { erro: erroAmigavel(error, "atualizar o plano") };
 
   revalidatePath(`/painel/${slug}/configuracoes`);
   return { ok: true, savedAt: Date.now() };
 }
 
-export async function excluirPlano(slug: string, planoId: string): Promise<void> {
+export async function excluirPlano(slug: string, planoId: string): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "configuracoes");
   const supabase = createClient();
 
@@ -81,6 +86,6 @@ export async function excluirPlano(slug: string, planoId: string): Promise<void>
     .delete()
     .eq("id", planoId)
     .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(`Falha ao excluir plano: ${error.message}`);
+  if (error) return { erro: erroAmigavel(error, "excluir o plano") };
   revalidatePath(`/painel/${slug}/configuracoes`);
 }
