@@ -15,6 +15,11 @@ import {
   normalizarNomeProprio,
   normalizarTelefone,
 } from "./normalizacao";
+import {
+  lerDiaVencimento,
+  DIA_VENCIMENTO_MIN,
+  DIA_VENCIMENTO_MAX,
+} from "./vencimento";
 import { StatusMatricula } from "./types";
 import { ehXlsx, gerarXlsx, lerXlsx } from "./xlsx-minimo";
 
@@ -34,7 +39,7 @@ export interface AlunoImportado {
   telefone: string | null;
   email: string | null;
   plano_id: string | null;
-  /** null = deixar o servidor aplicar o padrão (min(hoje, 28)). */
+  /** null = deixar o servidor aplicar o padrão (o dia de hoje). */
   dia_vencimento: number | null;
   status_matricula: StatusMatricula;
 }
@@ -315,16 +320,20 @@ export function analisarLinhas(
       }
     }
 
-    // Dia de vencimento (opcional; 1..28; fora disso é erro).
+    // Dia de vencimento (opcional; 1..31; fora disso é erro). O 31 é aceito
+    // desde 2026-08-11: em meses curtos a cobrança cai no último dia do mês
+    // (lib/vencimento.ts), então nenhuma data inexistente é gerada.
     let diaVencimento: number | null = null;
     const diaBruto = val("dia_vencimento");
     if (diaBruto) {
-      const n = parseInt(diaBruto, 10);
-      if (!Number.isFinite(n) || n < 1 || n > 28) {
-        erros.push({ linha: nLinha, motivo: `Dia de vencimento inválido ("${diaBruto}"). Use 1 a 28.` });
+      diaVencimento = lerDiaVencimento(diaBruto);
+      if (diaVencimento === null) {
+        erros.push({
+          linha: nLinha,
+          motivo: `Dia de vencimento inválido ("${diaBruto}"). Use ${DIA_VENCIMENTO_MIN} a ${DIA_VENCIMENTO_MAX}.`,
+        });
         return;
       }
-      diaVencimento = n;
     }
 
     // Status (opcional; deriva do plano quando em branco).

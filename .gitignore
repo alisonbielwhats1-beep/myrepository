@@ -44,3 +44,4 @@ next-env.d.ts
 /.test-build-import
 /.test-build-norm
 /.test-build-erros
+/.test-build-venc

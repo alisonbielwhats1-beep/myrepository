@@ -62,6 +62,11 @@ import {
 } from "@/app/painel/[slug]/alunos/actions";
 import { cancelarCobranca, marcarPago } from "@/app/painel/[slug]/financeiro/actions";
 import type { MensalidadeDetalhe } from "@/lib/data";
+import {
+  rotuloDiaVencimento,
+  DIA_VENCIMENTO_MIN,
+  DIA_VENCIMENTO_MAX,
+} from "@/lib/vencimento";
 
 const STATUS_OPCOES: { value: StatusMatricula; label: string }[] = [
   { value: "ativa", label: "Ativa" },
@@ -858,7 +863,7 @@ function SituacaoFinanceira({
         <div>
           <p className="label-muted">Vencimento</p>
           <p className="mt-0.5 text-sm font-medium text-white">
-            {aluno.dia_vencimento ? `Dia ${aluno.dia_vencimento}` : "—"}
+            {rotuloDiaVencimento(aluno.dia_vencimento)}
           </p>
         </div>
         <div>
@@ -1008,7 +1013,7 @@ function FormularioAluno({
 
   const [pagamentoInicial, setPagamentoInicial] = useState<"a_pagar" | "pago_agora">("a_pagar");
   const [diaVencimento, setDiaVencimento] = useState(
-    alunoExistente?.dia_vencimento ?? Math.min(new Date().getDate(), 28)
+    alunoExistente?.dia_vencimento ?? new Date().getDate()
   );
   const hoje = hojeSaoPaulo();
   const [dataPagamento, setDataPagamento] = useState(hoje);
@@ -1120,14 +1125,27 @@ function FormularioAluno({
             <input
               name="dia_vencimento"
               type="number"
-              min={1}
-              max={28}
+              min={DIA_VENCIMENTO_MIN}
+              max={DIA_VENCIMENTO_MAX}
               value={diaVencimento}
               onChange={(e) =>
-                setDiaVencimento(Math.min(28, Math.max(1, parseInt(e.target.value) || 1)))
+                setDiaVencimento(
+                  Math.min(
+                    DIA_VENCIMENTO_MAX,
+                    Math.max(DIA_VENCIMENTO_MIN, parseInt(e.target.value) || DIA_VENCIMENTO_MIN)
+                  )
+                )
               }
               className="inp"
             />
+            {/* Sem esta linha, quem escolhe 29, 30 ou 31 fica sem saber o que
+                acontece em fevereiro — a dúvida que o próprio cliente levantou. */}
+            {diaVencimento > 28 && (
+              <p className="mt-1 text-xs text-slate-400">
+                Em meses menores, a cobrança cai no último dia (fevereiro: dia 28,
+                ou 29 em ano bissexto).
+              </p>
+            )}
           </Field>
         </div>
 

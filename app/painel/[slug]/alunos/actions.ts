@@ -22,6 +22,11 @@ import { inserirAlunoComMatricula } from "@/lib/alunos-cadastro";
 import { analisarLinhas, linhasDoArquivo } from "@/lib/importar-alunos";
 import { erroAmigavel } from "@/lib/erros-servidor";
 import {
+  diaVencimentoDoMes,
+  lerDiaVencimento,
+  DIA_VENCIMENTO_MAX,
+} from "@/lib/vencimento";
+import {
   normalizarEmail,
   normalizarNomeProprio,
   normalizarTelefone,
@@ -90,7 +95,10 @@ async function gerarCobrancaInicial(
 
   const ano = parseInt(competencia.slice(0, 4), 10);
   const mes = parseInt(competencia.slice(5, 7), 10);
-  const diaVenc = Math.min(diaVencimento, 28);
+  // Dia 31 em fevereiro vira 28 (29 em ano bissexto), em abril vira 30. Mesma
+  // conta que `gerar_mensalidades_do_mes` faz no banco desde a migration 025 —
+  // aqui era `Math.min(dia, 28)`, o único ponto do sistema que discordava dela.
+  const diaVenc = diaVencimentoDoMes(diaVencimento, ano, mes);
 
   // `data` é SEMPRE o vencimento, mesmo quando já pago — a data em que o
   // dinheiro entrou vai em data_pagamento, coluna própria (migration 027).
@@ -343,11 +351,11 @@ export async function criarAluno(
     ? "pendente"
     : ((formData.get("status") as StatusMatricula) || "ativa");
 
-  // Dia de vencimento: usa o campo do form, ou o dia atual limitado a 28
-  const diaVencimentoRaw = parseInt(String(formData.get("dia_vencimento") ?? ""), 10);
-  const diaVencimento = Number.isFinite(diaVencimentoRaw) && diaVencimentoRaw >= 1 && diaVencimentoRaw <= 28
-    ? diaVencimentoRaw
-    : Math.min(new Date().getDate(), 28);
+  // Dia de vencimento (1 a 31): usa o campo do formulário; sem valor válido,
+  // cai no dia de hoje. O dia de hoje nunca precisa de limite — se hoje é 31,
+  // é porque este mês tem 31.
+  const diaVencimento =
+    lerDiaVencimento(formData.get("dia_vencimento") as string) ?? new Date().getDate();
 
   // Insere gerando a matrícula de forma atômica (helper compartilhado com a
   // importação em massa — mesma regra de insert, sem divergência).
@@ -502,7 +510,7 @@ export async function importarAlunos(
     };
   }
 
-  const diaPadrao = Math.min(new Date().getDate(), 28);
+  const diaPadrao = new Date().getDate();
   let criados = 0;
   let ignorados = 0;
   const errosLinha = [...analise.erros];
@@ -575,10 +583,12 @@ export async function atualizarAluno(
     .eq("academia_id", sessao.academia.id)
     .maybeSingle();
 
-  const diaVencimentoRaw = parseInt(String(formData.get("dia_vencimento") ?? ""), 10);
-  const diaVencimento = Number.isFinite(diaVencimentoRaw) && diaVencimentoRaw >= 1 && diaVencimentoRaw <= 28
-    ? diaVencimentoRaw
-    : (atual?.dia_vencimento ?? Math.min(new Date().getDate(), 28));
+  // Sem valor válido no formulário, mantém o dia que o aluno já tinha — trocar
+  // silenciosamente o vencimento de quem já é cliente seria pior que ignorar.
+  const diaVencimento =
+    lerDiaVencimento(formData.get("dia_vencimento") as string) ??
+    atual?.dia_vencimento ??
+    new Date().getDate();
 
   const { error } = await supabase
     .from("alunos")
