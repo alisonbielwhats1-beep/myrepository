@@ -150,6 +150,16 @@ export default function Sidebar({
           <ThemeToggle />
         </div>
         <p className="truncate px-2 text-[11px] text-slate-500">{adminEmail}</p>
+        <Link
+          href={`${base}/conta`}
+          onClick={() => setAberto(false)}
+          className={cn(
+            "btn-ghost w-full justify-start",
+            pathname === `${base}/conta` && "border-volt-500/40 text-volt-300"
+          )}
+        >
+          <UserRound className="h-4 w-4" /> Minha conta
+        </Link>
         <form action={sairAction}>
           <button type="submit" className="btn-ghost w-full justify-start">
             <LogOut className="h-4 w-4" /> Sair

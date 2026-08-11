@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { erroAmigavel } from "../erros-servidor";
+import { validarNovaSenha, validarAlteracaoSenha } from "../senha";
 
 export type EstadoLogin = { erro?: string };
 
@@ -130,7 +131,9 @@ export async function solicitarResetSenha(
   _estado: EstadoReset,
   formData: FormData
 ): Promise<EstadoReset> {
-  const email = String(formData.get("email") ?? "").trim();
+  // Minúsculo pelo mesmo motivo do login: o e-mail é gravado normalizado, e
+  // "JOAO@" precisa casar com "joao@" para o Supabase achar a conta.
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return { erro: "Informe um e-mail válido." };
@@ -138,7 +141,13 @@ export async function solicitarResetSenha(
 
   const supabase = createClient();
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${urlBase()}/auth/callback?next=/redefinir-senha`,
+    // Rota DEDICADA e SEM query string. O fluxo antigo mandava
+    // `/auth/callback?next=/redefinir-senha`, e o `?next=...` não batia com a
+    // allow-list de Redirect URLs do Supabase — o link caía no Site URL (a
+    // home) em vez da tela de nova senha. `/auth/recuperar` recebe só o `?code`
+    // que o próprio Supabase anexa, então uma entrada simples na allow-list
+    // resolve. Ver docs/supabase-auth-setup.md.
+    redirectTo: `${urlBase()}/auth/recuperar`,
   });
 
   return { ok: true };
@@ -146,7 +155,12 @@ export async function solicitarResetSenha(
 
 /**
  * Redefine a senha do usuário na sessão de recuperação (após clicar no link do
- * e-mail, que estabelece uma sessão temporária via /auth/callback).
+ * e-mail, que estabelece uma sessão temporária via /auth/recuperar).
+ *
+ * A sessão de recuperação é a AUTORIZAÇÃO: só quem clicou no link recente do
+ * próprio e-mail chega aqui com um `user` válido. Por isso este fluxo NÃO pede
+ * a senha atual — quem esqueceu a senha não a tem. Diferente de
+ * `alterarSenhaAction`, que roda com o usuário já logado e exige a atual.
  */
 export async function redefinirSenhaAction(
   _estado: EstadoReset,
@@ -155,12 +169,8 @@ export async function redefinirSenhaAction(
   const senha = String(formData.get("senha") ?? "");
   const confirmar = String(formData.get("confirmar") ?? "");
 
-  if (senha.length < 8) {
-    return { erro: "A senha deve ter pelo menos 8 caracteres." };
-  }
-  if (senha !== confirmar) {
-    return { erro: "As senhas não coincidem." };
-  }
+  const erroFormato = validarNovaSenha(senha, confirmar);
+  if (erroFormato) return { erro: erroFormato };
 
   const supabase = createClient();
   const {
@@ -175,6 +185,60 @@ export async function redefinirSenhaAction(
   const { error } = await supabase.auth.updateUser({ password: senha });
   if (error) {
     return { erro: await erroAmigavel(error, "redefinir a senha") };
+  }
+
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Alteração de senha com o usuário JÁ LOGADO (área "Minha conta")
+// ---------------------------------------------------------------------------
+
+export type EstadoAlterarSenha = { erro?: string; ok?: boolean };
+
+/**
+ * Troca a senha de quem está logado, exigindo a senha ATUAL antes.
+ *
+ * Por que reautenticar: `updateUser({ password })` do Supabase não pede a senha
+ * antiga. Sem a checagem abaixo, qualquer pessoa numa sessão deixada aberta no
+ * balcão trocaria a senha e trancaria o dono para fora. A verificação é um
+ * `signInWithPassword` com o e-mail da própria sessão — é o mesmo usuário, então
+ * a sessão não muda; só confirma que quem está ali sabe a senha vigente.
+ *
+ * Serve a TODOS os papéis (dono, gerente, recepção, instrutor): cada um tem seu
+ * próprio login e só troca a própria senha — `getSessao()` amarra a operação ao
+ * `auth.uid()` atual, nunca a um id vindo do formulário.
+ */
+export async function alterarSenhaAction(
+  _estado: EstadoAlterarSenha,
+  formData: FormData
+): Promise<EstadoAlterarSenha> {
+  const atual = String(formData.get("senha_atual") ?? "");
+  const nova = String(formData.get("senha_nova") ?? "");
+  const confirmar = String(formData.get("senha_confirmar") ?? "");
+
+  const erroFormato = validarAlteracaoSenha(atual, nova, confirmar);
+  if (erroFormato) return { erro: erroFormato };
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email) redirect("/login");
+
+  // Reautenticação: confirma a senha atual antes de deixar trocar. Mesmo
+  // usuário, então re-emitir a sessão é inofensivo.
+  const { error: erroReauth } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: atual,
+  });
+  if (erroReauth) {
+    return { erro: "A senha atual está incorreta." };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: nova });
+  if (error) {
+    return { erro: await erroAmigavel(error, "alterar a senha") };
   }
 
   return { ok: true };

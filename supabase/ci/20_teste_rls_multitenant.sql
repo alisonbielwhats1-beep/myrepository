@@ -251,6 +251,51 @@ begin
 end
 $$;
 
+-- =============================================================================
+-- T6 — Tabelas de auditoria e de erros (migrations 040, 061, 063).
+--   logs_auditoria: SELECT restrito ao dono da PROPRIA academia.
+--   logs_erros: tabela cruzada, SEM policy — ninguem le pela API, nem o dono.
+-- =============================================================================
+do $$
+declare
+  v_ac_alfa uuid := (select valor from _ids where chave = 'ac_alfa');
+  v_ac_beta uuid := (select valor from _ids where chave = 'ac_beta');
+  v_us_alfa uuid := (select valor from _ids where chave = 'us_alfa');
+  n bigint;
+begin
+  raise notice 'T6 — auditoria e erros';
+
+  -- Massa: uma linha de auditoria para cada academia (como owner, sem RLS).
+  insert into public.logs_auditoria (academia_id, usuario_id, usuario_nome, entidade, acao)
+  values
+    (v_ac_alfa, v_us_alfa, 'Dono Alfa', 'receita', 'receita_excluida'),
+    (v_ac_beta, gen_random_uuid(), 'Dono Beta', 'receita', 'receita_excluida');
+
+  -- logs_erros existe a partir da migration 061. Se o banco de referencia ja a
+  -- tem, insere as duas linhas; senao, pula sem falhar.
+  if to_regclass('public.logs_erros') is not null then
+    insert into public.logs_erros (academia_id, academia_nome, acao)
+    values (v_ac_alfa, 'Alfa', 'salvar'), (v_ac_beta, 'Beta', 'salvar');
+  end if;
+
+  perform set_config('request.jwt.claim.sub', v_us_alfa::text, true);
+  set local role authenticated;
+
+  select count(*) into n from public.logs_auditoria;
+  perform pg_temp.checar('dono Alfa ve so a propria auditoria = 1', n, 1);
+
+  select count(*) into n from public.logs_auditoria where academia_id = v_ac_beta;
+  perform pg_temp.checar('auditoria da Beta invisivel por id explicito', n, 0);
+
+  if to_regclass('public.logs_erros') is not null then
+    select count(*) into n from public.logs_erros;
+    perform pg_temp.checar('logs_erros invisivel pela API (sem policy) = 0', n, 0);
+  end if;
+
+  reset role;
+end
+$$;
+
 select '== Teste de isolamento multi-tenant passou ==' as resultado;
 
 -- Nada e persistido.

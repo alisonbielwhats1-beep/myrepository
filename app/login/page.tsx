@@ -1,9 +1,18 @@
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import LoginForm from "@/components/auth/LoginForm";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: { erro?: string };
+}) {
+  // /auth/callback manda para cá com ?erro=link_invalido quando um link de
+  // confirmação/convite falha a troca por sessão (expirado, já usado).
+  const linkInvalido = searchParams.erro === "link_invalido";
+
   return (
     <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-ink-950 bg-grid-fade px-4">
       <div className="absolute right-4 top-4">
@@ -24,6 +33,16 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-slate-400">
             Acesse com o e-mail e senha do administrador da academia.
           </p>
+
+          {linkInvalido && (
+            <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-200">
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
+              <span>
+                O link que você abriu expirou ou já foi usado. Entre com e-mail e
+                senha.
+              </span>
+            </div>
+          )}
 
           <LoginForm />
         </div>

@@ -1,10 +1,19 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { AlertTriangle, ArrowLeft } from "lucide-react";
 import RecuperarSenhaForm from "@/components/auth/RecuperarSenhaForm";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 
-export default function RecuperarSenhaPage() {
+export default function RecuperarSenhaPage({
+  searchParams,
+}: {
+  searchParams: { erro?: string };
+}) {
+  // /auth/recuperar manda para cá com ?erro=expirado quando o link do e-mail
+  // já foi usado ou passou da validade. Sem este aviso, a pessoa voltaria para
+  // o formulário sem entender por que não caiu na tela de nova senha.
+  const linkExpirado = searchParams.erro === "expirado";
+
   return (
     <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-ink-950 bg-grid-fade px-4">
       <div className="absolute right-4 top-4">
@@ -23,6 +32,15 @@ export default function RecuperarSenhaPage() {
           <p className="mt-1 text-sm text-slate-400">
             Informe o e-mail da conta e enviaremos um link para você criar uma nova senha.
           </p>
+
+          {linkExpirado && (
+            <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-200">
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
+              <span>
+                O link anterior expirou ou já foi usado. Solicite um novo abaixo.
+              </span>
+            </div>
+          )}
 
           <RecuperarSenhaForm />
         </div>
