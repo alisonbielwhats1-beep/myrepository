@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdminPlataforma as requireAdmin } from "@/lib/admin-plataforma";
 import { PlanoSaas } from "@/lib/types";
+import {
+  normalizarEmail,
+  normalizarNomeProprio,
+  normalizarTelefone,
+} from "@/lib/normalizacao";
 
 export async function alterarPlano(academiaId: string, plano: PlanoSaas) {
   await requireAdmin();
@@ -23,10 +28,13 @@ export async function criarAcademia(
 
   const nome = String(formData.get("nome") ?? "").trim();
   const slug = String(formData.get("slug") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
+  const email = normalizarEmail(formData.get("email") as string) ?? "";
   const senha = String(formData.get("senha") ?? "").trim();
-  const adminNome = String(formData.get("adminNome") ?? "").trim() || nome;
-  const telefone = String(formData.get("telefone") ?? "").trim() || null;
+  // `nome` (nome_fantasia) fica como o dono escreveu — é a marca dele. O nome
+  // da PESSOA administradora é padronizado como qualquer outro cadastro: ele
+  // assina cada linha do log de auditoria (usuario_nome).
+  const adminNome = normalizarNomeProprio(formData.get("adminNome") as string) || nome;
+  const telefone = normalizarTelefone(formData.get("telefone") as string);
 
   if (!nome || !slug || !email || !senha) {
     return { erro: "Preencha todos os campos obrigatórios." };
