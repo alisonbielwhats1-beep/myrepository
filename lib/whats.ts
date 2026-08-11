@@ -43,6 +43,34 @@ export function mensagemAcesso(opts: {
 }
 
 /**
+ * Convite de acesso ao painel para um membro da equipe (Fase de 11/08/2026).
+ *
+ * NÃO carrega senha, de propósito. A pessoa define a própria no primeiro
+ * acesso, pelo "Esqueci minha senha" — assim ninguém, nem a dona da academia,
+ * precisa saber a senha de outra pessoa. É o que mantém o log de auditoria
+ * confiável: cada ação registrada pertence de fato a quem estava logado.
+ *
+ * `papel` entra na mensagem porque define o que a pessoa vai encontrar lá
+ * dentro: um instrutor que abre esperando o financeiro não vai achar.
+ */
+export function mensagemConviteEquipe(opts: {
+  nome: string;
+  academia: string;
+  papel: string;
+  url: string;
+}): string {
+  const primeiroNome = opts.nome.split(" ")[0];
+  return (
+    `Olá, ${primeiroNome}! Seu acesso ao painel da ${opts.academia} está criado, ` +
+    `com o perfil de ${opts.papel}.\n\n` +
+    `1. Abra: ${opts.url}\n` +
+    `2. Clique em "Esqueci minha senha"\n` +
+    `3. Informe este mesmo e-mail e defina a sua senha\n\n` +
+    `A senha é só sua — não precisa compartilhar com ninguém, nem com a academia.`
+  );
+}
+
+/**
  * Mensagem genérica de pendência de mensalidade — usada pelo botão de
  * WhatsApp da central de notificações (Fase 9). Deliberadamente sem valor
  * nem data: a notificação não carrega esses dados (evita duplicar dado

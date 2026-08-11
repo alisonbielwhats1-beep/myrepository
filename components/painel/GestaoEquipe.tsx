@@ -2,7 +2,18 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useFormState } from "react-dom";
-import { Loader2, Plus, ShieldCheck, UserPlus, UserRound } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Loader2,
+  MessageCircle,
+  Plus,
+  ShieldCheck,
+  UserPlus,
+  UserRound,
+} from "lucide-react";
+import { linkWhats, mensagemConviteEquipe } from "@/lib/whats";
+import { origemPublica } from "@/lib/site-url";
 import { LIMITE_MEMBROS_EQUIPE } from "@/lib/permissoes";
 import { PAPEIS, Papel, PerfilEquipe } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -19,11 +30,17 @@ export default function GestaoEquipe({
   perfis,
   meuId,
   souDono,
+  academia,
+  isDemo,
 }: {
   slug: string;
   perfis: PerfilEquipe[];
   meuId: string;
   souDono: boolean;
+  /** Nome fantasia — entra na mensagem de convite. */
+  academia: string;
+  /** Na academia de demonstração nada é enviado para número real. */
+  isDemo: boolean;
 }) {
   const [mostrarForm, setMostrarForm] = useState(false);
   const noLimite = perfis.length >= LIMITE_MEMBROS_EQUIPE;
@@ -59,6 +76,8 @@ export default function GestaoEquipe({
             perfil={p}
             euMesmo={p.id === meuId}
             souDono={souDono}
+            academia={academia}
+            isDemo={isDemo}
           />
         ))}
       </ul>
@@ -109,15 +128,33 @@ function FormularioMembro({
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs font-medium text-slate-400">Senha</span>
+          <span className="mb-1 block text-xs font-medium text-slate-400">Telefone</span>
+          <input
+            name="telefone"
+            type="tel"
+            placeholder="(11) 98765-4321"
+            className="inp"
+          />
+          <span className="mt-1 block text-xs text-slate-500">
+            Opcional — habilita o botão de enviar o acesso por WhatsApp.
+          </span>
+        </label>
+        {/* minLength era 6 e a Server Action exige 8: o formulário aceitava, o
+            servidor recusava, e a pessoa levava a culpa por um limite que a
+            própria tela dizia ser outro. */}
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">Senha provisória</span>
           <input
             name="senha"
             type="password"
-            placeholder="mínimo 6 caracteres"
+            placeholder="mínimo 8 caracteres"
             className="inp"
-            minLength={6}
+            minLength={8}
             required
           />
+          <span className="mt-1 block text-xs text-slate-500">
+            A pessoa define a definitiva no primeiro acesso.
+          </span>
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-400">Papel</span>
@@ -136,16 +173,93 @@ function FormularioMembro({
   );
 }
 
+/**
+ * Envia à pessoa o endereço do painel e a orientação de definir a própria
+ * senha. Existe porque cadastrar alguém na equipe cria o login e NÃO avisa
+ * ninguém — sem e-mail, sem link, sem mensagem. Foi assim que três
+ * funcionários ficaram com conta criada e sem acesso em 11/08/2026: nada
+ * estava quebrado, só não havia como saberem que a conta existia.
+ *
+ * O convite NUNCA carrega senha. A pessoa define a dela pelo "Esqueci minha
+ * senha", e é isso que mantém o log de auditoria confiável — cada ação
+ * registrada pertence de fato a quem estava logado.
+ *
+ * Sem telefone (todo mundo cadastrado antes da migration 064), cai no botão de
+ * copiar: o texto vai para a área de transferência e a dona cola onde quiser.
+ */
+function ConviteAcesso({
+  perfil,
+  academia,
+  isDemo,
+}: {
+  perfil: PerfilEquipe;
+  academia: string;
+  isDemo: boolean;
+}) {
+  const [copiado, setCopiado] = useState(false);
+
+  const papelLabel =
+    PAPEIS.find((p) => p.value === perfil.papel)?.label ?? perfil.papel;
+
+  const texto = mensagemConviteEquipe({
+    nome: perfil.nome,
+    academia,
+    papel: papelLabel,
+    // origemPublica() prefere o domínio fixo de produção: um link de deploy
+    // efêmero da Vercel morre e o convite deixaria de funcionar.
+    url: `${origemPublica()}/login`,
+  });
+
+  // isDemo devolve null e a tela cai no botão de copiar: a academia de
+  // demonstração nunca dispara mensagem para número real.
+  const link = linkWhats(perfil.telefone, texto, { isDemo });
+
+  if (link) {
+    return (
+      <a
+        href={link}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={`Enviar o acesso para ${perfil.nome} por WhatsApp`}
+        className="btn-ghost !px-3 !py-2 text-xs text-emerald-300 hover:border-emerald-400"
+      >
+        <MessageCircle className="h-4 w-4" />
+        Enviar acesso
+      </a>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        await navigator.clipboard.writeText(texto);
+        setCopiado(true);
+        setTimeout(() => setCopiado(false), 2000);
+      }}
+      title="Copiar o convite para enviar por onde preferir"
+      className="btn-ghost !px-3 !py-2 text-xs"
+    >
+      {copiado ? <Check className="h-4 w-4 text-volt-300" /> : <Copy className="h-4 w-4" />}
+      {copiado ? "Copiado" : "Copiar convite"}
+    </button>
+  );
+}
+
 function LinhaMembro({
   slug,
   perfil,
   euMesmo,
   souDono,
+  academia,
+  isDemo,
 }: {
   slug: string;
   perfil: PerfilEquipe;
   euMesmo: boolean;
   souDono: boolean;
+  academia: string;
+  isDemo: boolean;
 }) {
   const [papel, setPapel] = useState<Papel>(perfil.papel);
   const [pendente, iniciar] = useTransition();
@@ -177,6 +291,10 @@ function LinhaMembro({
         </p>
         <p className="truncate text-xs text-slate-500">{perfil.email}</p>
       </div>
+
+      {souDono && !euMesmo && (
+        <ConviteAcesso perfil={perfil} academia={academia} isDemo={isDemo} />
+      )}
 
       {podeEditar ? (
         <div className="flex items-center gap-2">

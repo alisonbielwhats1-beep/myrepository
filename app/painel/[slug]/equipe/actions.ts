@@ -8,7 +8,11 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { Papel } from "@/lib/types";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { erroAmigavel } from "@/lib/erros-servidor";
-import { normalizarEmail, normalizarNomeProprio } from "@/lib/normalizacao";
+import {
+  normalizarEmail,
+  normalizarNomeProprio,
+  normalizarTelefone,
+} from "@/lib/normalizacao";
 
 const PAPEIS_VALIDOS: Papel[] = ["dono", "gerente", "recepcao", "instrutor"];
 
@@ -31,6 +35,8 @@ export async function criarMembroEquipe(
   // membro — padronizar na entrada evita "MARIA" assinando metade do histórico.
   const nome = normalizarNomeProprio(formData.get("nome") as string);
   const email = normalizarEmail(formData.get("email") as string) ?? "";
+  // Opcional (migration 064): sem ele a tela cai no botão de copiar o convite.
+  const telefone = normalizarTelefone(formData.get("telefone") as string);
   const senha = String(formData.get("senha") ?? "");
   const papel = String(formData.get("papel") ?? "recepcao") as Papel;
 
@@ -73,6 +79,7 @@ export async function criarMembroEquipe(
     academia_id: sessao.academia.id,
     nome,
     email,
+    telefone,
     papel,
   });
 

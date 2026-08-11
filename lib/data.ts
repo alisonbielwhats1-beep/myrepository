@@ -1360,7 +1360,7 @@ export async function getPerfisEquipe(
   const supabase = createClient();
   const { data, error } = await supabase
     .from("perfis_admin")
-    .select("id, nome, email, papel, criado_em")
+    .select("id, nome, email, papel, telefone, criado_em")
     .eq("academia_id", academiaId)
     .order("criado_em", { ascending: true });
   if (error) throw new Error(`Falha ao carregar equipe: ${error.message}`);

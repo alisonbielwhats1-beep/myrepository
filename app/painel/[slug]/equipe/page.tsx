@@ -75,6 +75,8 @@ export default async function EquipePage({
         perfis={perfis}
         meuId={sessao.userId}
         souDono={sessao.papel === "dono"}
+        academia={sessao.academia.nome_fantasia}
+        isDemo={sessao.academia.is_demo}
       />
     </div>
   );

@@ -720,6 +720,8 @@ export interface PerfilEquipe {
   nome: string;
   email: string;
   papel: Papel;
+  /** Opcional (migration 064): quem foi cadastrado antes não tem. */
+  telefone: string | null;
   criado_em: string;
 }
 
