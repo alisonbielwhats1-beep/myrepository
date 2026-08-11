@@ -29,6 +29,12 @@ export default function LoginForm() {
             name="email"
             type="email"
             autoComplete="username"
+            // O teclado do celular capitaliza a primeira letra por conta
+            // própria em vários Androids, e o corretor "conserta" endereços de
+            // e-mail. As duas coisas fazem a pessoa errar o login sem perceber.
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             required
             placeholder="admin@suaacademia.com"
             className="inp pl-9"

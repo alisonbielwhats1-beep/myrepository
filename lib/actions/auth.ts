@@ -28,7 +28,13 @@ export async function entrarAction(
   _estado: EstadoLogin,
   formData: FormData
 ): Promise<EstadoLogin> {
-  const email = String(formData.get("email") ?? "").trim();
+  // Minúsculo aqui também, não só no cadastro: o e-mail é gravado normalizado
+  // por criarMembroEquipe e por criarAcademia, então digitar "JOAO@GMAIL.COM"
+  // no login precisa casar com o "joao@gmail.com" guardado. Sem esta linha, a
+  // pessoa que deixa o CAPS LOCK ligado — ou o teclado do celular que
+  // capitaliza a primeira letra sozinho — recebe "E-mail ou senha inválidos"
+  // sem ter errado nada, e ainda alimenta o contador de tentativas.
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const senha = String(formData.get("senha") ?? "");
 
   if (!email || !senha) {
