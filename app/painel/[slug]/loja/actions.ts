@@ -6,7 +6,7 @@ import type { EstadoAcao } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { CategoriaProduto } from "@/lib/types";
 import { hojeSaoPaulo } from "@/lib/utils";
-import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { erroAmigavel } from "@/lib/erros-servidor";
 import { normalizarNomeProprio } from "@/lib/normalizacao";
 
 const CATEGORIAS_VALIDAS: CategoriaProduto[] = [
@@ -58,7 +58,7 @@ export async function criarProduto(
     ordem: (count ?? 0) + 1,
   });
 
-  if (error) return { erro: erroAmigavel(error, "cadastrar o produto") };
+  if (error) return { erro: await erroAmigavel(error, "cadastrar o produto") };
 
   revalidatePath(`/painel/${slug}/loja`);
   return { ok: true, savedAt: Date.now() };
@@ -82,7 +82,7 @@ export async function atualizarProduto(
     .eq("id", produtoId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "atualizar o produto") };
+  if (error) return { erro: await erroAmigavel(error, "atualizar o produto") };
 
   revalidatePath(`/painel/${slug}/loja`);
   return { ok: true, savedAt: Date.now() };
@@ -100,7 +100,7 @@ export async function alternarAtivoProduto(
     .update({ ativo })
     .eq("id", produtoId)
     .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(erroAmigavel(error, "atualizar o produto"));
+  if (error) throw new Error(await erroAmigavel(error, "atualizar o produto"));
   revalidatePath(`/painel/${slug}/loja`);
 }
 
@@ -131,7 +131,7 @@ export async function registrarVendaProduto(
     "baixar_estoque_venda",
     { p_produto_id: produtoId, p_qtd: qtd }
   );
-  if (eBaixa) return { erro: erroAmigavel(eBaixa, "baixar estoque") };
+  if (eBaixa) return { erro: await erroAmigavel(eBaixa, "baixar estoque") };
   if (baixou === false) {
     return { erro: "Estoque insuficiente para essa quantidade." };
   }
@@ -151,7 +151,7 @@ export async function registrarVendaProduto(
     status: "pago",
     observacoes: "Baixa de estoque na loja",
   });
-  if (eRec) return { erro: erroAmigavel(eRec, "lançar a venda") };
+  if (eRec) return { erro: await erroAmigavel(eRec, "lançar a venda") };
 
   revalidatePath(`/painel/${slug}/loja`);
   revalidatePath(`/painel/${slug}/financeiro`, "layout");
@@ -200,7 +200,7 @@ export async function estornarVenda(
     .delete()
     .eq("id", receitaId)
     .eq("academia_id", sessao.academia.id);
-  if (e2) throw new Error(erroAmigavel(e2, "estornar"));
+  if (e2) throw new Error(await erroAmigavel(e2, "estornar"));
 
   revalidatePath(`/painel/${slug}/loja`);
   revalidatePath(`/painel/${slug}/financeiro`, "layout");
@@ -218,6 +218,6 @@ export async function excluirProduto(
     .delete()
     .eq("id", produtoId)
     .eq("academia_id", sessao.academia.id);
-  if (error) return { erro: erroAmigavel(error, "excluir o produto") };
+  if (error) return { erro: await erroAmigavel(error, "excluir o produto") };
   revalidatePath(`/painel/${slug}/loja`);
 }

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { erroAmigavel } from "../erros-amigaveis";
+import { erroAmigavel } from "../erros-servidor";
 
 export type EstadoLogin = { erro?: string };
 
@@ -168,7 +168,7 @@ export async function redefinirSenhaAction(
 
   const { error } = await supabase.auth.updateUser({ password: senha });
   if (error) {
-    return { erro: erroAmigavel(error, "redefinir a senha") };
+    return { erro: await erroAmigavel(error, "redefinir a senha") };
   }
 
   return { ok: true };

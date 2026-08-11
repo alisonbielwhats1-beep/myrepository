@@ -7,7 +7,7 @@ import { LIMITE_MEMBROS_EQUIPE, removeriaUltimoDono } from "@/lib/permissoes";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { Papel } from "@/lib/types";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { erroAmigavel } from "@/lib/erros-servidor";
 import { normalizarEmail, normalizarNomeProprio } from "@/lib/normalizacao";
 
 const PAPEIS_VALIDOS: Papel[] = ["dono", "gerente", "recepcao", "instrutor"];
@@ -78,7 +78,7 @@ export async function criarMembroEquipe(
 
   if (erroPerfil) {
     await admin.auth.admin.deleteUser(novoUsuario.user.id);
-    return { erro: erroAmigavel(erroPerfil, "vincular o perfil de acesso") };
+    return { erro: await erroAmigavel(erroPerfil, "vincular o perfil de acesso") };
   }
 
   // Nunca a senha: só nome, e-mail e papel — o suficiente para investigação,
@@ -128,7 +128,7 @@ export async function removerMembroEquipe(
 
   const admin = createServiceRoleClient();
   const { error } = await admin.auth.admin.deleteUser(perfilId);
-  if (error) return { erro: erroAmigavel(error, "remover o membro") };
+  if (error) return { erro: await erroAmigavel(error, "remover o membro") };
 
   await registrarAuditoria({
     academiaId: sessao.academia.id,
@@ -195,7 +195,7 @@ export async function alterarPapel(
     .update({ papel })
     .eq("id", perfilId)
     .eq("academia_id", sessao.academia.id);
-  if (error) return { erro: erroAmigavel(error, "atualizar") };
+  if (error) return { erro: await erroAmigavel(error, "atualizar") };
 
   await registrarAuditoria({
     academiaId: sessao.academia.id,

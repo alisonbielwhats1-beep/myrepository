@@ -20,7 +20,7 @@ import {
 import { registrarAuditoria } from "@/lib/auditoria";
 import { inserirAlunoComMatricula } from "@/lib/alunos-cadastro";
 import { analisarLinhas, linhasDoArquivo } from "@/lib/importar-alunos";
-import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { erroAmigavel } from "@/lib/erros-servidor";
 import {
   normalizarEmail,
   normalizarNomeProprio,
@@ -108,7 +108,7 @@ async function gerarCobrancaInicial(
     .limit(1)
     .maybeSingle();
 
-  if (errBusca) return erroAmigavel(errBusca, "verificar as mensalidades já lançadas");
+  if (errBusca) return await erroAmigavel(errBusca, "verificar as mensalidades já lançadas");
   if (existente) return null;
 
   const { error } = await supabase.from("receitas").insert({
@@ -126,7 +126,7 @@ async function gerarCobrancaInicial(
 
   // 23505 = unique_violation: outra requisição criou a mesma competência
   // entre a verificação e o insert. O resultado desejado já está no banco.
-  if (error && error.code !== "23505") return erroAmigavel(error, "gerar a cobrança do plano");
+  if (error && error.code !== "23505") return await erroAmigavel(error, "gerar a cobrança do plano");
   return null;
 }
 
@@ -298,7 +298,7 @@ async function registrarHistoricoPlano(
     .eq("id", planoId)
     .eq("academia_id", academiaId)
     .maybeSingle();
-  if (errPlano) return erroAmigavel(errPlano, "carregar os dados do plano");
+  if (errPlano) return await erroAmigavel(errPlano, "carregar os dados do plano");
   if (!plano) return "O plano escolhido não existe mais. Atualize a página e escolha outro.";
   const { error } = await supabase.from("historico_planos").insert({
     academia_id: academiaId,
@@ -309,7 +309,7 @@ async function registrarHistoricoPlano(
     recorrencia_meses: plano.recorrencia_meses,
     data_inicio: dataInicio ?? spHojeISO(),
   });
-  return error ? erroAmigavel(error, "registrar o histórico do plano") : null;
+  return error ? await erroAmigavel(error, "registrar o histórico do plano") : null;
 }
 
 export async function criarAluno(
@@ -386,7 +386,7 @@ export async function criarAluno(
         return { ok: true, savedAt: Date.now(), id: existente.id };
       }
     }
-    return { erro: erroAmigavel(error, "cadastrar o aluno") };
+    return { erro: await erroAmigavel(error, "cadastrar o aluno") };
   }
 
   if (planoId && novo) {
@@ -521,7 +521,7 @@ export async function importarAlunos(
     if (error) {
       // 23505 = unique(academia_id, cpf): o aluno já existe → ignora.
       if (error.code === "23505") ignorados++;
-      else errosLinha.push({ linha: a.linha, motivo: erroAmigavel(error, "gravar este aluno") });
+      else errosLinha.push({ linha: a.linha, motivo: await erroAmigavel(error, "gravar este aluno") });
     } else {
       criados++;
     }
@@ -597,7 +597,7 @@ export async function atualizarAluno(
     .eq("id", alunoId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "atualizar o aluno") };
+  if (error) return { erro: await erroAmigavel(error, "atualizar o aluno") };
 
   const statusAnterior = atual?.status_matricula ?? "ativa";
   const trocouPlano = planoId && planoId !== (atual?.plano_id ?? null);
@@ -750,7 +750,7 @@ export async function excluirAluno(slug: string, alunoId: string): Promise<{ err
     .eq("id", alunoId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "excluir o aluno") };
+  if (error) return { erro: await erroAmigavel(error, "excluir o aluno") };
 
   await registrarAuditoria({
     academiaId: sessao.academia.id,
@@ -800,7 +800,7 @@ export async function criarTreino(
     .single();
 
   if (erroTreino || !treino) {
-    return { erro: erroAmigavel(erroTreino, "criar o treino") };
+    return { erro: await erroAmigavel(erroTreino, "criar o treino") };
   }
 
   const { error: erroExercicios } = await supabase
@@ -810,7 +810,7 @@ export async function criarTreino(
   if (erroExercicios) {
     // Desfaz o treino se os exercícios falharem, para não deixar ficha vazia.
     await supabase.from("treinos").delete().eq("id", treino.id);
-    return { erro: erroAmigavel(erroExercicios, "salvar os exercícios") };
+    return { erro: await erroAmigavel(erroExercicios, "salvar os exercícios") };
   }
 
   revalidatePath(`/painel/${slug}/alunos`);
@@ -871,7 +871,7 @@ export async function atualizarTreino(
     .eq("academia_id", sessao.academia.id);
 
   if (erroTreino) {
-    return { erro: erroAmigavel(erroTreino, "atualizar a ficha") };
+    return { erro: await erroAmigavel(erroTreino, "atualizar a ficha") };
   }
 
   // Guarda a lista atual para poder restaurar se o insert novo falhar.
@@ -889,7 +889,7 @@ export async function atualizarTreino(
     .eq("treino_id", treinoId);
 
   if (erroRemocao) {
-    return { erro: erroAmigavel(erroRemocao, "atualizar os exercícios") };
+    return { erro: await erroAmigavel(erroRemocao, "atualizar os exercícios") };
   }
 
   const { error: erroInsercao } = await supabase
@@ -903,7 +903,7 @@ export async function atualizarTreino(
         .from("exercicios_treino")
         .insert(anteriores.map((ex) => ({ ...ex, treino_id: treinoId })));
     }
-    return { erro: erroAmigavel(erroInsercao, "salvar os exercícios") };
+    return { erro: await erroAmigavel(erroInsercao, "salvar os exercícios") };
   }
 
   revalidatePath(`/painel/${slug}/alunos`);
@@ -920,7 +920,7 @@ export async function excluirTreino(slug: string, treinoId: string): Promise<{ e
     .eq("id", treinoId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "excluir a ficha de treino") };
+  if (error) return { erro: await erroAmigavel(error, "excluir a ficha de treino") };
 
   revalidatePath(`/painel/${slug}/alunos`);
 }
@@ -957,7 +957,7 @@ export async function registrarProgresso(
     observacoes: String(formData.get("observacoes") ?? "").trim() || null,
   });
 
-  if (error) return { erro: erroAmigavel(error, "registrar o progresso") };
+  if (error) return { erro: await erroAmigavel(error, "registrar o progresso") };
 
   revalidatePath(`/painel/${slug}/alunos`);
   return { ok: true, savedAt: Date.now() };
@@ -976,7 +976,7 @@ export async function excluirProgresso(
     .eq("id", registroId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "excluir o registro de progresso") };
+  if (error) return { erro: await erroAmigavel(error, "excluir o registro de progresso") };
 
   revalidatePath(`/painel/${slug}/alunos`);
 }
@@ -1088,7 +1088,7 @@ export async function atualizarFotoAlunoAdmin(
     .eq("id", alunoId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "salvar a foto") };
+  if (error) return { erro: await erroAmigavel(error, "salvar a foto") };
 
   await removerFotoAntiga(atual?.foto_perfil_url ?? null);
 
@@ -1118,7 +1118,7 @@ export async function removerFotoAlunoAdmin(
     .eq("id", alunoId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "remover a foto") };
+  if (error) return { erro: await erroAmigavel(error, "remover a foto") };
 
   await removerFotoAntiga(atual?.foto_perfil_url ?? null);
 

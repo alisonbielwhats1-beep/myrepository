@@ -221,23 +221,6 @@ export function traduzirErro(erro: ErroTecnico, acao: string): string {
   return `Não foi possível ${acao}. Tente novamente em alguns instantes; se continuar, avise o suporte${referencia}.`;
 }
 
-/**
- * Versão para as Server Actions: registra o erro técnico completo no log do
- * servidor e devolve a mensagem amigável para a tela.
- *
- * O `console.error` é o que mantém a depuração pela Vercel exatamente como era
- * antes desta mudança — o texto do Postgres continua inteiro no log, com
- * `details` e `hint`; o que muda é só o que o cliente lê.
- */
-export function erroAmigavel(erro: ErroTecnico, acao: string): string {
-  console.error(
-    `[erro] ao ${acao}:`,
-    JSON.stringify({
-      code: erro?.code ?? null,
-      message: erro?.message ?? null,
-      details: erro?.details ?? null,
-      hint: erro?.hint ?? null,
-    })
-  );
-  return traduzirErro(erro, acao);
-}
+// A versão com I/O (log do servidor + registro em `logs_erros`) vive em
+// lib/erros-servidor.ts e se chama `erroAmigavel`. Este arquivo fica puro de
+// propósito: é o que permite testar cada tradução sem subir banco nenhum.

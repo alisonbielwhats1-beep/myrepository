@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EstadoAcao, StatusAtendimento } from "@/lib/types";
-import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { erroAmigavel } from "@/lib/erros-servidor";
 
 /**
  * Atendimento pelo lado da ACADEMIA (migration 058).
@@ -68,7 +68,7 @@ export async function responderAtendimento(
     autor_nome: sessao.nome,
     mensagem,
   });
-  if (error) return { erro: erroAmigavel(error, "enviar a resposta") };
+  if (error) return { erro: await erroAmigavel(error, "enviar a resposta") };
 
   const { error: erroStatus } = await supabase
     .from("atendimentos")
@@ -101,6 +101,6 @@ export async function atualizarStatusAtendimento(
     .update({ status })
     .eq("id", atendimentoId)
     .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(erroAmigavel(error, "atualizar o status"));
+  if (error) throw new Error(await erroAmigavel(error, "atualizar o status"));
   revalidatePath(`/painel/${slug}/atendimento`);
 }

@@ -14,7 +14,7 @@ import {
 } from "@/lib/types";
 import { hojeSaoPaulo } from "@/lib/utils";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { erroAmigavel } from "@/lib/erros-servidor";
 
 
 /**
@@ -34,7 +34,7 @@ export async function gerarFolha(
   const { data, error } = await supabase.rpc("gerar_folha_do_mes", {
     p_competencia: comp,
   });
-  if (error) return { erro: erroAmigavel(error, "gerar a folha de pagamento") };
+  if (error) return { erro: await erroAmigavel(error, "gerar a folha de pagamento") };
 
   revalidatePath(`/painel/${slug}/financeiro`, "layout");
   revalidatePath(`/painel/${slug}`);
@@ -85,7 +85,7 @@ export async function previewCobrancasMensais(
       competencia: comp,
       comPlanoAtivo: 0,
       jaLancados: 0,
-      erro: erroAmigavel(error, "consultar os alunos com plano ativo"),
+      erro: await erroAmigavel(error, "consultar os alunos com plano ativo"),
     };
   }
 
@@ -137,7 +137,7 @@ export async function sincronizarCobrancas(
     .rpc("sincronizar_cobrancas", { p_dias: 7 })
     .maybeSingle();
 
-  if (error) return { erro: erroAmigavel(error, "sincronizar as cobranças") };
+  if (error) return { erro: await erroAmigavel(error, "sincronizar as cobranças") };
 
   const r = data as {
     criadas: number;
@@ -176,7 +176,7 @@ export async function gerarMensalidades(
   const { data, error } = await supabase.rpc("gerar_mensalidades_do_mes", {
     p_competencia: comp,
   });
-  if (error) return { erro: erroAmigavel(error, "gerar as cobranças") };
+  if (error) return { erro: await erroAmigavel(error, "gerar as cobranças") };
 
   const criadas = (data as number) ?? 0;
   // O que sobrou de elegível e não virou cobrança nova é ciclo que ainda não
@@ -228,7 +228,7 @@ export async function registrarPagamentoRetroativo(
     .is("data_pagamento", null)
     .select("id");
 
-  if (error) return { erro: erroAmigavel(error, "salvar") };
+  if (error) return { erro: await erroAmigavel(error, "salvar") };
   if (!data || data.length === 0) {
     return {
       erro:
@@ -280,7 +280,7 @@ export async function definirSaldoInicial(
     })
     .eq("id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "salvar o saldo inicial") };
+  if (error) return { erro: await erroAmigavel(error, "salvar o saldo inicial") };
 
   revalidatePath(`/painel/${slug}/financeiro`, "layout");
   revalidatePath(`/painel/${slug}`);
@@ -343,7 +343,7 @@ export async function criarReceita(
     .from("receitas")
     .insert({ academia_id: sessao.academia.id, ...campos });
 
-  if (error) return { erro: erroAmigavel(error, "lançar a receita") };
+  if (error) return { erro: await erroAmigavel(error, "lançar a receita") };
 
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
@@ -368,7 +368,7 @@ export async function atualizarReceita(
     .eq("id", receitaId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "atualizar a receita") };
+  if (error) return { erro: await erroAmigavel(error, "atualizar a receita") };
 
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
@@ -410,7 +410,7 @@ export async function marcarPago(
     { p_receita_id: receitaId, p_forma_pagamento: formaPagamento?.trim() || null }
   );
 
-  if (error) return { erro: erroAmigavel(error, "marcar como pago") };
+  if (error) return { erro: await erroAmigavel(error, "marcar como pago") };
 
   // Zero linhas: ou já estava paga (idempotente, sucesso) ou não existe / é de
   // outra academia / não é mensalidade (erro genérico, sem revelar qual caso).
@@ -490,7 +490,7 @@ export async function cancelarCobranca(
     .eq("id", receitaId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "cancelar o lançamento") };
+  if (error) return { erro: await erroAmigavel(error, "cancelar o lançamento") };
 
   await registrarAuditoria({
     academiaId: sessao.academia.id,
@@ -518,7 +518,7 @@ export async function excluirReceita(slug: string, receitaId: string): Promise<{
     .delete()
     .eq("id", receitaId)
     .eq("academia_id", sessao.academia.id);
-  if (error) return { erro: erroAmigavel(error, "excluir a receita") };
+  if (error) return { erro: await erroAmigavel(error, "excluir a receita") };
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
 }
@@ -562,7 +562,7 @@ export async function criarDespesa(
     .from("despesas")
     .insert({ academia_id: sessao.academia.id, ...campos });
 
-  if (error) return { erro: erroAmigavel(error, "lançar a despesa") };
+  if (error) return { erro: await erroAmigavel(error, "lançar a despesa") };
 
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
@@ -587,7 +587,7 @@ export async function atualizarDespesa(
     .eq("id", despesaId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "atualizar a despesa") };
+  if (error) return { erro: await erroAmigavel(error, "atualizar a despesa") };
 
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
@@ -602,7 +602,7 @@ export async function excluirDespesa(slug: string, despesaId: string): Promise<{
     .delete()
     .eq("id", despesaId)
     .eq("academia_id", sessao.academia.id);
-  if (error) return { erro: erroAmigavel(error, "excluir a despesa") };
+  if (error) return { erro: await erroAmigavel(error, "excluir a despesa") };
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
 }

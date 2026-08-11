@@ -7,7 +7,7 @@ import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { POLITICAS_INADIMPLENCIA } from "@/lib/types";
 import { validarUrl } from "@/lib/validacoes";
-import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { erroAmigavel } from "@/lib/erros-servidor";
 import { normalizarTelefone } from "@/lib/normalizacao";
 
 export async function atualizarAcademia(
@@ -82,7 +82,7 @@ export async function atualizarAcademia(
     })
     .eq("id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "salvar") };
+  if (error) return { erro: await erroAmigavel(error, "salvar") };
 
   revalidatePath(`/painel/${slug}/configuracoes`);
   revalidatePath(`/painel/${slug}/recepcao`);

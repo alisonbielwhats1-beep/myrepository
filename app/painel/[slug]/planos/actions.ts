@@ -5,7 +5,7 @@ import type { EstadoAcao } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { erroAmigavel } from "@/lib/erros-servidor";
 import { normalizarNomeProprio } from "@/lib/normalizacao";
 
 function lerCampos(formData: FormData) {
@@ -35,7 +35,7 @@ export async function criarPlano(
   const { error } = await supabase
     .from("planos")
     .insert({ academia_id: sessao.academia.id, ...campos });
-  if (error) return { erro: erroAmigavel(error, "criar o plano") };
+  if (error) return { erro: await erroAmigavel(error, "criar o plano") };
 
   revalidatePath(`/painel/${slug}/configuracoes`);
   return { ok: true, savedAt: Date.now() };
@@ -57,7 +57,7 @@ export async function atualizarPlano(
     .update(campos)
     .eq("id", planoId)
     .eq("academia_id", sessao.academia.id);
-  if (error) return { erro: erroAmigavel(error, "atualizar o plano") };
+  if (error) return { erro: await erroAmigavel(error, "atualizar o plano") };
 
   revalidatePath(`/painel/${slug}/configuracoes`);
   return { ok: true, savedAt: Date.now() };
@@ -86,6 +86,6 @@ export async function excluirPlano(slug: string, planoId: string): Promise<{ err
     .delete()
     .eq("id", planoId)
     .eq("academia_id", sessao.academia.id);
-  if (error) return { erro: erroAmigavel(error, "excluir o plano") };
+  if (error) return { erro: await erroAmigavel(error, "excluir o plano") };
   revalidatePath(`/painel/${slug}/configuracoes`);
 }

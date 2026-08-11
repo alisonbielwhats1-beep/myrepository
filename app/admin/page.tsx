@@ -7,7 +7,7 @@ import { FaixaComercial } from "@/lib/types";
 import { sairAction } from "@/lib/actions/auth";
 import NovaAcademiaModal from "./NovaAcademiaModal";
 import AcademiaLista from "./AcademiaLista";
-import { LogOut, Tags } from "lucide-react";
+import { Activity, LogOut, Tags } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +102,13 @@ export default async function AdminPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              href="/admin/atividade"
+              className="flex items-center gap-2 rounded-xl border border-ink-600 bg-ink-800 px-3 py-2 text-sm text-slate-300 transition-colors hover:border-volt-500/40 hover:text-volt-300"
+            >
+              <Activity className="h-4 w-4" />
+              Atividade
+            </Link>
             <Link
               href="/admin/planos"
               className="flex items-center gap-2 rounded-xl border border-ink-600 bg-ink-800 px-3 py-2 text-sm text-slate-300 transition-colors hover:border-volt-500/40 hover:text-volt-300"

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSecao, requireSessao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { erroAmigavel } from "@/lib/erros-servidor";
 
 /** Marca uma notificação como lida. Qualquer membro da academia pode — não é ação crítica. */
 export async function marcarNotificacaoLida(
@@ -20,7 +20,7 @@ export async function marcarNotificacaoLida(
     .eq("academia_id", sessao.academia.id)
     .is("lida_em", null);
 
-  if (error) return { erro: erroAmigavel(error, "marcar como lida") };
+  if (error) return { erro: await erroAmigavel(error, "marcar como lida") };
   revalidatePath(`/painel/${slug}`, "layout");
   return {};
 }
@@ -48,7 +48,7 @@ export async function marcarTodasNotificacoesLidas(
     .is("lida_em", null)
     .is("dispensada_em", null);
 
-  if (error) return { erro: erroAmigavel(error, "marcar todas como lidas") };
+  if (error) return { erro: await erroAmigavel(error, "marcar todas como lidas") };
   revalidatePath(`/painel/${slug}`, "layout");
   return {};
 }
@@ -72,7 +72,7 @@ export async function dispensarNotificacao(
     .eq("academia_id", sessao.academia.id)
     .is("dispensada_em", null);
 
-  if (error) return { erro: erroAmigavel(error, "dispensar o aviso") };
+  if (error) return { erro: await erroAmigavel(error, "dispensar o aviso") };
   revalidatePath(`/painel/${slug}`, "layout");
   return {};
 }
@@ -103,7 +103,7 @@ export async function atualizarConfiguracoesNotificacoes(
     atualizado_em: new Date().toISOString(),
   });
 
-  if (error) return { erro: erroAmigavel(error, "salvar") };
+  if (error) return { erro: await erroAmigavel(error, "salvar") };
 
   revalidatePath(`/painel/${slug}/configuracoes`);
   return { ok: true };

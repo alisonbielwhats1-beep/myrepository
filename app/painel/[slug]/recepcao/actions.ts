@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { OrigemAcesso } from "@/lib/types";
 import { tokenTemFormatoValido } from "@/lib/aluno-classificacao";
 import { decidirAcesso, statusLiberacaoDe } from "@/lib/utils";
-import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { erroAmigavel } from "@/lib/erros-servidor";
 
 /**
  * Valor de repasse vigente configurado pelo dono (migration 049), para uma
@@ -99,7 +99,7 @@ export async function registrarAcesso(
     if (error.code === "23505") {
       return { ok: true, savedAt: Date.now(), decisao };
     }
-    return { erro: erroAmigavel(error, "registrar a entrada") };
+    return { erro: await erroAmigavel(error, "registrar a entrada") };
   }
 
   revalidatePath(`/painel/${slug}/recepcao`);
@@ -177,7 +177,7 @@ export async function confirmarAcessoQr(
     if (error.code === "23505") {
       return { ok: true, savedAt: Date.now(), decisao };
     }
-    return { erro: erroAmigavel(error, "registrar a entrada") };
+    return { erro: await erroAmigavel(error, "registrar a entrada") };
   }
 
   revalidatePath(`/painel/${slug}/recepcao`);
@@ -211,7 +211,7 @@ export async function cancelarAcesso(
     p_motivo: motivoLimpo,
   });
 
-  if (error) return { erro: erroAmigavel(error, "cancelar a entrada") };
+  if (error) return { erro: await erroAmigavel(error, "cancelar a entrada") };
 
   if (!cancelou) {
     // RPC devolve false tanto para "sem permissão" quanto para "já

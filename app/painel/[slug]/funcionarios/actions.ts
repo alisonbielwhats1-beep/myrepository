@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { StatusFuncionario } from "@/lib/types";
 import { validarUrl } from "@/lib/validacoes";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { erroAmigavel } from "@/lib/erros-amigaveis";
+import { erroAmigavel } from "@/lib/erros-servidor";
 import {
   normalizarEmail,
   normalizarNomeProprio,
@@ -58,7 +58,7 @@ export async function criarFuncionario(
     .from("funcionarios")
     .insert({ academia_id: sessao.academia.id, ...campos });
 
-  if (error) return { erro: erroAmigavel(error, "cadastrar o funcionário") };
+  if (error) return { erro: await erroAmigavel(error, "cadastrar o funcionário") };
 
   // Salário definido -> já lança a despesa da folha deste mês.
   if (campos.salario > 0 && campos.dia_pagamento) {
@@ -90,7 +90,7 @@ export async function atualizarFuncionario(
     .eq("id", funcionarioId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "atualizar o funcionário") };
+  if (error) return { erro: await erroAmigavel(error, "atualizar o funcionário") };
 
   if (campos.salario > 0 && campos.dia_pagamento) {
     await gerarFolhaMesAtual(supabase);
@@ -125,7 +125,7 @@ export async function excluirFuncionario(
     .eq("id", funcionarioId)
     .eq("academia_id", sessao.academia.id);
 
-  if (error) return { erro: erroAmigavel(error, "excluir o funcionário") };
+  if (error) return { erro: await erroAmigavel(error, "excluir o funcionário") };
 
   await registrarAuditoria({
     academiaId: sessao.academia.id,
