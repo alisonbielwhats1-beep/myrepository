@@ -117,21 +117,21 @@ jobs:
   # Regressão do schema.sql (achado P0-03).
   #
   # O README manda colar supabase/schema.sql inteiro no SQL Editor, e o arquivo
-  # é re-executável. Mas ele ainda contém obter_ficha_aluno(uuid) concedida a
-  # anon (linhas 641/723) e a policy permissiva de perfis_admin (531-535) — duas
-  # falhas que as migrations 037 e 014 corrigiram. Re-executá-lo depois das
-  # migrations DESFAZ as correções.
+  # é re-executável — e até 11/08/2026 isso era perigoso: ele recriava
+  # obter_ficha_aluno(uuid) concedida a anon e a policy permissiva de
+  # perfis_admin, desfazendo as correções das migrations 037 e 014.
   #
-  # Este job prova isso rodando schema.sql por último e conferindo as assertivas.
-  # Enquanto o schema.sql não for corrigido, ele FALHA de propósito — por isso
-  # está com continue-on-error, para documentar o risco sem travar o CI.
-  # Depois de corrigir o schema.sql, remova o continue-on-error: aí ele passa a
-  # ser uma defesa permanente.
+  # Os dois blocos foram removidos do schema.sql nessa data, e este job é o que
+  # garante que não voltem: ele roda schema.sql por ÚLTIMO, depois de todas as
+  # migrations, e confere as assertivas de segurança. Se alguém reintroduzir um
+  # `create or replace` perigoso no baseline, o CI reprova aqui.
+  #
+  # Rodava com continue-on-error enquanto a falha era conhecida e aceita. Agora
+  # que o schema.sql está corrigido, é bloqueante de propósito.
   # ---------------------------------------------------------------------------
   regressao-schema:
     name: "schema.sql re-executado por último (deve ser seguro)"
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     services:
       postgres:

@@ -8,6 +8,7 @@ import { CategoriaProduto } from "@/lib/types";
 import { hojeSaoPaulo } from "@/lib/utils";
 import { erroAmigavel } from "@/lib/erros-servidor";
 import { normalizarNomeProprio } from "@/lib/normalizacao";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 const CATEGORIAS_VALIDAS: CategoriaProduto[] = [
   "suplemento",
@@ -201,6 +202,19 @@ export async function estornarVenda(
     .eq("id", receitaId)
     .eq("academia_id", sessao.academia.id);
   if (e2) throw new Error(await erroAmigavel(e2, "estornar"));
+
+  // Estorno apaga a receita da venda — mesma categoria de risco de
+  // `excluirReceita`, e por isso auditado do mesmo jeito, com o valor que
+  // deixou de existir.
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "receita",
+    entidadeId: receitaId,
+    acao: "venda_estornada",
+    valorAnterior: { valor: prod.valor, produto_id: prod.produto_id },
+  });
 
   revalidatePath(`/painel/${slug}/loja`);
   revalidatePath(`/painel/${slug}/financeiro`, "layout");

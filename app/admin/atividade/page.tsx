@@ -54,7 +54,27 @@ const ROTULO_ACAO: Record<string, string> = {
   equipe_removido: "removeu alguém da equipe",
   equipe_papel_alterado: "mudou a permissão de alguém",
   funcionario_excluido: "excluiu um funcionário",
+  // Financeiro (migration 063). As exclusões vêm com destaque visual na tabela:
+  // são as ações que fazem dinheiro sumir do sistema.
+  receita_criada: "lançou uma receita",
+  receita_atualizada: "editou uma receita",
+  receita_excluida: "EXCLUIU uma receita",
+  despesa_criada: "lançou uma despesa",
+  despesa_atualizada: "editou uma despesa",
+  despesa_excluida: "EXCLUIU uma despesa",
+  venda_estornada: "estornou uma venda da loja",
+  pagamento_retroativo: "registrou a data de um pagamento antigo",
+  saldo_inicial_definido: "alterou o saldo inicial da academia",
 };
+
+/** Ações que fazem um valor desaparecer — merecem destaque na listagem. */
+const ACOES_CRITICAS = new Set([
+  "receita_excluida",
+  "despesa_excluida",
+  "venda_estornada",
+  "aluno_excluido",
+  "saldo_inicial_definido",
+]);
 
 /**
  * Data e hora no fuso da academia.
@@ -271,7 +291,13 @@ function Auditoria({ linhas }: { linhas: LinhaAuditoria[] }) {
               </td>
               <td className="px-4 py-3 text-slate-300">{nomeAcademia(l)}</td>
               <td className="px-4 py-3 font-medium text-white">{l.usuario_nome}</td>
-              <td className="px-4 py-3 text-slate-300">
+              <td
+                className={
+                  ACOES_CRITICAS.has(l.acao)
+                    ? "px-4 py-3 font-medium text-amber-300"
+                    : "px-4 py-3 text-slate-300"
+                }
+              >
                 {ROTULO_ACAO[l.acao] ?? `${l.acao} (${l.entidade})`}
               </td>
             </tr>

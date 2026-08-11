@@ -237,6 +237,21 @@ export async function registrarPagamentoRetroativo(
     };
   }
 
+  // Preencher a data de um pagamento antigo muda em que mês o dinheiro aparece
+  // no fluxo de caixa — por isso é auditado como qualquer outro lançamento.
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: tabela === "receitas" ? "receita" : "despesa",
+    entidadeId: id,
+    acao: "pagamento_retroativo",
+    valorNovo: {
+      data_pagamento: dataPagamento,
+      forma_pagamento: formaPagamento.trim() || null,
+    },
+  });
+
   revalidatePath(`/painel/${slug}/financeiro`, "layout");
   revalidatePath(`/painel/${slug}`);
   return { ok: true, savedAt: Date.now() };
@@ -272,6 +287,13 @@ export async function definirSaldoInicial(
   }
 
   const supabase = createClient();
+
+  const { data: anterior } = await supabase
+    .from("academias")
+    .select("saldo_inicial, data_saldo_inicial")
+    .eq("id", sessao.academia.id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("academias")
     .update({
@@ -281,6 +303,22 @@ export async function definirSaldoInicial(
     .eq("id", sessao.academia.id);
 
   if (error) return { erro: await erroAmigavel(error, "salvar o saldo inicial") };
+
+  // Move o ponto de partida de TODO o fluxo de caixa da academia: um número
+  // aqui altera o saldo de todos os meses de uma vez.
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "financeiro",
+    entidadeId: sessao.academia.id,
+    acao: "saldo_inicial_definido",
+    valorAnterior: anterior ?? undefined,
+    valorNovo: {
+      saldo_inicial: Math.round(valor * 100) / 100,
+      data_saldo_inicial: brutoData || null,
+    },
+  });
 
   revalidatePath(`/painel/${slug}/financeiro`, "layout");
   revalidatePath(`/painel/${slug}`);
@@ -339,11 +377,23 @@ export async function criarReceita(
   if (campos.valor <= 0) return { erro: "O valor deve ser maior que zero." };
 
   const supabase = createClient();
-  const { error } = await supabase
+  const { data: criada, error } = await supabase
     .from("receitas")
-    .insert({ academia_id: sessao.academia.id, ...campos });
+    .insert({ academia_id: sessao.academia.id, ...campos })
+    .select("id")
+    .single();
 
   if (error) return { erro: await erroAmigavel(error, "lançar a receita") };
+
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "receita",
+    entidadeId: criada?.id ?? null,
+    acao: "receita_criada",
+    valorNovo: campos,
+  });
 
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
@@ -362,6 +412,17 @@ export async function atualizarReceita(
   if (campos.valor <= 0) return { erro: "O valor deve ser maior que zero." };
 
   const supabase = createClient();
+
+  // Estado anterior antes de sobrescrever: sem ele o registro diria que houve
+  // uma edição, mas não de quanto para quanto — que é o que interessa quando o
+  // valor de um lançamento muda.
+  const { data: anterior } = await supabase
+    .from("receitas")
+    .select("tipo, descricao, valor, data, status, competencia, aluno_id")
+    .eq("id", receitaId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("receitas")
     .update(campos)
@@ -369,6 +430,17 @@ export async function atualizarReceita(
     .eq("academia_id", sessao.academia.id);
 
   if (error) return { erro: await erroAmigavel(error, "atualizar a receita") };
+
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "receita",
+    entidadeId: receitaId,
+    acao: "receita_atualizada",
+    valorAnterior: anterior ?? undefined,
+    valorNovo: campos,
+  });
 
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
@@ -513,12 +585,34 @@ export async function cancelarCobranca(
 export async function excluirReceita(slug: string, receitaId: string): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "financeiro");
   const supabase = createClient();
+
+  // Lido ANTES de excluir: depois do delete não sobra linha nenhuma para
+  // consultar, e é justamente o conteúdo dela que dá sentido ao registro —
+  // "excluiu uma receita" sem valor nem descrição não responde nada.
+  const { data: removida } = await supabase
+    .from("receitas")
+    .select("tipo, descricao, valor, data, status, competencia, aluno_id")
+    .eq("id", receitaId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("receitas")
     .delete()
     .eq("id", receitaId)
     .eq("academia_id", sessao.academia.id);
   if (error) return { erro: await erroAmigavel(error, "excluir a receita") };
+
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "receita",
+    entidadeId: receitaId,
+    acao: "receita_excluida",
+    valorAnterior: removida ?? undefined,
+  });
+
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
 }
@@ -558,11 +652,23 @@ export async function criarDespesa(
   if (campos.valor <= 0) return { erro: "O valor deve ser maior que zero." };
 
   const supabase = createClient();
-  const { error } = await supabase
+  const { data: criada, error } = await supabase
     .from("despesas")
-    .insert({ academia_id: sessao.academia.id, ...campos });
+    .insert({ academia_id: sessao.academia.id, ...campos })
+    .select("id")
+    .single();
 
   if (error) return { erro: await erroAmigavel(error, "lançar a despesa") };
+
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "despesa",
+    entidadeId: criada?.id ?? null,
+    acao: "despesa_criada",
+    valorNovo: campos,
+  });
 
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
@@ -581,6 +687,14 @@ export async function atualizarDespesa(
   if (campos.valor <= 0) return { erro: "O valor deve ser maior que zero." };
 
   const supabase = createClient();
+
+  const { data: anterior } = await supabase
+    .from("despesas")
+    .select("categoria, descricao, valor, data, status, competencia")
+    .eq("id", despesaId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("despesas")
     .update(campos)
@@ -588,6 +702,17 @@ export async function atualizarDespesa(
     .eq("academia_id", sessao.academia.id);
 
   if (error) return { erro: await erroAmigavel(error, "atualizar a despesa") };
+
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "despesa",
+    entidadeId: despesaId,
+    acao: "despesa_atualizada",
+    valorAnterior: anterior ?? undefined,
+    valorNovo: campos,
+  });
 
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
@@ -597,12 +722,32 @@ export async function atualizarDespesa(
 export async function excluirDespesa(slug: string, despesaId: string): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "financeiro");
   const supabase = createClient();
+
+  // Mesma razão de excluirReceita: o conteúdo da linha é o registro.
+  const { data: removida } = await supabase
+    .from("despesas")
+    .select("categoria, descricao, valor, data, status, competencia")
+    .eq("id", despesaId)
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("despesas")
     .delete()
     .eq("id", despesaId)
     .eq("academia_id", sessao.academia.id);
   if (error) return { erro: await erroAmigavel(error, "excluir a despesa") };
+
+  await registrarAuditoria({
+    academiaId: sessao.academia.id,
+    usuarioId: sessao.userId,
+    usuarioNome: sessao.nome,
+    entidade: "despesa",
+    entidadeId: despesaId,
+    acao: "despesa_excluida",
+    valorAnterior: removida ?? undefined,
+  });
+
   revalidatePath(`/painel/${slug}/financeiro`);
   revalidatePath(`/painel/${slug}`);
 }

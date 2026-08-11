@@ -528,11 +528,22 @@ drop policy if exists "perfil_equipe_select" on public.perfis_admin;
 create policy "perfil_equipe_select" on public.perfis_admin
   for select to authenticated using (academia_id = public.academia_id_atual());
 
+-- ATENÇÃO — a policy de UPDATE em perfis_admin foi REMOVIDA deste arquivo em
+-- 2026-08-11 e NÃO deve voltar. A versão que existia aqui permitia que qualquer
+-- membro autenticado alterasse qualquer linha da própria academia, inclusive o
+-- campo `papel`: uma recepcionista fazia PATCH direto na API do Supabase, se
+-- promovia a "dono" e abria o Financeiro. A migration 014 corrigiu isso criando
+-- `perfil_equipe_update_dono`, que exige papel = 'dono'.
+--
+-- O problema não era a migration, era este arquivo: o README manda executar o
+-- schema.sql, ele é re-executável, e cada re-execução recriava a policy furada
+-- POR CIMA da correção — desfazendo silenciosamente a 014 num banco já em
+-- produção. Por isso aqui ficou só o `drop`: quem cria a policy correta é a
+-- migration 014, e re-rodar este arquivo passou a ser inofensivo.
+--
+-- Entre o schema.sql e a 014, num banco novo, perfis_admin fica sem policy de
+-- UPDATE nenhuma — ou seja, ninguém atualiza nada. É o estado seguro.
 drop policy if exists "perfil_equipe_update" on public.perfis_admin;
-create policy "perfil_equipe_update" on public.perfis_admin
-  for update to authenticated
-  using (academia_id = public.academia_id_atual())
-  with check (academia_id = public.academia_id_atual());
 
 -- 6.2 academias: o admin só vê/edita a própria academia.
 drop policy if exists "academia_tenant_select" on public.academias;
@@ -632,95 +643,23 @@ end$$;
 -- =============================================================================
 -- 7. RPC PÚBLICA — ficha do aluno sem login
 --
--- O aluno ainda não tem autenticação própria (item 3 do escopo). Em vez de
--- liberar leitura pública direta nas tabelas (o que vazaria todos os alunos
--- de todas as academias), expomos apenas esta função: dado um `aluno_id`
--- (link único, não listável, compartilhado pela recepção/QR), ela retorna só
--- os campos necessários para a tela do aluno — nunca CPF, e-mail ou telefone.
+-- ATENÇÃO — a função `obter_ficha_aluno(uuid)` foi REMOVIDA deste arquivo em
+-- 2026-08-11 e NÃO deve voltar.
+--
+-- A versão que existia aqui recebia só o `aluno_id` e era concedida a `anon`:
+-- não validava token nem academia, então qualquer pessoa de posse de um id de
+-- aluno lia a ficha completa de QUALQUER academia — vazamento entre clientes.
+-- A migration 037 a substituiu por `obter_ficha_aluno(p_token uuid, p_slug text)`,
+-- que exige o token pessoal E o slug da academia, e derrubou a antiga.
+--
+-- O problema não era a migration, era este arquivo: o README manda executar o
+-- schema.sql, ele é re-executável, e cada re-execução recriava a função furada
+-- e o `grant ... to anon` POR CIMA da correção — reabrindo o vazamento num
+-- banco já em produção. Quem cria a versão correta é a migration 037.
+--
+-- A assertiva A1 de supabase/ci/10_assertivas_seguranca.sql falha o CI se a
+-- versão de um argumento reaparecer, por este ou por qualquer outro caminho.
 -- =============================================================================
-create or replace function public.obter_ficha_aluno(p_aluno_id uuid)
-returns jsonb
-language sql
-security definer
-set search_path = public
-stable
-as $$
-  select jsonb_build_object(
-    'aluno', (
-      select jsonb_build_object(
-        'id', a.id,
-        'nome', a.nome,
-        'foto_perfil_url', a.foto_perfil_url,
-        'status_matricula', a.status_matricula,
-        'matricula_codigo', a.matricula_codigo,
-        'plano_nome', p.nome
-      )
-      from public.alunos a
-      left join public.planos p on p.id = a.plano_id
-      where a.id = p_aluno_id
-    ),
-    'academia', (
-      select jsonb_build_object(
-        'id', ac.id,
-        'nome_fantasia', ac.nome_fantasia,
-        'slug_url', ac.slug_url
-      )
-      from public.academias ac
-      join public.alunos a on a.academia_id = ac.id
-      where a.id = p_aluno_id
-    ),
-    'treinos', coalesce((
-      select jsonb_agg(jsonb_build_object(
-        'id', t.id,
-        'nome_treino', t.nome_treino,
-        'objetivo', t.objetivo,
-        'ordem', t.ordem,
-        'exercicios', (
-          select coalesce(jsonb_agg(jsonb_build_object(
-            'id', e.id,
-            'treino_id', e.treino_id,
-            'nome_exercicio', e.nome_exercicio,
-            'series', e.series,
-            'repeticoes', e.repeticoes,
-            'carga_kg', e.carga_kg,
-            'descanso_segundos', e.descanso_segundos,
-            'imagem_demonstracao_url', e.imagem_demonstracao_url,
-            'video_demonstracao_url', e.video_demonstracao_url,
-            'observacoes', e.observacoes,
-            'ordem', e.ordem,
-            'criado_em', e.criado_em
-          ) order by e.ordem), '[]'::jsonb)
-          from public.exercicios_treino e
-          where e.treino_id = t.id
-        )
-      ) order by t.ordem)
-      from public.treinos t
-      where t.aluno_id = p_aluno_id and t.ativo = true
-    ), '[]'::jsonb),
-    'progresso', coalesce((
-      select jsonb_agg(jsonb_build_object(
-        'id', pr.id,
-        'data', pr.data,
-        'peso_kg', pr.peso_kg,
-        'percentual_gordura', pr.percentual_gordura,
-        'peito_cm', pr.peito_cm,
-        'cintura_cm', pr.cintura_cm,
-        'quadril_cm', pr.quadril_cm,
-        'braco_cm', pr.braco_cm,
-        'coxa_cm', pr.coxa_cm,
-        'foto_url', pr.foto_url
-      ) order by pr.data asc)
-      from public.progresso_aluno pr
-      where pr.aluno_id = p_aluno_id
-    ), '[]'::jsonb)
-  )
-  where exists (select 1 from public.alunos where id = p_aluno_id);
-$$;
-
-comment on function public.obter_ficha_aluno(uuid) is
-  'Leitura pública e restrita (sem CPF/e-mail/telefone) da ficha de um aluno, para a tela do aluno sem login.';
-
-grant execute on function public.obter_ficha_aluno(uuid) to anon, authenticated;
 
 -- 7.1 Lookup público mínimo de academia por slug — dados do mini-site.
 create or replace function public.obter_academia_publica(p_slug text)
