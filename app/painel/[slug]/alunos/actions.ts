@@ -19,7 +19,7 @@ import {
 } from "@/lib/fotos-perfil";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { inserirAlunoComMatricula } from "@/lib/alunos-cadastro";
-import { analisarPlanilha } from "@/lib/importar-alunos";
+import { analisarLinhas, linhasDoArquivo } from "@/lib/importar-alunos";
 
 // ---------------------------------------------------------------------------
 // Helpers de data no fuso America/Sao_Paulo
@@ -439,7 +439,7 @@ export type ResultadoImportacao = {
 };
 
 /**
- * Importa alunos em massa a partir de um CSV (Bloco de vendas).
+ * Importa alunos em massa a partir de uma planilha .xlsx ou .csv.
  *
  * Reusa o MESMO insert do cadastro (inserirAlunoComMatricula) — sem caminho
  * paralelo. `academia_id` sempre da sessão, nunca do arquivo. Best-effort:
@@ -457,20 +457,29 @@ export async function importarAlunos(
 
   const arquivo = formData.get("arquivo");
   if (!(arquivo instanceof File) || arquivo.size === 0) {
-    return { erro: "Selecione um arquivo CSV." };
+    return { erro: "Selecione um arquivo Excel (.xlsx) ou CSV." };
   }
   if (arquivo.size > 5 * 1024 * 1024) {
     return { erro: "Arquivo muito grande — máximo 5 MB." };
   }
-  const texto = await arquivo.text();
+
+  // Aceita .xlsx e .csv; a detecção é pelos bytes, não pela extensão.
+  let grade: string[][];
+  try {
+    grade = await linhasDoArquivo(arquivo);
+  } catch {
+    return {
+      erro: "Não consegui ler o arquivo. Use o modelo em Excel (.xlsx) ou um CSV.",
+    };
+  }
 
   const { data: planos } = await supabase
     .from("planos")
     .select("id, nome")
     .eq("academia_id", sessao.academia.id);
 
-  const analise = analisarPlanilha(
-    texto,
+  const analise = analisarLinhas(
+    grade,
     (planos ?? []) as { id: string; nome: string }[]
   );
 

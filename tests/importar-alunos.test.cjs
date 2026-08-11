@@ -5,7 +5,12 @@
 const {
   parsearCsv,
   analisarPlanilha,
+  analisarLinhas,
+  gerarModeloXlsx,
+  gerarModeloCsv,
+  CABECALHO_MODELO,
 } = require("../.test-build-import/importar-alunos.js");
+const { gerarXlsx, lerXlsx, ehXlsx } = require("../.test-build-import/xlsx-minimo.js");
 
 let passou = 0;
 let falhou = 0;
@@ -120,5 +125,56 @@ console.log("\n6. Cabeçalho tolerante e vazios");
   check("planilha vazia -> erro", analisarPlanilha("", PLANOS).erros.length === 1);
 }
 
-console.log(`\n=== ${passou} passaram, ${falhou} falharam ===`);
-process.exit(falhou > 0 ? 1 : 0);
+// A leitura de .xlsx é assíncrona (descompressão), então esta parte roda em
+// uma função async e o resumo final vai junto.
+(async () => {
+  console.log("\n7. Planilha .xlsx (ida e volta)");
+  {
+    const bytes = gerarXlsx(["nome", "cpf"], [["Ana", "01234567890"]]);
+    check("gerarXlsx produz um ZIP (assinatura PK)", ehXlsx(bytes));
+    check("CSV não é confundido com xlsx", !ehXlsx(new TextEncoder().encode("nome,cpf")));
+
+    const grade = await lerXlsx(bytes);
+    check("lê o cabeçalho de volta", JSON.stringify(grade[0]) === JSON.stringify(["nome", "cpf"]));
+    check("lê a linha de dados de volta", JSON.stringify(grade[1]) === JSON.stringify(["Ana", "01234567890"]));
+    check(
+      "zero à esquerda do CPF sobrevive (coluna é texto)",
+      grade[1][1] === "01234567890"
+    );
+
+    const acentos = await lerXlsx(gerarXlsx(["nome"], [["João <Ré> & Cia \"X\""]]));
+    check("acentos e caracteres de XML voltam intactos", acentos[1][0] === 'João <Ré> & Cia "X"');
+
+    const modelo = await lerXlsx(gerarModeloXlsx());
+    check(
+      "modelo .xlsx traz o cabeçalho oficial",
+      JSON.stringify(modelo[0]) === JSON.stringify(CABECALHO_MODELO)
+    );
+    const doModelo = analisarLinhas(modelo, PLANOS);
+    check("linha de exemplo do modelo é válida", doModelo.validos.length >= 1);
+    check("exemplo do modelo casa o plano Mensal", doModelo.validos[0].plano_id === "p1");
+
+    // O modelo CSV precisa usar ';' — com ',' o Excel pt-BR joga tudo numa coluna.
+    const csv = gerarModeloCsv();
+    check("modelo CSV usa ponto-e-vírgula", csv.includes("nome;cpf;telefone"));
+    check("modelo CSV começa com BOM (acentos no Excel)", csv.charCodeAt(0) === 0xfeff);
+    check(
+      "modelo CSV é lido de volta com as mesmas colunas",
+      JSON.stringify(parsearCsv(csv)[0]) === JSON.stringify(CABECALHO_MODELO)
+    );
+  }
+
+  console.log("\n8. Numeração de linha bate com a da planilha");
+  {
+    // Linha 2 vazia: o erro da Ana tem que apontar a linha 3, não a 2.
+    const grade = [["nome"], [], ["  "], ["Ana"], [""]];
+    const r = analisarLinhas(grade, PLANOS);
+    check("linha em branco no meio não desloca a numeração", r.validos[0].linha === 4, JSON.stringify(r.validos));
+
+    const comErro = analisarLinhas([["nome", "cpf"], [], ["Bia", "123"]], PLANOS);
+    check("erro aponta o número real da linha", comErro.erros[0].linha === 3, JSON.stringify(comErro.erros));
+  }
+
+  console.log(`\n=== ${passou} passaram, ${falhou} falharam ===`);
+  process.exit(falhou > 0 ? 1 : 0);
+})();

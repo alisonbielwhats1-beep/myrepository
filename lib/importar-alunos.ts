@@ -11,6 +11,7 @@
 
 import { normalizarCpf } from "./validacoes";
 import { StatusMatricula } from "./types";
+import { ehXlsx, gerarXlsx, lerXlsx } from "./xlsx-minimo";
 
 const STATUS_VALIDOS: StatusMatricula[] = [
   "ativa",
@@ -135,6 +136,52 @@ export function parsearCsv(texto: string): string[][] {
   return linhas;
 }
 
+// ---------------------------------------------------------------------------
+// Modelo para o dono preencher
+// ---------------------------------------------------------------------------
+
+/** Linhas de exemplo do modelo: uma completa e uma só com o obrigatório. */
+const EXEMPLOS_MODELO: string[][] = [
+  ["João da Silva", "12345678901", "11999998888", "joao@email.com", "Mensal", "10", "ativa"],
+  ["Maria Souza (apague estas 2 linhas)", "", "", "", "", "", ""],
+];
+
+/**
+ * Modelo em .xlsx — formato recomendado. As colunas já vêm formatadas como
+ * Texto, então o Excel não come o zero à esquerda do CPF nem transforma o
+ * telefone em notação científica, e o dono não precisa passar pelo assistente
+ * de importação (escolher separador / tipo de coluna) antes de digitar.
+ */
+export function gerarModeloXlsx(): Uint8Array {
+  return gerarXlsx(CABECALHO_MODELO, EXEMPLOS_MODELO, {
+    nomeAba: "Alunos",
+    largura: 22,
+  });
+}
+
+/**
+ * Modelo em CSV — alternativa para quem usa outra ferramenta. Usa `;` porque é
+ * o separador de lista do Excel em português: com vírgula ele joga a linha
+ * inteira numa coluna só. O BOM faz o Excel reconhecer o UTF-8 (acentos).
+ */
+export function gerarModeloCsv(): string {
+  const linhas = [CABECALHO_MODELO, ...EXEMPLOS_MODELO];
+  return "﻿" + linhas.map((l) => l.join(";")).join("\r\n") + "\r\n";
+}
+
+/**
+ * Lê o arquivo enviado (xlsx ou csv) e devolve a grade de células.
+ *
+ * A detecção é pelos bytes, não pela extensão: cliente que renomeia .csv para
+ * .xlsx (ou o contrário) continua funcionando. Usada tanto pela pré-visualização
+ * no navegador quanto pela Server Action — mesma leitura dos dois lados.
+ */
+export async function linhasDoArquivo(arquivo: File): Promise<string[][]> {
+  const bytes = new Uint8Array(await arquivo.arrayBuffer());
+  if (ehXlsx(bytes)) return lerXlsx(bytes);
+  return parsearCsv(new TextDecoder("utf-8").decode(bytes));
+}
+
 /** Telefone brasileiro: só dígitos, 10 (fixo) ou 11 (celular com 9). */
 function telefoneValido(digits: string): boolean {
   return digits.length === 10 || digits.length === 11;
@@ -148,9 +195,22 @@ export function analisarPlanilha(
   texto: string,
   planos: { id: string; nome: string }[]
 ): ResultadoAnalise {
-  const linhas = parsearCsv(texto).filter(
-    (l) => l.some((c) => c.trim() !== "") // descarta linhas totalmente vazias
-  );
+  return analisarLinhas(parsearCsv(texto), planos);
+}
+
+/**
+ * Mesma análise, a partir da grade de células já lida — é por aqui que o .xlsx
+ * entra, reusando integralmente a validação do CSV.
+ */
+export function analisarLinhas(
+  grade: string[][],
+  planos: { id: string; nome: string }[]
+): ResultadoAnalise {
+  // Guarda o número ORIGINAL da linha antes de descartar as vazias, para que
+  // "Linha 15" no relatório seja a linha 15 que o dono vê no Excel.
+  const linhas = grade
+    .map((celulas, i) => ({ celulas, numero: i + 1 }))
+    .filter((l) => l.celulas.some((c) => c.trim() !== ""));
 
   const erros: ProblemaImport[] = [];
   const avisos: ProblemaImport[] = [];
@@ -161,7 +221,7 @@ export function analisarPlanilha(
   }
 
   // Cabeçalho → índice de cada coluna conhecida.
-  const cabecalho = linhas[0].map((c) => ALIASES[chaveColuna(c)] ?? "");
+  const cabecalho = linhas[0].celulas.map((c) => ALIASES[chaveColuna(c)] ?? "");
   const idx = (nome: string) => cabecalho.indexOf(nome);
   if (idx("nome") === -1) {
     return {
@@ -183,9 +243,8 @@ export function analisarPlanilha(
     });
   }
 
-  dados.slice(0, MAX_LINHAS_IMPORT).forEach((linha, i) => {
-    const nLinha = i + 2; // +1 do cabeçalho, +1 para base-1
-    const val = (nome: string) => (idx(nome) >= 0 ? (linha[idx(nome)] ?? "").trim() : "");
+  dados.slice(0, MAX_LINHAS_IMPORT).forEach(({ celulas, numero: nLinha }) => {
+    const val = (nome: string) => (idx(nome) >= 0 ? (celulas[idx(nome)] ?? "").trim() : "");
 
     const nome = val("nome");
     if (!nome) {
