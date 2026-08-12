@@ -129,7 +129,7 @@ export async function finalizarAtivacao(): Promise<ResultadoAtivacao> {
   return { ok: false, erro: mensagemErroAtivacao(status) };
 }
 
-export type EstadoCadastroEmail = { erro?: string; confirmar?: boolean };
+export type EstadoCadastroEmail = { erro?: string; confirmar?: boolean; email?: string };
 
 /**
  * Cadastro manual com e-mail e senha durante a ativação. Cria a conta pelo
@@ -181,5 +181,40 @@ export async function cadastrarEmailSenhaAtivacao(
     return { erro: "Não foi possível criar a conta agora. Tente novamente." };
   }
 
-  return { confirmar: true };
+  // Devolve o e-mail para a tela de "confirme seu e-mail" poder reenviar.
+  return { confirmar: true, email };
+}
+
+/**
+ * Reenvia o e-mail de confirmação do cadastro manual (prompt 7.5/8). Usa o
+ * `resend` do Supabase (type 'signup'), com o mesmo destino de retorno da
+ * ativação. Resposta SEMPRE genérica: não revela se o e-mail existe/está
+ * confirmado (evita enumeração). O Supabase já aplica throttle no reenvio; a
+ * UI acrescenta um cooldown para não permitir spam do botão.
+ */
+export async function reenviarConfirmacaoAtivacao(
+  email: string
+): Promise<{ ok: boolean; erro?: string }> {
+  const alvo = (email ?? "").trim().toLowerCase();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(alvo)) {
+    return { ok: false, erro: "Informe um e-mail válido." };
+  }
+
+  // Só reenvia dentro de um contexto de ativação (evita uso como oráculo).
+  const tokenBruto = cookies().get(COOKIE_CONVITE)?.value;
+  if (!tokenBruto || !tokenTemFormatoValido(tokenBruto)) {
+    return { ok: false, erro: "Contexto do convite expirou. Reabra o link do convite." };
+  }
+
+  const supabase = createClient();
+  await supabase.auth.resend({
+    type: "signup",
+    email: alvo,
+    options: { emailRedirectTo: redirectAtivacao() },
+  });
+
+  // Genérico por segurança (mesmo se o e-mail não existir ou já estiver
+  // confirmado, a resposta é a mesma).
+  return { ok: true };
 }

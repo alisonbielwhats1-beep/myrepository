@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState, useTransition } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import { AlertCircle, Loader2, Mail, MailCheck, ShieldCheck } from "lucide-react";
+import { AlertCircle, Check, Loader2, Mail, MailCheck, ShieldCheck } from "lucide-react";
 import {
   cadastrarEmailSenhaAtivacao,
+  reenviarConfirmacaoAtivacao,
   type EstadoCadastroEmail,
 } from "@/lib/actions/ativacao";
 import { TEM_LOGIN_SOCIAL } from "@/lib/auth-config";
@@ -32,21 +34,7 @@ export default function AtivacaoMetodos({
   );
 
   if (estado.confirmar) {
-    return (
-      <div className="space-y-3 text-center">
-        <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-volt-500/15 text-volt-300">
-          <MailCheck className="h-6 w-6" />
-        </div>
-        <h2 className="text-lg font-bold text-white">Confirme seu e-mail</h2>
-        <p className="text-sm text-slate-400">
-          Enviamos um link de confirmação para o e-mail informado. Abra a
-          mensagem e clique no link para concluir a ativação do seu acesso.
-        </p>
-        <p className="text-xs text-slate-500">
-          Não recebeu? Verifique a caixa de spam. O link vale por tempo limitado.
-        </p>
-      </div>
-    );
+    return <TelaConfirmarEmail email={estado.email} />;
   }
 
   return (
@@ -129,6 +117,71 @@ export default function AtivacaoMetodos({
 
         <BotaoCriar />
       </form>
+    </div>
+  );
+}
+
+/** Tela de confirmação pendente com reenvio (cooldown de 30s anti-spam). */
+function TelaConfirmarEmail({ email }: { email?: string }) {
+  const [pending, start] = useTransition();
+  const [enviado, setEnviado] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  const reenviar = () => {
+    if (!email || cooldown > 0) return;
+    setErro(null);
+    start(async () => {
+      const r = await reenviarConfirmacaoAtivacao(email);
+      if (r.ok) {
+        setEnviado(true);
+        setCooldown(30);
+      } else {
+        setErro(r.erro ?? "Não foi possível reenviar agora.");
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-3 text-center">
+      <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-volt-500/15 text-volt-300">
+        <MailCheck className="h-6 w-6" />
+      </div>
+      <h2 className="text-lg font-bold text-white">Confirme seu e-mail</h2>
+      <p className="text-sm text-slate-400">
+        Enviamos um link de confirmação{email ? <> para <strong className="text-slate-200">{email}</strong></> : ""}.
+        Abra a mensagem e clique no link para concluir a ativação do seu acesso.
+      </p>
+      <p className="text-xs text-slate-500">
+        Não recebeu? Verifique a caixa de spam. O link vale por tempo limitado.
+      </p>
+
+      {email && (
+        <div className="pt-1">
+          {enviado && cooldown > 0 ? (
+            <p className="flex items-center justify-center gap-1.5 text-xs text-volt-300">
+              <Check className="h-3.5 w-3.5" /> E-mail reenviado. Aguarde {cooldown}s para reenviar.
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={reenviar}
+              disabled={pending || cooldown > 0}
+              className="btn-ghost mx-auto text-xs disabled:opacity-50"
+            >
+              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+              {cooldown > 0 ? `Reenviar em ${cooldown}s` : "Reenviar e-mail de confirmação"}
+            </button>
+          )}
+          {erro && <p className="mt-2 text-xs text-red-400">{erro}</p>}
+        </div>
+      )}
     </div>
   );
 }
