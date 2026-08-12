@@ -71,6 +71,28 @@ export function mensagemConviteEquipe(opts: {
 }
 
 /**
+ * Convite de ATIVAÇÃO de primeiro acesso do aluno (migrations 065/066).
+ *
+ * Diferente do link antigo (`mensagemAcesso`, sem login), este leva o aluno a
+ * criar/vincular a própria conta em `/ativar`. NÃO carrega senha nem token
+ * visível na mensagem — o token vai só na URL, que é pessoal, de uso único e
+ * expira. Por isso o texto reforça que o link é individual e revogável.
+ */
+export function mensagemConviteAtivacao(opts: {
+  nome: string;
+  academia: string;
+  url: string;
+}): string {
+  const primeiroNome = opts.nome.split(" ")[0];
+  return (
+    `Olá, ${primeiroNome}! A ${opts.academia} preparou o seu acesso ao GestAcad. ` +
+    `Ative sua conta pelo link abaixo — você escolhe entrar com Google, Apple ou ` +
+    `e-mail e senha:\n\n${opts.url}\n\n` +
+    `Este convite é pessoal e vale por tempo limitado. Não compartilhe com ninguém.`
+  );
+}
+
+/**
  * Mensagem genérica de pendência de mensalidade — usada pelo botão de
  * WhatsApp da central de notificações (Fase 9). Deliberadamente sem valor
  * nem data: a notificação não carrega esses dados (evita duplicar dado

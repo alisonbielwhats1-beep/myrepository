@@ -64,6 +64,46 @@ export async function gerarConviteAluno(
   };
 }
 
+export type ItemLote = { alunoId: string; ok: boolean; link?: string; erro?: string };
+
+/**
+ * Gera convites para VÁRIOS alunos de uma vez (lote). Cria convites — nunca
+ * contas nem senhas. Cada aluno é validado pela própria RPC (isolamento por
+ * academia); um erro em um aluno não interrompe os demais. Devolve o link
+ * bruto de cada convite UMA vez, para a academia copiar/enviar/exportar.
+ *
+ * Limitado a um teto por chamada para não estourar tempo/uso — a UI pode
+ * paginar lotes grandes.
+ */
+export async function gerarConvitesEmLote(
+  alunoIds: string[],
+  expiracaoDias?: number
+): Promise<ItemLote[]> {
+  const sessao = await getSessao();
+  if (!sessao) return alunoIds.map((id) => ({ alunoId: id, ok: false, erro: "sessao" }));
+
+  const ids = Array.from(new Set(alunoIds)).slice(0, 200);
+  const supabase = createClient();
+  const base = urlBase();
+  const resultados: ItemLote[] = [];
+
+  for (const alunoId of ids) {
+    const tokenBruto = gerarTokenConvite();
+    const { error } = await supabase.rpc("gerar_convite_acesso", {
+      p_aluno_id: alunoId,
+      p_token_hash: hashTokenConvite(tokenBruto),
+      p_expira_em: calcularExpiracao(expiracaoDias ?? undefined),
+    });
+    if (error) {
+      resultados.push({ alunoId, ok: false, erro: "Falha ao gerar" });
+    } else {
+      resultados.push({ alunoId, ok: true, link: montarLinkConvite(base, tokenBruto) });
+    }
+  }
+
+  return resultados;
+}
+
 export type ResultadoSimples = { ok: boolean; erro?: string };
 
 /** A academia revoga um convite ainda não utilizado. */
