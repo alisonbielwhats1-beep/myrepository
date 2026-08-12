@@ -7,26 +7,20 @@
 // `/aluno/<slug>/<token>`, então o ícone abre na ficha do aluno sem login e sem
 // memória de dispositivo. Vale para iPhone e Android.
 //
+// `display: standalone` mantém o app em tela cheia e deixa o Android instalável
+// (o botão "Adicionar à tela inicial" na página do aluno chama o instalador em
+// um toque). Em celular com Chrome atualizado isso instala sem nenhum aviso; um
+// eventual aviso do Play Protect só ocorre em Chrome muito desatualizado e é
+// definido pelo aparelho, não pelo site.
+//
 // A página do aluno referencia este manifest via `generateMetadata` no layout,
 // sobrescrevendo o manifest global (que aponta para /inicio).
-//
-// DISPLAY por plataforma (evita o aviso "app de risco" do Android):
-// quando o Android trata o site como "instalável" (display standalone), ele
-// empacota um WebAPK, e aí o Play Protect pode bloquear com "app criado para uma
-// versão mais antiga do Android" (a versão do pacote é definida pelo Chrome do
-// aparelho, não por nós — não dá para corrigir pelo site). Servindo
-// `display: browser` só para o Android, ele deixa de empacotar e vira um ATALHO:
-// nada de WebAPK, nada de Play Protect, nenhum aviso. O atalho continua abrindo
-// direto na ficha do aluno; a única diferença é a barra do Chrome no topo.
-// O iPhone recebe `display: standalone` normalmente (lá não existe WebAPK, então
-// não há aviso, e o app abre em tela cheia como antes).
 
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: { slug: string; token: string } }
 ) {
   const base = `/aluno/${params.slug}/${params.token}`;
-  const ehAndroid = /Android/i.test(req.headers.get("user-agent") ?? "");
 
   const manifest = {
     name: "GestAcad — Meu treino",
@@ -34,8 +28,7 @@ export async function GET(
     id: base,
     start_url: base,
     scope: base,
-    // Android -> atalho (sem WebAPK, sem aviso); demais -> app em tela cheia.
-    display: ehAndroid ? "browser" : "standalone",
+    display: "standalone",
     orientation: "portrait",
     background_color: "#07080d",
     theme_color: "#07080d",
@@ -51,9 +44,6 @@ export async function GET(
   return new Response(JSON.stringify(manifest), {
     headers: {
       "Content-Type": "application/manifest+json; charset=utf-8",
-      // O conteúdo varia pelo aparelho (Android x resto): impede um cache de
-      // servir a versão errada para a outra plataforma.
-      Vary: "User-Agent",
       "Cache-Control": "public, max-age=0, must-revalidate",
     },
   });
