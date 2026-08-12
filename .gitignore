@@ -46,3 +46,5 @@ next-env.d.ts
 /.test-build-erros
 /.test-build-venc
 /.test-build-senha
+/.test-build-convites
+/.test-build-redir

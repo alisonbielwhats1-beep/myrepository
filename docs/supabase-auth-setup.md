@@ -9,10 +9,12 @@ itens dependem de configuração e não podem ser feitos por migration.
 > `http://localhost:3000` e a allow-list não cobria o destino. Esta lista existe
 > para isso não se repetir.
 
-O projeto **não tem autocadastro**: as contas (dono e equipe) são criadas de
-dentro do painel, já com o e-mail confirmado. Portanto **não é preciso**
-configurar confirmação de e-mail para cadastro — só a recuperação de senha e o
-convite de equipe usam e-mail/WhatsApp.
+As contas de **equipe** (dono e equipe) são criadas de dentro do painel, já com
+o e-mail confirmado. A partir das migrations 065/066, os **alunos** passam a
+ativar o próprio acesso por **convite** (`/ativar`) — e o cadastro manual com
+e-mail/senha **exige confirmação de e-mail**. Google e Apple **não** exigem uma
+segunda confirmação do GestAcad. Ver **`docs/arquitetura-acesso-alunos.md`**
+para o checklist completo de Google, Apple e das novas Redirect URLs.
 
 ---
 
@@ -28,9 +30,15 @@ convite de equipe usam e-mail/WhatsApp.
 ```
 https://SEU-DOMINIO/auth/recuperar
 https://SEU-DOMINIO/auth/callback
+https://SEU-DOMINIO/ativar/continuar
 http://localhost:3000/auth/recuperar
 http://localhost:3000/auth/callback
+http://localhost:3000/ativar/continuar
 ```
+
+> `/ativar/continuar` é o destino que retoma a ativação do aluno depois do
+> OAuth (Google/Apple) e da confirmação de e-mail. Sem ele na allow-list, o
+> retorno do provedor não conclui o vínculo.
 
 Se o link ainda cair no Site URL em vez da tela certa, adicione também as
 versões com curinga de query (o Supabase às vezes anexa `?code=`):

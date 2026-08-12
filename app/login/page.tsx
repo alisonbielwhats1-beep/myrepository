@@ -1,17 +1,22 @@
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import LoginForm from "@/components/auth/LoginForm";
+import BotoesSociais from "@/components/auth/BotoesSociais";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ui/ThemeToggle";
+import { TEM_LOGIN_SOCIAL } from "@/lib/auth-config";
+import { caminhoInternoSeguro } from "@/lib/redirecionamento";
 
 export default function LoginPage({
   searchParams,
 }: {
-  searchParams: { erro?: string };
+  searchParams: { erro?: string; next?: string };
 }) {
   // /auth/callback manda para cá com ?erro=link_invalido quando um link de
   // confirmação/convite falha a troca por sessão (expirado, já usado).
   const linkInvalido = searchParams.erro === "link_invalido";
+  // Destino pós-login (deep link), sempre validado como caminho interno.
+  const next = caminhoInternoSeguro(searchParams.next, "/painel");
 
   return (
     <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-ink-950 bg-grid-fade px-4">
@@ -41,6 +46,17 @@ export default function LoginPage({
                 O link que você abriu expirou ou já foi usado. Entre com e-mail e
                 senha.
               </span>
+            </div>
+          )}
+
+          {TEM_LOGIN_SOCIAL && (
+            <div className="mt-6 space-y-4">
+              <BotoesSociais next={next} />
+              <div className="flex items-center gap-3" role="separator" aria-label="ou">
+                <span className="h-px flex-1 bg-white/10" />
+                <span className="text-xs uppercase tracking-wide text-slate-500">ou</span>
+                <span className="h-px flex-1 bg-white/10" />
+              </div>
             </div>
           )}
 
