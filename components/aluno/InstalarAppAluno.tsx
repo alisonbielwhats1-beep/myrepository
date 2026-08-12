@@ -1,8 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, Share, Plus, X, MoreVertical } from "lucide-react";
-import { ehIOS, estaInstalado, LS_INSTALL_DISPENSADO } from "@/lib/aluno-dispositivo";
+import { Download, ExternalLink, Share, Plus, X, MoreVertical } from "lucide-react";
+import {
+  ehAndroid,
+  ehIOS,
+  ehSamsungInternet,
+  estaInstalado,
+  LS_INSTALL_DISPENSADO,
+  urlParaAbrirNoChromeAndroid,
+} from "@/lib/aluno-dispositivo";
 
 /**
  * Botão "Adicionar à tela inicial" na área do aluno — pensado para cliente
@@ -26,6 +33,7 @@ export default function InstalarAppAluno() {
   const [escondidoAgora, setEscondidoAgora] = useState(false); // só nesta visita
   const [guia, setGuia] = useState(false);
   const ios = useRef(false);
+  const samsungInternet = useRef(false);
 
   useEffect(() => {
     // Limpa a marca antiga de "não mostrar mais" (versões anteriores gravavam
@@ -37,11 +45,14 @@ export default function InstalarAppAluno() {
     }
 
     ios.current = ehIOS();
+    samsungInternet.current = ehAndroid() && ehSamsungInternet();
     setInstalado(estaInstalado());
 
     const onPrompt = (e: Event) => {
       e.preventDefault();
-      setPrompt(e);
+      // O pacote gerado pelo Samsung Internet pode ser bloqueado pelo Play
+      // Protect. Nesse navegador, o botão encaminha o link para o Chrome.
+      if (!samsungInternet.current) setPrompt(e);
     };
     const onInstalado = () => setInstalado(true);
     window.addEventListener("beforeinstallprompt", onPrompt);
@@ -53,6 +64,11 @@ export default function InstalarAppAluno() {
   }, []);
 
   const aoClicar = async () => {
+    if (samsungInternet.current) {
+      setGuia(true);
+      return;
+    }
+
     // Android/desktop com instalador pronto: um toque instala.
     if (prompt) {
       // @ts-expect-error prompt() existe no BeforeInstallPromptEvent
@@ -95,13 +111,32 @@ export default function InstalarAppAluno() {
         </button>
       </div>
 
-      {guia && <GuiaInstalacao ios={ios.current} onClose={() => setGuia(false)} />}
+      {guia && (
+        <GuiaInstalacao
+          ios={ios.current}
+          samsungInternet={samsungInternet.current}
+          onClose={() => setGuia(false)}
+        />
+      )}
     </>
   );
 }
 
 /** Passo a passo em tela cheia, para quando não dá o instalador de um toque. */
-function GuiaInstalacao({ ios, onClose }: { ios: boolean; onClose: () => void }) {
+function GuiaInstalacao({
+  ios,
+  samsungInternet,
+  onClose,
+}: {
+  ios: boolean;
+  samsungInternet: boolean;
+  onClose: () => void;
+}) {
+  const abrirNoChrome = () => {
+    const destino = urlParaAbrirNoChromeAndroid(window.location.href);
+    if (destino) window.location.href = destino;
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"
@@ -122,7 +157,25 @@ function GuiaInstalacao({ ios, onClose }: { ios: boolean; onClose: () => void })
           </button>
         </div>
 
-        {ios ? (
+        {samsungInternet ? (
+          <div className="space-y-4 text-sm">
+            <p>
+              Este link foi aberto no <strong>Samsung Internet</strong>. Nesse navegador, o
+              instalador pode ser bloqueado pelo Play Protect.
+            </p>
+            <button
+              onClick={abrirNoChrome}
+              className="btn-volt flex w-full items-center justify-center gap-2 !py-2.5"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Abrir no Google Chrome
+            </button>
+            <p className="text-xs text-slate-400">
+              No Chrome, toque novamente em “Adicionar à tela inicial”. Seu link pessoal será
+              mantido.
+            </p>
+          </div>
+        ) : ios ? (
           <ol className="space-y-3 text-sm">
             <li className="flex items-start gap-3">
               <Passo n={1} />

@@ -61,6 +61,29 @@ export function ehAndroid(): boolean {
   return /Android/.test(window.navigator.userAgent || "");
 }
 
+/**
+ * O Samsung Internet gera o próprio pacote Android ao instalar uma PWA. Em
+ * alguns aparelhos esse pacote é bloqueado pelo Play Protect como antigo.
+ * Detectamos o navegador para encaminhar a instalação ao Google Chrome.
+ */
+export function ehSamsungInternet(userAgent?: string): boolean {
+  const ua =
+    userAgent ??
+    (typeof window !== "undefined" ? window.navigator.userAgent || "" : "");
+  return /SamsungBrowser/i.test(ua);
+}
+
+/** Monta um intent Android que reabre o mesmo acesso HTTPS no Google Chrome. */
+export function urlParaAbrirNoChromeAndroid(urlAtual: string): string | null {
+  try {
+    const destino = new URL(urlAtual);
+    if (destino.protocol !== "https:") return null;
+    return `intent://${destino.host}${destino.pathname}${destino.search}#Intent;scheme=https;package=com.android.chrome;end`;
+  } catch {
+    return null;
+  }
+}
+
 /** É um iPhone/iPad? (para mostrar o passo a passo de instalação do iOS). */
 export function ehIOS(): boolean {
   if (typeof window === "undefined") return false;
