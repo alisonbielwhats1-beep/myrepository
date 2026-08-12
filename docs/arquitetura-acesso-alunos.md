@@ -263,7 +263,16 @@ convite. O convite é sempre o que liga a ativação ao cadastro certo.
    um aluno autenticado no `/painel` (resolvedor universal). As páginas
    `/aluno/[slug]/[token]` continuam por token (compatível com QR antigos);
    migrar a leitura dessas páginas para a sessão é evolução futura.
-5. **Confirmação adicional de identidade (7.7)** e **exclusão/anonimização LGPD
+5. **Ciclo do aluno (Fase 4 — entregue):** tela "Ciclo do aluno" por aluno
+   (`/painel/[slug]/alunos/acesso/[alunoId]`) liga na UI, via RPCs testadas,
+   suspender/reativar acesso, arquivar/reativar cadastro (migration 068 —
+   preserva cadastro e histórico, no lugar do excluir físico) e matrículas como
+   períodos temporais (novo retorno é novo período; o passado não é reescrito).
+   `status_cadastro` (identidade/acesso) fica SEPARADO de `status_matricula`
+   (cobrança), que segue no CRUD existente. O `excluirAluno` físico não foi
+   removido para não regredir o CRUD atual; migrar aquele botão para o
+   arquivamento é ajuste de produto futuro.
+6. **Confirmação adicional de identidade (7.7)** e **exclusão/anonimização LGPD
    (10.3)**: modeladas conceitualmente; implementação dedicada pendente.
 6. **Backfill de matrículas dos ~60 alunos:** não é feito automaticamente
    (regra do prompt). Use `auditar_migracao_alunos` (dry-run) antes de decidir.

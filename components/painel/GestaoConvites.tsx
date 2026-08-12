@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { QRCodeCanvas } from "qrcode.react";
@@ -13,6 +14,7 @@ import {
   MessageCircle,
   QrCode,
   RefreshCw,
+  Settings2,
   Users,
   X,
   XCircle,
@@ -362,6 +364,13 @@ function LinhaAluno({
             Gerar convite
           </button>
         )}
+        <Link
+          href={`/painel/${slug}/alunos/acesso/${aluno.id}`}
+          className="btn-ghost !py-1.5 text-xs"
+          title="Gerir acesso, cadastro e matrículas"
+        >
+          <Settings2 className="h-3.5 w-3.5" /> Gerir
+        </Link>
       </div>
     </div>
   );
