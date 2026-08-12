@@ -12,43 +12,45 @@ import { ehIOS, estaInstalado, LS_INSTALL_DISPENSADO } from "@/lib/aluno-disposi
  *     — o aluno só confirma. Vira app em tela cheia.
  *   - iPhone/iPad: a Apple não deixa nenhum site instalar sozinho, então o toque
  *     abre um guia com o passo a passo (Compartilhar → Adicionar à Tela de
- *     Início). É o melhor possível no iOS.
- *   - some quando o app já está instalado ou o aluno dispensa (guardado no
- *     aparelho, para não insistir).
+ *     Início).
+ *
+ * VISIBILIDADE (corrigido): o botão aparece SEMPRE que o app não estiver
+ * instalado neste momento. O "X" só esconde durante esta visita (estado em
+ * memória) — na próxima vez que o aluno abrir, o botão volta. Nada é gravado
+ * como "nunca mais mostrar": era isso que fazia o botão sumir para sempre depois
+ * de instalar e desinstalar.
  */
 export default function InstalarAppAluno() {
   const [prompt, setPrompt] = useState<Event | null>(null);
-  const [oculto, setOculto] = useState(true); // começa oculto até decidir
+  const [instalado, setInstalado] = useState(true); // assume oculto até checar
+  const [escondidoAgora, setEscondidoAgora] = useState(false); // só nesta visita
   const [guia, setGuia] = useState(false);
   const ios = useRef(false);
 
   useEffect(() => {
-    if (estaInstalado()) return;
+    // Limpa a marca antiga de "não mostrar mais" (versões anteriores gravavam
+    // isso ao instalar, e ela travava o botão mesmo após desinstalar).
     try {
-      if (localStorage.getItem(LS_INSTALL_DISPENSADO) === "1") return;
+      localStorage.removeItem(LS_INSTALL_DISPENSADO);
     } catch {
-      // sem storage: segue mostrando
+      // ignora
     }
+
     ios.current = ehIOS();
-    setOculto(false);
+    setInstalado(estaInstalado());
 
     const onPrompt = (e: Event) => {
       e.preventDefault();
       setPrompt(e);
     };
+    const onInstalado = () => setInstalado(true);
     window.addEventListener("beforeinstallprompt", onPrompt);
-    window.addEventListener("appinstalled", () => setOculto(true));
-    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalado);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalado);
+    };
   }, []);
-
-  const dispensar = () => {
-    setOculto(true);
-    try {
-      localStorage.setItem(LS_INSTALL_DISPENSADO, "1");
-    } catch {
-      // ignora
-    }
-  };
 
   const aoClicar = async () => {
     // Android/desktop com instalador pronto: um toque instala.
@@ -62,21 +64,21 @@ export default function InstalarAppAluno() {
         // ignora
       }
       setPrompt(null);
-      setOculto(true);
       return;
     }
     // iPhone (ou Android antes do instalador ficar pronto): mostra o guia.
     setGuia(true);
   };
 
-  if (oculto) return null;
+  if (instalado || escondidoAgora) return null;
 
   return (
     <>
       <div className="relative mx-auto mb-3 max-w-md rounded-2xl border border-volt-500/25 bg-volt-500/[0.06] p-3 pr-9">
         <button
-          onClick={dispensar}
-          aria-label="Dispensar"
+          onClick={() => setEscondidoAgora(true)}
+          aria-label="Agora não"
+          title="Agora não"
           className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-lg text-slate-500 hover:text-white"
         >
           <X className="h-4 w-4" />
