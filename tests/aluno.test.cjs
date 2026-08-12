@@ -20,6 +20,10 @@ const {
 } = require("../.test-build-aluno/aluno-classificacao.js");
 const { validarUrl } = require("../.test-build-aluno/validacoes.js");
 const { hojeSaoPaulo } = require("../.test-build-aluno/utils.js");
+const {
+  ehSamsungInternet,
+  urlParaAbrirNoChromeAndroid,
+} = require("../.test-build-aluno/aluno-dispositivo.js");
 
 let passou = 0;
 let falhou = 0;
@@ -166,6 +170,32 @@ console.log("\n7. Sequência semanal de treino (streak da Home)");
     const r = s([{ data_hora_entrada: isoHaDias(0), status_liberacao: "negado" }]);
     return r.semanasSeguidas === 0 && r.treinosSemana === 0;
   })());
+}
+
+console.log("\n8. Instalação no Android usa o navegador seguro");
+{
+  const samsungUa =
+    "Mozilla/5.0 (Linux; Android 14; SAMSUNG SM-A546E) AppleWebKit/537.36 " +
+    "(KHTML, like Gecko) SamsungBrowser/25.0 Chrome/121.0 Mobile Safari/537.36";
+  const chromeUa =
+    "Mozilla/5.0 (Linux; Android 14; SM-A546E) AppleWebKit/537.36 " +
+    "(KHTML, like Gecko) Chrome/121.0 Mobile Safari/537.36";
+
+  check("reconhece Samsung Internet", ehSamsungInternet(samsungUa) === true);
+  check("não confunde Google Chrome com Samsung Internet", ehSamsungInternet(chromeUa) === false);
+
+  const acesso = "https://gestacad.vercel.app/aluno/saude-e-vida/token-123?origem=whats";
+  const destino = urlParaAbrirNoChromeAndroid(acesso);
+  check(
+    "leva o mesmo link pessoal para o pacote do Google Chrome",
+    destino ===
+      "intent://gestacad.vercel.app/aluno/saude-e-vida/token-123?origem=whats" +
+        "#Intent;scheme=https;package=com.android.chrome;end"
+  );
+  check(
+    "não cria intent para URL insegura",
+    urlParaAbrirNoChromeAndroid("http://gestacad.vercel.app/aluno/token") === null
+  );
 }
 
 console.log(`\n=== ${passou} passaram, ${falhou} falharam ===`);

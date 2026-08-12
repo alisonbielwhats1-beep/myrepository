@@ -15,7 +15,7 @@
     "test:acessos": "tsc lib/utils.ts lib/types.ts --outDir .test-build --module esnext --target es2020 --moduleResolution node --skipLibCheck && node tests/acessos.test.mjs",
     "test:permissoes": "tsc lib/permissoes.ts lib/types.ts --outDir .test-build-perm --module esnext --target es2020 --moduleResolution node --skipLibCheck && node tests/permissoes.test.mjs",
     "test:validacoes": "tsc lib/validacoes.ts --outDir .test-build-val --module esnext --target es2020 --moduleResolution node --skipLibCheck && node tests/validacoes.test.mjs",
-    "test:aluno": "tsc lib/aluno-classificacao.ts lib/validacoes.ts lib/utils.ts lib/types.ts --outDir .test-build-aluno --module commonjs --target es2020 --moduleResolution node --skipLibCheck && node tests/aluno.test.cjs",
+    "test:aluno": "tsc lib/aluno-classificacao.ts lib/aluno-dispositivo.ts lib/validacoes.ts lib/utils.ts lib/types.ts --outDir .test-build-aluno --module commonjs --target es2020 --moduleResolution node --skipLibCheck && node tests/aluno.test.cjs",
     "test:paginacao": "tsc lib/paginacao.ts --outDir .test-build-pag --module esnext --target es2020 --moduleResolution node --skipLibCheck && node tests/paginacao.test.mjs",
     "test:faixas": "tsc lib/faixas-comerciais.ts lib/types.ts --outDir .test-build-faixas --module esnext --target es2020 --moduleResolution node --skipLibCheck && node tests/faixas-comerciais.test.mjs",
     "test:importar": "tsc lib/importar-alunos.ts lib/xlsx-minimo.ts lib/validacoes.ts lib/normalizacao.ts lib/types.ts --outDir .test-build-import --module commonjs --target es2020 --moduleResolution node --skipLibCheck && node tests/importar-alunos.test.cjs",
