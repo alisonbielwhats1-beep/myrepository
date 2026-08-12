@@ -29,7 +29,8 @@
     "seed-demo": "node scripts/seed-demo.mjs",
     "criar-demo": "node scripts/criar-demo.mjs",
     "reset-demo": "node scripts/reset-demo.mjs",
-    "remover-demo": "node scripts/remover-demo.mjs"
+    "remover-demo": "node scripts/remover-demo.mjs",
+    "auditoria-acesso": "node scripts/auditoria-acesso-alunos.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
