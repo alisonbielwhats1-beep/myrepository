@@ -1,7 +1,22 @@
+import type { Metadata } from "next";
 import AlunoTabBar from "@/components/aluno/AlunoTabBar";
 import LembrarAcesso from "@/components/aluno/LembrarAcesso";
 import InstalarAppAluno from "@/components/aluno/InstalarAppAluno";
 import { requireFichaAluno } from "@/lib/aluno-publico";
+
+// Sobrescreve o manifest global (start_url /inicio) por um manifest deste
+// aluno, cujo start_url é a própria ficha dele. Assim o app instalado abre
+// direto na área do aluno — inclusive no iPhone, onde o app da tela inicial não
+// enxerga o token guardado no Safari.
+export async function generateMetadata({
+  params,
+}: {
+  params: { slug: string; token: string };
+}): Promise<Metadata> {
+  return {
+    manifest: `/aluno/${params.slug}/${params.token}/app.webmanifest`,
+  };
+}
 
 export default async function AlunoFichaLayout({
   children,
