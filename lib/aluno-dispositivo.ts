@@ -55,6 +55,12 @@ export function estaInstalado(): boolean {
   return Boolean(mm || iosStandalone);
 }
 
+/** É um aparelho Android? (para o fallback manual de instalação no Chrome). */
+export function ehAndroid(): boolean {
+  if (typeof window === "undefined") return false;
+  return /Android/.test(window.navigator.userAgent || "");
+}
+
 /** É um iPhone/iPad? (para mostrar o passo a passo de instalação do iOS). */
 export function ehIOS(): boolean {
   if (typeof window === "undefined") return false;
