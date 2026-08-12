@@ -118,9 +118,9 @@ export default function InstalarAppAluno() {
         <div className="flex items-start gap-2">
           <MoreVertical className="mt-0.5 h-4 w-4 flex-none text-volt-300" />
           <span>
-            Para instalar o app: toque no menu{" "}
+            Para deixar na tela inicial: toque no menu{" "}
             <MoreVertical className="inline h-3.5 w-3.5" /> do Chrome e depois em{" "}
-            <strong>Instalar app</strong> (ou <strong>Adicionar à tela inicial</strong>).
+            <strong>Adicionar à tela inicial</strong>.
           </span>
         </div>
       )}
