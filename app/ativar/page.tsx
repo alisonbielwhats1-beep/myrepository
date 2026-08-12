@@ -53,7 +53,7 @@ export default async function AtivarPage({
 
   if (user) {
     const r = await finalizarAtivacao();
-    if (r.ok) return <TelaSucesso slug={r.slug} />;
+    if (r.ok) return <TelaSucesso />;
     return <TelaConflito mensagem={r.erro} />;
   }
 
@@ -90,7 +90,7 @@ function TelaInvalida() {
   );
 }
 
-function TelaSucesso({ slug }: { slug: string }) {
+function TelaSucesso() {
   return (
     <div className="space-y-3 text-center">
       <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-volt-500/15 text-volt-300">
@@ -101,14 +101,12 @@ function TelaSucesso({ slug }: { slug: string }) {
         Sua conta foi vinculada com segurança ao seu cadastro. Nos próximos
         acessos, entre pelo mesmo método que você escolheu.
       </p>
-      {slug && (
-        <Link
-          href={`/aluno/${slug}`}
-          className="inline-block text-sm text-volt-300 hover:underline"
-        >
-          Ir para a sua academia
-        </Link>
-      )}
+      <Link
+        href="/aluno"
+        className="btn-volt mt-1 inline-flex"
+      >
+        Entrar no meu acesso
+      </Link>
     </div>
   );
 }

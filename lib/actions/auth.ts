@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { erroAmigavel } from "../erros-servidor";
 import { validarNovaSenha, validarAlteracaoSenha } from "../senha";
+import { meusVinculosAluno } from "../acesso-aluno-sessao";
 
 export type EstadoLogin = { erro?: string };
 
@@ -89,15 +90,23 @@ export async function entrarAction(
   const slug = (perfil?.academia as unknown as { slug_url: string } | null)
     ?.slug_url;
 
-  if (!slug) {
-    await supabase.auth.signOut();
-    return {
-      erro:
-        "Este login não está vinculado a nenhuma academia. Fale com o suporte.",
-    };
+  if (slug) {
+    redirect(`/painel/${slug}`);
   }
 
-  redirect(`/painel/${slug}`);
+  // Não é equipe: pode ser um ALUNO que ativou o acesso e entra por e-mail/
+  // senha. /aluno resolve o vínculo pela sessão. Só desloga (e erra) se a conta
+  // não tiver nenhum vínculo — evita prender um aluno legítimo fora do sistema.
+  const vinculos = await meusVinculosAluno();
+  if (vinculos.length > 0) {
+    redirect("/aluno");
+  }
+
+  await supabase.auth.signOut();
+  return {
+    erro:
+      "Este login não está vinculado a nenhuma academia. Fale com o suporte.",
+  };
 }
 
 /** Encerra a sessão do administrador. */

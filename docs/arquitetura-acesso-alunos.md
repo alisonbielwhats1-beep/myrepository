@@ -170,6 +170,11 @@ convite. O convite é sempre o que liga a ativação ao cadastro certo.
   três métodos) → `/ativar/continuar` (retomada pós-callback).
 - Login (`/login`): botões sociais só quando habilitados + divisor + e-mail/
   senha (inalterado) + "Esqueci minha senha".
+- **`/aluno` (Fase 3):** entrada por sessão do aluno — resolve o vínculo e
+  redireciona à área; seleção quando há mais de uma academia; telas de acesso
+  suspenso e de conta sem vínculo. `/painel` é o resolvedor universal pós-login
+  (equipe → painel; aluno → `/aluno`). O `start_url` do PWA aponta para
+  `/painel`, então o app instalado abre já na área certa quando há sessão.
 
 ---
 
@@ -251,10 +256,13 @@ convite. O convite é sempre o que liga a ativação ao cadastro certo.
    precisa do caminho "entrar e retomar convite" — hoje coberto por Google/Apple
    e pelo reabrir do link já logado; o caso e-mail+senha existente fica para a
    fase de painel autenticado do aluno.
-4. **Painel autenticado do aluno:** as páginas `/aluno/[slug]/[token]` ainda
-   resolvem por `token_acesso_publico`. Migrar para sessão (usando
-   `academia_membros`/`usuario_tem_acesso_aluno`) é fase seguinte; por isso a
-   ativação termina numa tela de sucesso.
+4. **Painel autenticado do aluno (Fase 3 — entregue como ponte):** existe a
+   entrada por sessão `/aluno` (migration 067 + `meu_acesso_aluno`), que resolve
+   o vínculo da conta e leva à área existente sem token na URL, trata seleção de
+   múltiplas academias, acesso suspenso e conta sem vínculo, e quebra o loop de
+   um aluno autenticado no `/painel` (resolvedor universal). As páginas
+   `/aluno/[slug]/[token]` continuam por token (compatível com QR antigos);
+   migrar a leitura dessas páginas para a sessão é evolução futura.
 5. **Confirmação adicional de identidade (7.7)** e **exclusão/anonimização LGPD
    (10.3)**: modeladas conceitualmente; implementação dedicada pendente.
 6. **Backfill de matrículas dos ~60 alunos:** não é feito automaticamente
