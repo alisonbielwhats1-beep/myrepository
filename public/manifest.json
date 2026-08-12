@@ -3,7 +3,7 @@
   "short_name": "GestAcad",
   "description": "Treinos, catraca e inteligência de negócio para a sua academia.",
   "id": "https://gestacad.com.br/",
-  "start_url": "/painel",
+  "start_url": "/inicio",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

@@ -173,8 +173,14 @@ convite. O convite é sempre o que liga a ativação ao cadastro certo.
 - **`/aluno` (Fase 3):** entrada por sessão do aluno — resolve o vínculo e
   redireciona à área; seleção quando há mais de uma academia; telas de acesso
   suspenso e de conta sem vínculo. `/painel` é o resolvedor universal pós-login
-  (equipe → painel; aluno → `/aluno`). O `start_url` do PWA aponta para
-  `/painel`, então o app instalado abre já na área certa quando há sessão.
+  (equipe → painel; aluno → `/aluno`).
+- **`/inicio` (start_url do PWA):** tela inicial do app instalado. Se o aparelho
+  LEMBRA o acesso de um aluno (modelo sem login/sem e-mail — link pessoal salvo
+  em localStorage pela área do aluno), abre a área dele direto; senão cai no
+  resolvedor `/painel`. Assim o app instalado reabre já no lugar certo tanto no
+  modelo por link (aluno) quanto por sessão (equipe/aluno autenticado). A área
+  do aluno também mostra um convite de instalação não intrusivo (Android/desktop
+  nativo; iPhone com o passo a passo Compartilhar → Adicionar à Tela de Início).
 
 ---
 
