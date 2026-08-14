@@ -286,6 +286,14 @@ export interface Treino {
   nivel?: string | null;
   publico_alvo?: string | null;
   origem?: string;
+  /**
+   * Nível de visibilidade do treino-modelo (migration 068):
+   *   • plataforma → curado pelo GestAcad (academia_id null), todas as academias veem;
+   *   • academia   → compartilhado com toda a equipe da academia;
+   *   • instrutor  → privado de `criado_por`; além dele, só dono/gerente enxergam.
+   * Fichas de aluno (aluno_id != null) ignoram este campo.
+   */
+  visibilidade?: "plataforma" | "academia" | "instrutor";
   codigo_importacao?: string | null;
   metadados?: Record<string, unknown>;
   modelo_origem_id?: string | null;

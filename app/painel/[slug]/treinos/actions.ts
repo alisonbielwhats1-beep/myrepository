@@ -38,6 +38,13 @@ export async function criarTreinoBiblioteca(
   if ("erro" in lidos) return lidos;
   const exercicios = lidos.exercicios;
 
+  // Visibilidade: novo treino nasce privado do instrutor por padrão. Só
+  // 'academia' e 'instrutor' são escolhíveis aqui; 'plataforma' é do GestAcad.
+  const visibilidade =
+    String(formData.get("visibilidade") ?? "") === "academia"
+      ? "academia"
+      : "instrutor";
+
   const { count } = await supabase
     .from("treinos")
     .select("id", { count: "exact", head: true })
@@ -57,6 +64,7 @@ export async function criarTreinoBiblioteca(
       criado_por: sessao.userId,
       profissional_nome: sessao.nome,
       origem: "manual",
+      visibilidade,
       ordem: (count ?? 0) + 1,
     })
     .select()
@@ -207,6 +215,36 @@ export async function excluirTreinoBiblioteca(
     .eq("id", treinoId)
     .eq("academia_id", sessao.academia.id);
   if (error) return { erro: await erroAmigavel(error, "excluir o treino") };
+  revalidatePath(`/painel/${slug}/treinos`);
+}
+
+/**
+ * Alterna a visibilidade de um treino-modelo entre 'instrutor' (privado) e
+ * 'academia' (compartilhado com a equipe). O RLS (migration 068) garante que
+ * só o dono do treino ou dono/gerente consigam efetivar a mudança.
+ */
+export async function definirVisibilidadeTreino(
+  slug: string,
+  treinoId: string,
+  visibilidade: "academia" | "instrutor"
+): Promise<{ erro: string } | void> {
+  const sessao = await requireSecao(slug, "treinos");
+  if (sessao.papel === "recepcao") {
+    return { erro: "Seu perfil não pode alterar treinos." };
+  }
+  if (!FORMATO_UUID.test(treinoId)) {
+    return { erro: "Treino inválido." };
+  }
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("treinos")
+    .update({ visibilidade })
+    .eq("id", treinoId)
+    .eq("academia_id", sessao.academia.id)
+    .is("aluno_id", null);
+  if (error) {
+    return { erro: await erroAmigavel(error, "alterar a visibilidade do treino") };
+  }
   revalidatePath(`/painel/${slug}/treinos`);
 }
 

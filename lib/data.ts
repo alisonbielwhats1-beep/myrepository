@@ -355,10 +355,13 @@ export async function getTreinosBiblioteca(
   academiaId: string
 ): Promise<Treino[]> {
   const supabase = createClient();
+  // Inclui os modelos da própria academia E os da plataforma (academia_id null,
+  // "Padrão GestAcad"). O RLS (migration 068) cuida do recorte por visibilidade:
+  // privado de instrutor só volta para o dono, dono/gerente ou a plataforma.
   const { data, error } = await supabase
     .from("treinos")
     .select("*, exercicios:exercicios_treino(*)")
-    .eq("academia_id", academiaId)
+    .or(`academia_id.eq.${academiaId},academia_id.is.null`)
     .is("aluno_id", null)
     .eq("ativo", true)
     .order("modalidade", { ascending: true })

@@ -7,12 +7,15 @@ import {
   BookPlus,
   Dumbbell,
   Layers,
+  Lock,
   Plus,
   Repeat,
   Search,
   Share2,
+  Sparkles,
   Target,
   Timer,
+  Users,
   UserRound,
   Weight,
   X,
@@ -20,6 +23,7 @@ import {
 import {
   CatalogoExercicio,
   GRUPOS_MUSCULARES,
+  Papel,
   Treino,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -31,8 +35,18 @@ import AtribuirTreino from "@/components/painel/AtribuirTreino";
 import {
   criarTreinoBiblioteca,
   criarExercicioCatalogo,
+  definirVisibilidadeTreino,
   excluirTreinoBiblioteca,
 } from "@/app/painel/[slug]/treinos/actions";
+
+/** Nível de visibilidade efetivo de um treino-modelo, para exibição e filtro. */
+type NivelTreino = "plataforma" | "academia" | "instrutor";
+
+function nivelDoTreino(t: Treino): NivelTreino {
+  if (t.visibilidade === "plataforma" || !t.academia_id) return "plataforma";
+  if (t.visibilidade === "instrutor") return "instrutor";
+  return "academia";
+}
 
 const MODALIDADES_SUGERIDAS = [
   "Musculação",
@@ -43,22 +57,54 @@ const MODALIDADES_SUGERIDAS = [
   "Iniciante",
 ];
 
+/** Filtro por nível de visibilidade (segmento no topo da tela). */
+type NivelFiltro = "todos" | "plataforma" | "academia" | "meus" | "equipe";
+
 export default function GestaoTreinos({
   slug,
   treinosIniciais,
   catalogo,
   podeAtribuir,
+  userId,
+  papel,
 }: {
   slug: string;
   treinosIniciais: Treino[];
   catalogo: CatalogoExercicio[];
   podeAtribuir: boolean;
+  userId: string;
+  papel: Papel;
 }) {
   const treinos = treinosIniciais;
+  const ehGestor = papel === "dono" || papel === "gerente";
   const [mostrarForm, setMostrarForm] = useState(treinos.length === 0);
   const [mostrarCatalogoForm, setMostrarCatalogoForm] = useState(false);
   const [busca, setBusca] = useState("");
   const [modalidadeFiltro, setModalidadeFiltro] = useState<string>("");
+  const [nivelFiltro, setNivelFiltro] = useState<NivelFiltro>("todos");
+
+  // Quantos treinos existem em cada nível — define quais abas mostrar.
+  const contagemNivel = useMemo(() => {
+    const c = { plataforma: 0, academia: 0, meus: 0, equipe: 0 };
+    for (const t of treinos) {
+      const nv = nivelDoTreino(t);
+      if (nv === "plataforma") c.plataforma++;
+      else if (nv === "academia") c.academia++;
+      else if (t.criado_por === userId) c.meus++;
+      else c.equipe++;
+    }
+    return c;
+  }, [treinos, userId]);
+
+  const passaNivel = (t: Treino): boolean => {
+    if (nivelFiltro === "todos") return true;
+    const nv = nivelDoTreino(t);
+    if (nivelFiltro === "plataforma") return nv === "plataforma";
+    if (nivelFiltro === "academia") return nv === "academia";
+    if (nivelFiltro === "meus") return nv === "instrutor" && t.criado_por === userId;
+    if (nivelFiltro === "equipe") return nv === "instrutor" && t.criado_por !== userId;
+    return true;
+  };
 
   // Lista de modalidades existentes (para os botões de filtro rápido).
   const modalidades = useMemo(() => {
@@ -67,10 +113,11 @@ export default function GestaoTreinos({
     return Array.from(set).sort();
   }, [treinos]);
 
-  // Aplica busca por texto (nome/objetivo/modalidade) + filtro de modalidade.
+  // Aplica nível + busca por texto (nome/objetivo/modalidade) + modalidade.
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return treinos.filter((t) => {
+      if (!passaNivel(t)) return false;
       const mod = t.modalidade?.trim() || "Sem modalidade";
       if (modalidadeFiltro && mod !== modalidadeFiltro) return false;
       if (!termo) return true;
@@ -87,7 +134,8 @@ export default function GestaoTreinos({
         .toLowerCase();
       return alvo.includes(termo);
     });
-  }, [treinos, busca, modalidadeFiltro]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [treinos, busca, modalidadeFiltro, nivelFiltro, userId]);
 
   // Agrupa os treinos filtrados por modalidade.
   const grupos = useMemo(() => {
@@ -100,7 +148,18 @@ export default function GestaoTreinos({
     return Array.from(map.entries());
   }, [filtrados]);
 
-  const temFiltro = busca.trim() !== "" || modalidadeFiltro !== "";
+  const temFiltro =
+    busca.trim() !== "" || modalidadeFiltro !== "" || nivelFiltro !== "todos";
+
+  // Abas de nível: só aparecem as que têm treino (evita aba vazia confundindo).
+  const abasNivel: { valor: NivelFiltro; label: string; qtd: number }[] = [
+    { valor: "meus" as NivelFiltro, label: "Meus treinos", qtd: contagemNivel.meus },
+    { valor: "academia" as NivelFiltro, label: "Da academia", qtd: contagemNivel.academia },
+    { valor: "plataforma" as NivelFiltro, label: "Padrão GestAcad", qtd: contagemNivel.plataforma },
+    ...(ehGestor
+      ? [{ valor: "equipe" as NivelFiltro, label: "Privados da equipe", qtd: contagemNivel.equipe }]
+      : []),
+  ].filter((a) => a.qtd > 0);
 
   return (
     <div className="space-y-6">
@@ -138,6 +197,49 @@ export default function GestaoTreinos({
           slug={slug}
           onSalvo={() => setMostrarCatalogoForm(false)}
         />
+      )}
+
+      {/* Segmento por nível: Meus treinos / Da academia / Padrão GestAcad */}
+      {treinos.length > 0 && abasNivel.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 rounded-xl border border-ink-700 bg-ink-900/40 p-1.5">
+          <button
+            onClick={() => setNivelFiltro("todos")}
+            className={cn(
+              "rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+              nivelFiltro === "todos"
+                ? "bg-volt-300 text-ink-950"
+                : "text-slate-400 hover:text-slate-200"
+            )}
+          >
+            Todos
+          </button>
+          {abasNivel.map((aba) => (
+            <button
+              key={aba.valor}
+              onClick={() => setNivelFiltro(aba.valor)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                nivelFiltro === aba.valor
+                  ? "bg-volt-300 text-ink-950"
+                  : "text-slate-400 hover:text-slate-200"
+              )}
+            >
+              {aba.valor === "plataforma" && <Sparkles className="h-3.5 w-3.5" />}
+              {aba.valor === "academia" && <Users className="h-3.5 w-3.5" />}
+              {(aba.valor === "meus" || aba.valor === "equipe") && (
+                <Lock className="h-3.5 w-3.5" />
+              )}
+              {aba.label}
+              <span
+                className={cn(
+                  nivelFiltro === aba.valor ? "text-ink-950/60" : "text-slate-600"
+                )}
+              >
+                {aba.qtd}
+              </span>
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Busca + filtro por modalidade */}
@@ -203,6 +305,7 @@ export default function GestaoTreinos({
             onClick={() => {
               setBusca("");
               setModalidadeFiltro("");
+              setNivelFiltro("todos");
             }}
             className="ml-1 text-volt-300 underline-offset-2 hover:underline"
           >
@@ -224,6 +327,8 @@ export default function GestaoTreinos({
                     slug={slug}
                     treino={t}
                     podeAtribuir={podeAtribuir}
+                    userId={userId}
+                    ehGestor={ehGestor}
                   />
                 ))}
               </div>
@@ -239,13 +344,23 @@ function CardTreino({
   slug,
   treino,
   podeAtribuir,
+  userId,
+  ehGestor,
 }: {
   slug: string;
   treino: Treino;
   podeAtribuir: boolean;
+  userId: string;
+  ehGestor: boolean;
 }) {
   const [aberto, setAberto] = useState(false);
   const exercicios = treino.exercicios ?? [];
+
+  const nivel = nivelDoTreino(treino);
+  const souDono = treino.criado_por === userId;
+  // Só o autor do treino ou dono/gerente podem alternar a visibilidade.
+  // Treino da plataforma (GestAcad) é gerenciado fora da academia.
+  const podeAlternar = nivel !== "plataforma" && (souDono || ehGestor);
 
   return (
     <div className="surface flex flex-col rounded-2xl p-5">
@@ -259,6 +374,7 @@ function CardTreino({
         <div className="min-w-0">
           <h3 className="font-semibold text-white">{treino.nome_treino}</h3>
           <div className="mt-2 flex flex-wrap items-center gap-2">
+            <SeloNivel nivel={nivel} souDono={souDono} treino={treino} />
             {treino.objetivo && (
               <span className="chip border-magenta-500/30 bg-magenta-500/10 text-magenta-400">
                 <Target className="h-3.5 w-3.5" /> {treino.objetivo}
@@ -368,9 +484,12 @@ function CardTreino({
         </div>
       )}
 
-      <div className="mt-4 flex items-center gap-2 border-t border-ink-700 pt-4">
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-ink-700 pt-4">
         {podeAtribuir && <AtribuirTreino slug={slug} treino={treino} />}
         <CompartilharTreino slug={slug} treino={treino} />
+        {podeAlternar && (
+          <VisibilidadeToggle slug={slug} treino={treino} nivel={nivel} />
+        )}
         <div className="ml-auto">
           <ConfirmButton
             action={() => excluirTreinoBiblioteca(slug, treino.id)}
@@ -380,6 +499,90 @@ function CardTreino({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Selo do nível de visibilidade exibido no card do treino. */
+function SeloNivel({
+  nivel,
+  souDono,
+  treino,
+}: {
+  nivel: NivelTreino;
+  souDono: boolean;
+  treino: Treino;
+}) {
+  if (nivel === "plataforma") {
+    return (
+      <span className="chip border-volt-500/30 bg-volt-500/10 text-volt-300">
+        <Sparkles className="h-3.5 w-3.5" /> Padrão GestAcad
+      </span>
+    );
+  }
+  if (nivel === "academia") {
+    return (
+      <span className="chip border-sky-500/30 bg-sky-500/10 text-sky-300">
+        <Users className="h-3.5 w-3.5" /> Da academia
+      </span>
+    );
+  }
+  // instrutor (privado)
+  return (
+    <span className="chip border-amber-500/30 bg-amber-500/10 text-amber-300">
+      <Lock className="h-3.5 w-3.5" />
+      {souDono
+        ? "Meu treino (privado)"
+        : `Privado · ${treino.profissional_nome ?? "instrutor"}`}
+    </span>
+  );
+}
+
+/** Botão que alterna o treino entre privado do instrutor e da academia. */
+function VisibilidadeToggle({
+  slug,
+  treino,
+  nivel,
+}: {
+  slug: string;
+  treino: Treino;
+  nivel: NivelTreino;
+}) {
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const alvo = nivel === "instrutor" ? "academia" : "instrutor";
+
+  const alternar = async () => {
+    setEnviando(true);
+    setErro(null);
+    const r = await definirVisibilidadeTreino(slug, treino.id, alvo);
+    if (r && "erro" in r) {
+      setErro(r.erro);
+      setEnviando(false);
+    }
+    // Em caso de sucesso o revalidatePath recarrega a lista e o card some/atualiza.
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={alternar}
+      disabled={enviando}
+      title={erro ?? undefined}
+      className={cn(
+        "chip border-ink-600 bg-ink-800 text-slate-300 transition hover:border-volt-500/50 hover:text-white disabled:opacity-60",
+        erro && "border-red-500/40 text-red-300"
+      )}
+    >
+      {alvo === "academia" ? (
+        <>
+          <Users className="h-3.5 w-3.5" /> Compartilhar com a academia
+        </>
+      ) : (
+        <>
+          <Lock className="h-3.5 w-3.5" /> Tornar privado
+        </>
+      )}
+    </button>
   );
 }
 
@@ -482,9 +685,60 @@ function FormularioTreino({
         </label>
       </div>
 
+      <fieldset className="mt-4">
+        <legend className="mb-1.5 text-xs font-medium text-slate-400">
+          Quem pode ver este treino?
+        </legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-ink-600 bg-ink-900/50 p-3 has-[:checked]:border-amber-500/50 has-[:checked]:bg-amber-500/5">
+            <input
+              type="radio"
+              name="visibilidade"
+              value="instrutor"
+              defaultChecked
+              className="mt-0.5 accent-amber-400"
+            />
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-sm font-medium text-white">
+                <Lock className="h-3.5 w-3.5 text-amber-300" /> Só eu (privado)
+              </span>
+              <span className="mt-0.5 block text-xs text-slate-500">
+                Fica na sua lista. Dono/gerente também veem. Você pode
+                compartilhar com a academia depois.
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-ink-600 bg-ink-900/50 p-3 has-[:checked]:border-sky-500/50 has-[:checked]:bg-sky-500/5">
+            <input
+              type="radio"
+              name="visibilidade"
+              value="academia"
+              className="mt-0.5 accent-sky-400"
+            />
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-sm font-medium text-white">
+                <Users className="h-3.5 w-3.5 text-sky-300" /> Toda a academia
+              </span>
+              <span className="mt-0.5 block text-xs text-slate-500">
+                Toda a equipe da academia vê e pode usar em qualquer aluno.
+              </span>
+            </span>
+          </label>
+        </div>
+      </fieldset>
+
       <div className="mt-4">
         <ExercicioBuilder key={resetKey} slug={slug} catalogo={catalogo} />
       </div>
+
+      {estado.erro && (
+        <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          {estado.erro}
+        </p>
+      )}
+      <p className="mt-3 text-xs text-slate-500">
+        Para salvar, adicione pelo menos um exercício com nome.
+      </p>
 
       <FormActions salvarLabel="Salvar treino" className="mt-4" />
     </form>

@@ -33,6 +33,8 @@ export default async function TreinosPage({
         treinosIniciais={treinos}
         catalogo={catalogo}
         podeAtribuir={sessao.papel !== "recepcao"}
+        userId={sessao.userId}
+        papel={sessao.papel}
       />
     </div>
   );
