@@ -272,7 +272,8 @@ export interface ExercicioTreino {
 
 export interface Treino {
   id: string;
-  academia_id: string;
+  /** null = treino-modelo da plataforma ("Padrão GestAcad", migration 069). */
+  academia_id: string | null;
   aluno_id: string | null;
   nome_treino: string;
   objetivo: string | null;
