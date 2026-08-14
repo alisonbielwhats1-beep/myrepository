@@ -1,16 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useFormState, useFormStatus } from "react-dom";
-import { Check, Loader2, Search, UserPlus, X } from "lucide-react";
+import {
+  Check,
+  Clock,
+  Loader2,
+  Search,
+  Trash2,
+  UserPlus,
+  Users,
+  X,
+} from "lucide-react";
 import type { Treino } from "@/lib/types";
-import { atribuirTreinoBiblioteca } from "@/app/painel/[slug]/treinos/actions";
+import {
+  atribuirTreinoBiblioteca,
+  removerAtribuicaoTreino,
+} from "@/app/painel/[slug]/treinos/actions";
 
 type AlunoOpcao = {
   id: string;
   nome: string;
   matricula_codigo: string | null;
+};
+
+type Atribuicao = {
+  treinoId: string;
+  alunoId: string;
+  alunoNome: string;
+  atribuidoEm: string | null;
 };
 
 export default function AtribuirTreino({
@@ -21,13 +40,6 @@ export default function AtribuirTreino({
   treino: Treino;
 }) {
   const [aberto, setAberto] = useState(false);
-  const [confirmado, setConfirmado] = useState(false);
-
-  const concluir = () => {
-    setAberto(false);
-    setConfirmado(true);
-    window.setTimeout(() => setConfirmado(false), 2200);
-  };
 
   return (
     <>
@@ -37,12 +49,8 @@ export default function AtribuirTreino({
         className="btn-volt"
         title="Criar uma cópia deste treino na ficha de um aluno"
       >
-        {confirmado ? (
-          <Check className="h-4 w-4" />
-        ) : (
-          <UserPlus className="h-4 w-4" />
-        )}
-        {confirmado ? "Atribuído" : "Atribuir a aluno"}
+        <UserPlus className="h-4 w-4" />
+        Atribuir a aluno
       </button>
 
       {aberto &&
@@ -51,7 +59,6 @@ export default function AtribuirTreino({
             slug={slug}
             treino={treino}
             onClose={() => setAberto(false)}
-            onConcluido={concluir}
           />,
           document.body
         )}
@@ -59,16 +66,21 @@ export default function AtribuirTreino({
   );
 }
 
+function formatarData(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 function DialogAtribuir({
   slug,
   treino,
   onClose,
-  onConcluido,
 }: {
   slug: string;
   treino: Treino;
   onClose: () => void;
-  onConcluido: () => void;
 }) {
   const acao = atribuirTreinoBiblioteca.bind(null, slug, treino.id);
   const [estado, formAction] = useFormState(acao, {});
@@ -78,12 +90,52 @@ function DialogAtribuir({
   const [carregando, setCarregando] = useState(true);
   const [erroBusca, setErroBusca] = useState("");
 
+  const [atribuicoes, setAtribuicoes] = useState<Atribuicao[]>([]);
+  const [carregandoAtrib, setCarregandoAtrib] = useState(true);
+  const [removendo, setRemovendo] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+
+  // Carrega/recarrega a lista de quem já recebeu este modelo.
+  const carregarAtribuicoes = useCallback(async () => {
+    setCarregandoAtrib(true);
+    try {
+      const r = await fetch(
+        `/api/treinos/${encodeURIComponent(slug)}/atribuicoes?modelo=${encodeURIComponent(treino.id)}`,
+        { cache: "no-store" }
+      );
+      const corpo = (await r.json()) as { atribuicoes?: Atribuicao[] };
+      setAtribuicoes(corpo.atribuicoes ?? []);
+    } catch {
+      setAtribuicoes([]);
+    } finally {
+      setCarregandoAtrib(false);
+    }
+  }, [slug, treino.id]);
+
   useEffect(() => {
-    if (estado.ok) onConcluido();
-    // O callback fecha o portal; repetir por mudança de identidade não é desejado.
+    carregarAtribuicoes();
+  }, [carregarAtribuicoes]);
+
+  // Após atribuir com sucesso: NÃO fecha — mostra confirmação, limpa a seleção
+  // e recarrega a lista, para o professor ver quem recebeu e notificar em série.
+  useEffect(() => {
+    if (estado.ok) {
+      const nome = alunos.find((a) => a.id === alunoId)?.nome;
+      setSucesso(
+        nome
+          ? `Treino atribuído a ${nome} — o aluno já foi avisado no app dele.`
+          : "Treino atribuído — o aluno já foi avisado no app dele."
+      );
+      setAlunoId("");
+      setBusca("");
+      carregarAtribuicoes();
+      const t = window.setTimeout(() => setSucesso(null), 6000);
+      return () => window.clearTimeout(t);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado.savedAt]);
 
+  // Busca de alunos (debounce).
   useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
@@ -107,9 +159,7 @@ function DialogAtribuir({
         if (erro instanceof DOMException && erro.name === "AbortError") return;
         setAlunos([]);
         setAlunoId("");
-        setErroBusca(
-          erro instanceof Error ? erro.message : "Falha ao buscar alunos."
-        );
+        setErroBusca(erro instanceof Error ? erro.message : "Falha ao buscar alunos.");
       } finally {
         if (!controller.signal.aborted) setCarregando(false);
       }
@@ -128,6 +178,17 @@ function DialogAtribuir({
     window.addEventListener("keydown", fecharComEsc);
     return () => window.removeEventListener("keydown", fecharComEsc);
   }, [onClose]);
+
+  const remover = async (a: Atribuicao) => {
+    setRemovendo(a.treinoId);
+    const r = await removerAtribuicaoTreino(slug, a.treinoId);
+    if ("ok" in r) {
+      setAtribuicoes((prev) => prev.filter((x) => x.treinoId !== a.treinoId));
+      setSucesso(`Treino removido da ficha de ${a.alunoNome}.`);
+      window.setTimeout(() => setSucesso(null), 5000);
+    }
+    setRemovendo(null);
+  };
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4">
@@ -163,12 +224,71 @@ function DialogAtribuir({
           <p className="mt-1 text-sm text-slate-400">{treino.nome_treino}</p>
         </div>
 
-        <div className="mt-4 rounded-xl border border-volt-500/20 bg-volt-500/5 px-3 py-2 text-xs text-slate-300">
-          Será criada uma cópia independente na ficha do aluno. O modelo
-          original não será alterado.
+        {sucesso && (
+          <p className="mt-4 flex items-start gap-2 rounded-xl border border-volt-500/30 bg-volt-500/10 px-3 py-2 text-sm text-volt-200">
+            <Check className="mt-0.5 h-4 w-4 flex-none" /> {sucesso}
+          </p>
+        )}
+
+        {/* Já atribuído a */}
+        <div className="mt-4">
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <Users className="h-3.5 w-3.5" /> Já atribuído a
+            {!carregandoAtrib && (
+              <span className="text-slate-600">({atribuicoes.length})</span>
+            )}
+          </p>
+          <div className="mt-2 space-y-2">
+            {carregandoAtrib ? (
+              <p className="flex items-center gap-2 py-2 text-sm text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
+              </p>
+            ) : atribuicoes.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-ink-600 px-3 py-3 text-center text-xs text-slate-500">
+                Ninguém ainda. Escolha um aluno abaixo para atribuir.
+              </p>
+            ) : (
+              atribuicoes.map((a) => (
+                <div
+                  key={a.treinoId}
+                  className="flex items-center gap-2 rounded-xl border border-ink-600 bg-ink-900/50 px-3 py-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-white">
+                      {a.alunoNome}
+                    </p>
+                    {a.atribuidoEm && (
+                      <p className="flex items-center gap-1 text-[11px] text-slate-500">
+                        <Clock className="h-3 w-3" /> {formatarData(a.atribuidoEm)}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => remover(a)}
+                    disabled={removendo === a.treinoId}
+                    className="flex items-center gap-1 rounded-lg border border-ink-600 px-2 py-1 text-xs text-slate-400 transition hover:border-red-500/40 hover:text-red-300 disabled:opacity-60"
+                    title="Remover este treino da ficha do aluno"
+                  >
+                    {removendo === a.treinoId ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                    Remover
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
-        <form action={formAction} className="mt-5 space-y-4">
+        <div className="mt-5 rounded-xl border border-volt-500/20 bg-volt-500/5 px-3 py-2 text-xs text-slate-300">
+          Será criada uma cópia independente na ficha do aluno, e ele recebe um
+          aviso no app. O modelo original não é alterado.
+        </div>
+
+        <form action={formAction} className="mt-4 space-y-4">
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-slate-400">
               Nome na ficha do aluno
@@ -199,7 +319,7 @@ function DialogAtribuir({
             </div>
           </div>
 
-          <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+          <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
             {carregando ? (
               <p className="flex items-center justify-center gap-2 py-8 text-sm text-slate-400">
                 <Loader2 className="h-4 w-4 animate-spin" /> Buscando alunos...
@@ -254,7 +374,7 @@ function DialogAtribuir({
 
           <div className="flex items-center gap-2 border-t border-ink-700 pt-4">
             <button type="button" onClick={onClose} className="btn-ghost">
-              Cancelar
+              Fechar
             </button>
             <BotaoAtribuir desabilitado={!alunoId} />
           </div>
@@ -281,4 +401,3 @@ function BotaoAtribuir({ desabilitado }: { desabilitado: boolean }) {
     </button>
   );
 }
-

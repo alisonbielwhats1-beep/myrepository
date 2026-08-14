@@ -15,6 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 import AvatarAluno from "@/components/aluno/AvatarAluno";
+import AvisosAluno from "@/components/aluno/AvisosAluno";
 import QRCodeCard from "@/components/aluno/QRCodeCard";
 import {
   requireFichaAluno,
@@ -25,6 +26,7 @@ import {
   getAcademiaPublica,
   getFrequenciaAlunoPublico,
   getMensalidadesAlunoPublico,
+  getNotificacoesAluno,
   getPoliticaAcessoAlunoPublico,
   getRecordesAluno,
   getTokenQrAlunoPublico,
@@ -90,6 +92,7 @@ export default async function AlunoHome({
     politicaAcesso,
     academiaPublica,
     recordes,
+    avisos,
   ] = await Promise.all([
     getMensalidadesAlunoPublico(params.token, params.slug),
     getFrequenciaAlunoPublico(params.token, params.slug),
@@ -97,6 +100,7 @@ export default async function AlunoHome({
     getPoliticaAcessoAlunoPublico(params.token, params.slug),
     getAcademiaPublica(params.slug),
     getRecordesAluno(params.token, params.slug),
+    getNotificacoesAluno(params.token, params.slug),
   ]);
 
   const primeiroNome = aluno.nome.split(" ")[0];
@@ -155,6 +159,9 @@ export default async function AlunoHome({
         </div>
         <AvatarAluno nome={aluno.nome} fotoUrl={aluno.foto_perfil_url} size={48} />
       </header>
+
+      {/* Avisos in-app (ex.: treino novo atribuído) — migration 074 */}
+      <AvisosAluno slug={params.slug} token={params.token} notificacoes={avisos} />
 
       {/* QR de acesso */}
       <QRCodeCard

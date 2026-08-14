@@ -740,6 +740,17 @@ export const PAPEIS: { value: Papel; label: string; descricao: string }[] = [
   { value: "instrutor", label: "Instrutor", descricao: "Treinos e alunos" },
 ];
 
+/** Aviso in-app para o aluno (migration 074). */
+export interface NotificacaoAluno {
+  id: string;
+  tipo: string;
+  titulo: string;
+  mensagem: string | null;
+  link: string | null;
+  lida: boolean;
+  criada_em: string;
+}
+
 /** Perfil da equipe (um usuário da academia). */
 export interface PerfilEquipe {
   id: string;

@@ -27,6 +27,7 @@ import {
   HistoricoPlano,
   LinhaRetencao,
   MensalidadeAlunoPublica,
+  NotificacaoAluno,
   PerfilEquipe,
   Plano,
   PlanoPublico,
@@ -1147,6 +1148,24 @@ export async function getTreinoPublico(
   if (error) throw new Error(`Falha ao carregar treino: ${error.message}`);
   if (!data || !(data as TreinoPublico).treino) return null;
   return data as TreinoPublico;
+}
+
+/**
+ * Avisos in-app não lidos do aluno (migration 074) — via RPC pública
+ * `obter_notificacoes_aluno`, resolvida por token + slug (sem login). Se a
+ * migration ainda não foi aplicada, devolve [] em vez de derrubar a área.
+ */
+export async function getNotificacoesAluno(
+  token: string,
+  slug: string
+): Promise<NotificacaoAluno[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_notificacoes_aluno", {
+    p_token: token,
+    p_slug: slug,
+  });
+  if (error) return [];
+  return (data as NotificacaoAluno[]) ?? [];
 }
 
 /** Produtos da loja da academia (admin) — ordenados por destaque e ordem. */

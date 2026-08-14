@@ -566,11 +566,10 @@ function VisibilidadeToggle({
     setEnviando(true);
     setErro(null);
     const r = await definirVisibilidadeTreino(slug, treino.id, alvo);
-    if (r && "erro" in r) {
-      setErro(r.erro);
-      setEnviando(false);
-    }
-    // Em caso de sucesso o revalidatePath recarrega a lista e o card some/atualiza.
+    if (r && "erro" in r) setErro(r.erro);
+    // Sempre reabilita: na aba "Todos" o card não desmonta ao trocar de nível,
+    // então sem isto o botão ficava travado após o 1º clique (não dava p/ reverter).
+    setEnviando(false);
   };
 
   return (

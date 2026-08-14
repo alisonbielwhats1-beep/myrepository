@@ -175,9 +175,56 @@ export async function atribuirTreinoBiblioteca(
     };
   }
 
+  // Notifica o aluno no app dele. Secundário: se falhar, a atribuição já valeu
+  // (não derruba o fluxo). O aluno vê o aviso ao abrir a área dele.
+  await supabase.from("notificacoes_aluno").insert({
+    academia_id: sessao.academia.id,
+    aluno_id: alunoId,
+    tipo: "treino",
+    titulo: "Novo treino liberado 🎉",
+    mensagem: `${sessao.nome} preparou o treino "${
+      nomeTreino || "novo"
+    }" para você. Toque para ver os exercícios com a demonstração.`,
+    link: "treinos",
+  });
+
   revalidatePath(`/painel/${slug}/treinos`);
   revalidatePath(`/painel/${slug}/alunos`);
   return { ok: true, savedAt: Date.now(), id: String(data) };
+}
+
+/**
+ * Remove uma atribuição: apaga a CÓPIA do treino na ficha do aluno. O modelo
+ * original (biblioteca) não é tocado. Usado na lista "já atribuído a" para o
+ * professor/dono desfazer uma atribuição.
+ */
+export async function removerAtribuicaoTreino(
+  slug: string,
+  treinoAtribuidoId: string
+): Promise<{ erro: string } | { ok: true }> {
+  const sessao = await requireSecao(slug, "treinos");
+  if (sessao.papel === "recepcao") {
+    return { erro: "Seu perfil não pode remover treinos." };
+  }
+  if (!FORMATO_UUID.test(treinoAtribuidoId)) {
+    return { erro: "Atribuição inválida." };
+  }
+  const supabase = createClient();
+  // Só apaga se for de fato uma cópia atribuída (modelo_origem_id não nulo) e
+  // da própria academia — nunca um modelo da biblioteca.
+  const { error } = await supabase
+    .from("treinos")
+    .delete()
+    .eq("id", treinoAtribuidoId)
+    .eq("academia_id", sessao.academia.id)
+    .not("aluno_id", "is", null)
+    .not("modelo_origem_id", "is", null);
+  if (error) {
+    return { erro: await erroAmigavel(error, "remover a atribuição") };
+  }
+  revalidatePath(`/painel/${slug}/treinos`);
+  revalidatePath(`/painel/${slug}/alunos`);
+  return { ok: true };
 }
 
 /**

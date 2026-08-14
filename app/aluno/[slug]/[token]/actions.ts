@@ -147,3 +147,21 @@ export async function responderAtendimentoAluno(
   revalidatePath(`/aluno/${slug}/${token}/atendimento`);
   return { ok: true, savedAt: Date.now() };
 }
+
+/**
+ * Marca todos os avisos in-app do aluno como lidos (migration 074). Resolvido
+ * por token + slug na própria RPC (security definer) — nunca por id do
+ * formulário. Chamado quando o aluno vê/dispensa o aviso na Home.
+ */
+export async function marcarAvisosLidos(
+  slug: string,
+  token: string
+): Promise<{ ok: true }> {
+  const supabase = createClient();
+  await supabase.rpc("marcar_notificacoes_aluno_lidas", {
+    p_token: token,
+    p_slug: slug,
+  });
+  revalidatePath(`/aluno/${slug}/${token}`);
+  return { ok: true };
+}
