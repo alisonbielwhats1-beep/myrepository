@@ -358,9 +358,12 @@ function CardTreino({
 
   const nivel = nivelDoTreino(treino);
   const souDono = treino.criado_por === userId;
+  const ehPlataforma = nivel === "plataforma";
   // Só o autor do treino ou dono/gerente podem alternar a visibilidade.
-  // Treino da plataforma (GestAcad) é gerenciado fora da academia.
-  const podeAlternar = nivel !== "plataforma" && (souDono || ehGestor);
+  // Treino da plataforma (GestAcad) é gerenciado fora da academia: a academia
+  // não compartilha nem exclui o modelo global — só atribui a um aluno (que
+  // gera uma cópia própria, essa sim compartilhável).
+  const podeAlternar = !ehPlataforma && (souDono || ehGestor);
 
   return (
     <div className="surface flex flex-col rounded-2xl p-5">
@@ -486,17 +489,25 @@ function CardTreino({
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-ink-700 pt-4">
         {podeAtribuir && <AtribuirTreino slug={slug} treino={treino} />}
-        <CompartilharTreino slug={slug} treino={treino} />
+        {/* Modelo da plataforma é global: a academia não compartilha nem
+            exclui — só atribui a um aluno. */}
+        {!ehPlataforma && <CompartilharTreino slug={slug} treino={treino} />}
         {podeAlternar && (
           <VisibilidadeToggle slug={slug} treino={treino} nivel={nivel} />
         )}
-        <div className="ml-auto">
-          <ConfirmButton
-            action={() => excluirTreinoBiblioteca(slug, treino.id)}
-            confirmText={`Excluir o treino "${treino.nome_treino}"?`}
-            label="Excluir treino"
-          />
-        </div>
+        {ehPlataforma ? (
+          <span className="ml-auto text-xs text-slate-500">
+            Modelo GestAcad — atribua a um aluno para usar
+          </span>
+        ) : (
+          <div className="ml-auto">
+            <ConfirmButton
+              action={() => excluirTreinoBiblioteca(slug, treino.id)}
+              confirmText={`Excluir o treino "${treino.nome_treino}"?`}
+              label="Excluir treino"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
