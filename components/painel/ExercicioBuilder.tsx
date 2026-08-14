@@ -127,6 +127,11 @@ export default function ExercicioBuilder({
                     <Video className="h-3 w-3 text-volt-300" />
                   )}
                   {item.nome}
+                  {item.academia_id && (
+                    <span className="rounded bg-volt-500/10 px-1 text-[10px] text-volt-300">
+                      academia
+                    </span>
+                  )}
                   <Plus className="h-3 w-3 text-slate-500" />
                 </button>
               ))}

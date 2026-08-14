@@ -265,6 +265,7 @@ export interface ExercicioTreino {
   imagem_demonstracao_url: string | null;
   video_demonstracao_url: string | null;
   observacoes: string | null;
+  configuracao?: Record<string, unknown>;
   ordem: number;
   criado_em: string;
 }
@@ -280,6 +281,17 @@ export interface Treino {
   ativo: boolean;
   publico: boolean;
   share_token: string;
+  criado_por?: string | null;
+  profissional_nome?: string | null;
+  nivel?: string | null;
+  publico_alvo?: string | null;
+  origem?: string;
+  codigo_importacao?: string | null;
+  metadados?: Record<string, unknown>;
+  modelo_origem_id?: string | null;
+  atribuido_por?: string | null;
+  atribuido_em?: string | null;
+  versao_origem?: number | null;
   criado_em: string;
   atualizado_em: string;
   exercicios?: ExercicioTreino[];
@@ -294,6 +306,11 @@ export interface CatalogoExercicio {
   imagem_demonstracao_url: string | null;
   video_demonstracao_url: string | null;
   ordem: number;
+  academia_id?: string | null;
+  criado_por?: string | null;
+  visibilidade?: "sistema" | "academia";
+  aliases?: string[];
+  metadados?: Record<string, unknown>;
 }
 
 export interface ProgressoAluno {

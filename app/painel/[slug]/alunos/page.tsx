@@ -10,6 +10,7 @@ import {
   getMensalidadesDetalhadasDosAlunos,
   getPlanos,
   getProgressoDosAlunos,
+  getTreinosBiblioteca,
   getTreinosDosAlunos,
   type MensalidadeDetalhe,
 } from "@/lib/data";
@@ -43,7 +44,7 @@ export default async function AlunosPage({
 
   // Fase 13: nada de carregar a base inteira de alunos — busca, filtro,
   // paginação e contagem total acontecem no banco (getAlunosPaginado).
-  const [alunosPaginados, planos, catalogo] = await Promise.all([
+  const [alunosPaginados, planos, catalogo, modelosTreino] = await Promise.all([
     getAlunosPaginado(sessao.academia.id, {
       pagina,
       tamanhoPagina: TAMANHO_PAGINA,
@@ -52,7 +53,10 @@ export default async function AlunosPage({
       planoId: searchParams.planoId || undefined,
     }),
     getPlanos(sessao.academia.id),
-    getCatalogoExercicios(),
+    getCatalogoExercicios(sessao.academia.id),
+    sessao.papel === "recepcao"
+      ? Promise.resolve([])
+      : getTreinosBiblioteca(sessao.academia.id),
   ]);
 
   // Treinos, progresso, histórico e mensalidades só dos alunos da página
@@ -83,8 +87,8 @@ export default async function AlunosPage({
         <div>
           <h1 className="text-2xl font-bold text-white">Alunos</h1>
           <p className="text-sm text-slate-400">
-            Cadastre alunos e monte a ficha individual de cada um. Treinos-modelo
-            para compartilhar por QR ficam na aba{" "}
+            Cadastre alunos, monte uma ficha do zero ou atribua um modelo da
+            biblioteca. O catálogo de treinos fica na aba{" "}
             <span className="text-slate-300">Treinos</span>.
           </p>
         </div>
@@ -103,6 +107,16 @@ export default async function AlunosPage({
         statusInicial={status ?? ""}
         planoIdInicial={searchParams.planoId ?? ""}
         treinosIniciais={treinos}
+        modelosTreino={modelosTreino.map((modelo) => ({
+          id: modelo.id,
+          nome_treino: modelo.nome_treino,
+          objetivo: modelo.objetivo ?? null,
+          modalidade: modelo.modalidade ?? null,
+          nivel: modelo.nivel ?? null,
+          publico_alvo: modelo.publico_alvo ?? null,
+          profissional_nome: modelo.profissional_nome ?? null,
+          total_exercicios: modelo.exercicios?.length ?? 0,
+        }))}
         planos={planos}
         catalogo={catalogo}
         progresso={progresso}

@@ -13,7 +13,7 @@ export default async function TreinosPage({
   const sessao = await requireSecao(params.slug, "treinos");
   const [treinos, catalogo] = await Promise.all([
     getTreinosBiblioteca(sessao.academia.id),
-    getCatalogoExercicios(),
+    getCatalogoExercicios(sessao.academia.id),
   ]);
 
   return (
@@ -32,6 +32,7 @@ export default async function TreinosPage({
         slug={params.slug}
         treinosIniciais={treinos}
         catalogo={catalogo}
+        podeAtribuir={sessao.papel !== "recepcao"}
       />
     </div>
   );

@@ -22,9 +22,9 @@ export default function CompartilharTreino({
       <button
         onClick={() => setAberto(true)}
         className="btn-ghost"
-        title="Compartilhar treino por QR"
+        title="Criar link público ou QR deste treino"
       >
-        <Share2 className="h-4 w-4" /> Compartilhar
+        <Share2 className="h-4 w-4" /> Link público
       </button>
       {aberto &&
         createPortal(
@@ -90,7 +90,7 @@ function Dialog({
 
         <div className="flex items-center justify-center gap-2 text-volt-300">
           <QrCode className="h-5 w-5" />
-          <h3 className="font-semibold">Compartilhar treino</h3>
+          <h3 className="font-semibold">Link público do treino</h3>
         </div>
         <p className="mt-1 text-sm text-slate-400">{treino.nome_treino}</p>
 

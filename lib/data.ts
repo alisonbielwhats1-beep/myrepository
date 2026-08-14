@@ -360,6 +360,7 @@ export async function getTreinosBiblioteca(
     .select("*, exercicios:exercicios_treino(*)")
     .eq("academia_id", academiaId)
     .is("aluno_id", null)
+    .eq("ativo", true)
     .order("modalidade", { ascending: true })
     .order("ordem", { ascending: true });
   if (error) throw new Error(`Falha ao carregar treinos: ${error.message}`);
@@ -1421,13 +1422,17 @@ export async function getHistoricoPlanosDosAlunos(
   return (data as HistoricoPlano[]) ?? [];
 }
 
-/** Catálogo global de exercícios (grupo muscular), para montagem rápida de treino. */
-export async function getCatalogoExercicios(): Promise<CatalogoExercicio[]> {
+/** Catálogo do sistema + exercícios personalizados da academia atual. */
+export async function getCatalogoExercicios(
+  academiaId: string
+): Promise<CatalogoExercicio[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("catalogo_exercicios")
     .select("*")
+    .or(`academia_id.is.null,academia_id.eq.${academiaId}`)
     .order("grupo_muscular", { ascending: true })
+    .order("academia_id", { ascending: false, nullsFirst: false })
     .order("ordem", { ascending: true });
   if (error) throw new Error(`Falha ao carregar catálogo: ${error.message}`);
   return (data as CatalogoExercicio[]) ?? [];

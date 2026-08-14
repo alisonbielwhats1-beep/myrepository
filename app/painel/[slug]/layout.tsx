@@ -2,6 +2,7 @@ import Sidebar from "@/components/painel/Sidebar";
 import NotificationBell from "@/components/painel/NotificationBell";
 import InstallPWA from "@/components/painel/InstallPWA";
 import DemoBanner from "@/components/painel/DemoBanner";
+import GestAcadIntelligence from "@/components/painel/intelligence/GestAcadIntelligence";
 import { requireSessao } from "@/lib/auth";
 import { contarFeedbackNaoLido } from "@/lib/data";
 import {
@@ -49,6 +50,13 @@ export default async function PainelLayout({
       <main className="min-w-0 flex-1 px-4 py-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-4">
           <div className="no-print flex items-center justify-end gap-2">
+            {sessao.papel === "dono" && (
+              <GestAcadIntelligence
+                slug={params.slug}
+                academiaName={sessao.academia.nome_fantasia}
+                userName={sessao.nome}
+              />
+            )}
             <InstallPWA />
             <NotificationBell
               slug={params.slug}

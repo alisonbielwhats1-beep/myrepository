@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useFormState } from "react-dom";
 import {
   ChevronDown,
+  BookPlus,
   Dumbbell,
   Layers,
   Plus,
@@ -12,17 +13,24 @@ import {
   Share2,
   Target,
   Timer,
+  UserRound,
   Weight,
   X,
 } from "lucide-react";
-import { CatalogoExercicio, Treino } from "@/lib/types";
+import {
+  CatalogoExercicio,
+  GRUPOS_MUSCULARES,
+  Treino,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
 import ExercicioBuilder from "@/components/painel/ExercicioBuilder";
 import CompartilharTreino from "@/components/painel/CompartilharTreino";
+import AtribuirTreino from "@/components/painel/AtribuirTreino";
 import {
   criarTreinoBiblioteca,
+  criarExercicioCatalogo,
   excluirTreinoBiblioteca,
 } from "@/app/painel/[slug]/treinos/actions";
 
@@ -39,13 +47,16 @@ export default function GestaoTreinos({
   slug,
   treinosIniciais,
   catalogo,
+  podeAtribuir,
 }: {
   slug: string;
   treinosIniciais: Treino[];
   catalogo: CatalogoExercicio[];
+  podeAtribuir: boolean;
 }) {
   const treinos = treinosIniciais;
   const [mostrarForm, setMostrarForm] = useState(treinos.length === 0);
+  const [mostrarCatalogoForm, setMostrarCatalogoForm] = useState(false);
   const [busca, setBusca] = useState("");
   const [modalidadeFiltro, setModalidadeFiltro] = useState<string>("");
 
@@ -66,6 +77,9 @@ export default function GestaoTreinos({
       const alvo = [
         t.nome_treino,
         t.objetivo ?? "",
+        t.nivel ?? "",
+        t.publico_alvo ?? "",
+        t.profissional_nome ?? "",
         mod,
         ...(t.exercicios ?? []).map((e) => e.nome_exercicio),
       ]
@@ -90,19 +104,39 @@ export default function GestaoTreinos({
 
   return (
     <div className="space-y-6">
-      <button
-        onClick={() => setMostrarForm((v) => !v)}
-        className={mostrarForm ? "btn-ghost" : "btn-volt"}
-      >
-        <Plus className="h-4 w-4" />
-        {mostrarForm ? "Fechar formulário" : "Novo treino"}
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setMostrarForm((v) => !v)}
+          className={mostrarForm ? "btn-ghost" : "btn-volt"}
+        >
+          <Plus className="h-4 w-4" />
+          {mostrarForm ? "Fechar formulário" : "Novo treino"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMostrarCatalogoForm((v) => !v)}
+          className="btn-ghost"
+        >
+          <BookPlus className="h-4 w-4" />
+          {mostrarCatalogoForm
+            ? "Fechar catálogo"
+            : "Novo exercício do catálogo"}
+        </button>
+      </div>
 
       {mostrarForm && (
         <FormularioTreino
           slug={slug}
           catalogo={catalogo}
           onSalvo={() => setMostrarForm(false)}
+        />
+      )}
+
+      {mostrarCatalogoForm && (
+        <FormularioExercicioCatalogo
+          slug={slug}
+          onSalvo={() => setMostrarCatalogoForm(false)}
         />
       )}
 
@@ -185,7 +219,12 @@ export default function GestaoTreinos({
               </h2>
               <div className="grid gap-4 md:grid-cols-2">
                 {lista.map((t) => (
-                  <CardTreino key={t.id} slug={slug} treino={t} />
+                  <CardTreino
+                    key={t.id}
+                    slug={slug}
+                    treino={t}
+                    podeAtribuir={podeAtribuir}
+                  />
                 ))}
               </div>
             </section>
@@ -196,7 +235,15 @@ export default function GestaoTreinos({
   );
 }
 
-function CardTreino({ slug, treino }: { slug: string; treino: Treino }) {
+function CardTreino({
+  slug,
+  treino,
+  podeAtribuir,
+}: {
+  slug: string;
+  treino: Treino;
+  podeAtribuir: boolean;
+}) {
   const [aberto, setAberto] = useState(false);
   const exercicios = treino.exercicios ?? [];
 
@@ -215,6 +262,16 @@ function CardTreino({ slug, treino }: { slug: string; treino: Treino }) {
             {treino.objetivo && (
               <span className="chip border-magenta-500/30 bg-magenta-500/10 text-magenta-400">
                 <Target className="h-3.5 w-3.5" /> {treino.objetivo}
+              </span>
+            )}
+            {treino.nivel && (
+              <span className="chip border-sky-500/30 bg-sky-500/10 text-sky-300">
+                {treino.nivel}
+              </span>
+            )}
+            {treino.publico_alvo && (
+              <span className="chip border-ink-500 bg-ink-700/60 text-slate-300">
+                {treino.publico_alvo}
               </span>
             )}
             <span className="text-xs text-slate-500">
@@ -236,6 +293,13 @@ function CardTreino({ slug, treino }: { slug: string; treino: Treino }) {
           />
         </div>
       </button>
+
+      {treino.profissional_nome && (
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+          <UserRound className="h-3.5 w-3.5" />
+          Profissional: {treino.profissional_nome}
+        </p>
+      )}
 
       {aberto ? (
         <ul className="mt-4 space-y-2">
@@ -305,6 +369,7 @@ function CardTreino({ slug, treino }: { slug: string; treino: Treino }) {
       )}
 
       <div className="mt-4 flex items-center gap-2 border-t border-ink-700 pt-4">
+        {podeAtribuir && <AtribuirTreino slug={slug} treino={treino} />}
         <CompartilharTreino slug={slug} treino={treino} />
         <div className="ml-auto">
           <ConfirmButton
@@ -351,7 +416,7 @@ function FormularioTreino({
         </p>
       )}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-400">
             Nome do treino
@@ -389,6 +454,32 @@ function FormularioTreino({
             className="inp"
           />
         </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">
+            Nível
+          </span>
+          <input
+            name="nivel"
+            list="niveis-sugeridos"
+            placeholder="Ex: Intermediário"
+            className="inp"
+          />
+          <datalist id="niveis-sugeridos">
+            <option value="Iniciante" />
+            <option value="Intermediário" />
+            <option value="Avançado" />
+          </datalist>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">
+            Público-alvo
+          </span>
+          <input
+            name="publico_alvo"
+            placeholder="Ex: Mulheres, idosos, corrida"
+            className="inp"
+          />
+        </label>
       </div>
 
       <div className="mt-4">
@@ -396,6 +487,98 @@ function FormularioTreino({
       </div>
 
       <FormActions salvarLabel="Salvar treino" className="mt-4" />
+    </form>
+  );
+}
+
+function FormularioExercicioCatalogo({
+  slug,
+  onSalvo,
+}: {
+  slug: string;
+  onSalvo: () => void;
+}) {
+  const acao = criarExercicioCatalogo.bind(null, slug);
+  const [estado, formAction] = useFormState(acao, {});
+
+  useEffect(() => {
+    if (estado.ok) onSalvo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado.savedAt]);
+
+  return (
+    <form action={formAction} className="surface rounded-2xl p-5">
+      <div>
+        <h2 className="flex items-center gap-2 font-semibold text-white">
+          <BookPlus className="h-4 w-4 text-volt-300" /> Exercício da academia
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Fica disponível apenas para esta academia e pode ser reutilizado em
+          qualquer ficha.
+        </p>
+      </div>
+
+      {estado.erro && (
+        <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          {estado.erro}
+        </p>
+      )}
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-4">
+        <label className="block sm:col-span-2">
+          <span className="mb-1 block text-xs font-medium text-slate-400">
+            Nome
+          </span>
+          <input
+            name="nome"
+            className="inp"
+            placeholder="Ex: Remada baixa unilateral"
+            required
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">
+            Grupo
+          </span>
+          <select name="grupo_muscular" className="inp" required defaultValue="">
+            <option value="" disabled>
+              Selecione
+            </option>
+            {GRUPOS_MUSCULARES.map((grupo) => (
+              <option key={grupo.value} value={grupo.value}>
+                {grupo.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-400">
+              Séries
+            </span>
+            <input
+              name="series_padrao"
+              type="number"
+              min={1}
+              max={20}
+              defaultValue={3}
+              className="inp"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-400">
+              Repetições
+            </span>
+            <input
+              name="repeticoes_padrao"
+              defaultValue="12"
+              className="inp"
+            />
+          </label>
+        </div>
+      </div>
+
+      <FormActions salvarLabel="Salvar no catálogo" className="mt-4" />
     </form>
   );
 }

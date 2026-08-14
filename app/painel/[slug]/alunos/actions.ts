@@ -795,6 +795,7 @@ export async function criarTreino(
   const { count } = await supabase
     .from("treinos")
     .select("id", { count: "exact", head: true })
+    .eq("academia_id", sessao.academia.id)
     .eq("aluno_id", alunoId);
 
   const { data: treino, error: erroTreino } = await supabase
@@ -804,6 +805,9 @@ export async function criarTreino(
       aluno_id: alunoId,
       nome_treino: nomeTreino,
       objetivo: String(formData.get("objetivo") ?? "").trim() || null,
+      criado_por: sessao.userId,
+      profissional_nome: sessao.nome,
+      origem: "manual",
       ordem: (count ?? 0) + 1,
     })
     .select()

@@ -52,6 +52,8 @@ import ProgressoAluno from "@/components/painel/ProgressoAluno";
 import HistoricoPlanoAluno from "@/components/painel/HistoricoPlanoAluno";
 import AcessoAlunoCard from "@/components/painel/AcessoAlunoCard";
 import FotoAlunoAdminCard from "@/components/painel/FotoAlunoAdminCard";
+import UsarModeloTreino from "@/components/painel/UsarModeloTreino";
+import type { ModeloTreinoResumo } from "@/components/painel/UsarModeloTreino";
 import {
   atualizarAluno,
   atualizarTreino,
@@ -86,6 +88,7 @@ export default function GestaoAlunos({
   statusInicial = "",
   planoIdInicial = "",
   treinosIniciais,
+  modelosTreino,
   planos,
   catalogo,
   progresso,
@@ -105,6 +108,7 @@ export default function GestaoAlunos({
   statusInicial?: string;
   planoIdInicial?: string;
   treinosIniciais: Treino[];
+  modelosTreino: ModeloTreinoResumo[];
   planos: Plano[];
   catalogo: CatalogoExercicio[];
   progresso: TipoProgresso[];
@@ -445,7 +449,7 @@ export default function GestaoAlunos({
         )}
 
         <div className="surface rounded-2xl p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="flex items-center gap-2 font-semibold text-white">
               <Dumbbell className="h-4 w-4 text-volt-300" /> Montar ficha de treino
             </h2>
@@ -464,13 +468,28 @@ export default function GestaoAlunos({
               Selecione um aluno para montar a ficha.
             </p>
           ) : (
-            <FormularioTreino
-              key={alunoSelecionado.id}
-              slug={slug}
-              alunoId={alunoSelecionado.id}
-              proximaOrdem={treinosDoAluno.length + 1}
-              catalogo={catalogo}
-            />
+            <>
+              {papel !== "recepcao" && (
+                <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-ink-600 bg-ink-900/40 p-3">
+                  <UsarModeloTreino
+                    slug={slug}
+                    alunoId={alunoSelecionado.id}
+                    alunoNome={alunoSelecionado.nome}
+                    modelos={modelosTreino}
+                  />
+                  <p className="text-xs text-slate-500">
+                    ou monte uma ficha personalizada do zero abaixo
+                  </p>
+                </div>
+              )}
+              <FormularioTreino
+                key={alunoSelecionado.id}
+                slug={slug}
+                alunoId={alunoSelecionado.id}
+                proximaOrdem={treinosDoAluno.length + 1}
+                catalogo={catalogo}
+              />
+            </>
           )}
         </div>
 
@@ -1337,7 +1356,17 @@ function CardFichaTreino({
   return (
     <div className="rounded-xl border border-ink-600 bg-ink-900/40 p-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="font-medium text-white">{treino.nome_treino}</p>
+        <div className="min-w-0">
+          <p className="truncate font-medium text-white">{treino.nome_treino}</p>
+          {(treino.modelo_origem_id || treino.profissional_nome) && (
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              {treino.modelo_origem_id ? "Da biblioteca" : "Ficha personalizada"}
+              {treino.profissional_nome
+                ? ` · por ${treino.profissional_nome}`
+                : ""}
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {treino.objetivo && (
             <span className="chip border-magenta-500/30 bg-magenta-500/10 text-magenta-400">
@@ -1566,4 +1595,3 @@ function Field({
     </label>
   );
 }
-

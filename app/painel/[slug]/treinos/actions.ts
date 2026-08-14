@@ -1,6 +1,10 @@
 "use server";
 
-import type { EstadoAcao } from "@/lib/types";
+import {
+  GRUPOS_MUSCULARES,
+  type EstadoAcao,
+  type GrupoMuscular,
+} from "@/lib/types";
 
 import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
@@ -14,6 +18,9 @@ import {
 } from "@/lib/midia-exercicios";
 import { createClient } from "@/lib/supabase/server";
 import { erroAmigavel } from "@/lib/erros-servidor";
+
+const FORMATO_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Cria um treino da biblioteca (modelo, sem aluno), com seus exercícios. */
 export async function criarTreinoBiblioteca(
@@ -45,6 +52,11 @@ export async function criarTreinoBiblioteca(
       nome_treino: nomeTreino,
       objetivo: String(formData.get("objetivo") ?? "").trim() || null,
       modalidade: String(formData.get("modalidade") ?? "").trim() || null,
+      nivel: String(formData.get("nivel") ?? "").trim() || null,
+      publico_alvo: String(formData.get("publico_alvo") ?? "").trim() || null,
+      criado_por: sessao.userId,
+      profissional_nome: sessao.nome,
+      origem: "manual",
       ordem: (count ?? 0) + 1,
     })
     .select()
@@ -65,6 +77,99 @@ export async function criarTreinoBiblioteca(
 
   revalidatePath(`/painel/${slug}/treinos`);
   return { ok: true, savedAt: Date.now() };
+}
+
+/** Salva um exercício reutilizável somente no catálogo da academia da sessão. */
+export async function criarExercicioCatalogo(
+  slug: string,
+  _estado: EstadoAcao,
+  formData: FormData
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "treinos");
+  const supabase = createClient();
+  const nome = String(formData.get("nome") ?? "").trim();
+  const grupo = String(formData.get("grupo_muscular") ?? "") as GrupoMuscular;
+  const gruposValidos = new Set(GRUPOS_MUSCULARES.map((item) => item.value));
+
+  if (!nome) return { erro: "Informe o nome do exercício." };
+  if (!gruposValidos.has(grupo)) {
+    return { erro: "Selecione um grupo muscular válido." };
+  }
+
+  const series = Math.max(
+    1,
+    Math.min(20, Number(formData.get("series_padrao")) || 3)
+  );
+  const repeticoes =
+    String(formData.get("repeticoes_padrao") ?? "12").trim() || "12";
+
+  const { error } = await supabase.from("catalogo_exercicios").insert({
+    academia_id: sessao.academia.id,
+    criado_por: sessao.userId,
+    visibilidade: "academia",
+    grupo_muscular: grupo,
+    nome,
+    series_padrao: series,
+    repeticoes_padrao: repeticoes,
+    aliases: [],
+    metadados: { profissional: sessao.nome, origem: "manual" },
+  });
+
+  if (error) {
+    const duplicado = error.code === "23505";
+    return {
+      erro: duplicado
+        ? "Esse exercício já existe no catálogo da academia."
+        : await erroAmigavel(error, "salvar o exercício no catálogo"),
+    };
+  }
+
+  revalidatePath(`/painel/${slug}/treinos`);
+  revalidatePath(`/painel/${slug}/alunos`);
+  return { ok: true, savedAt: Date.now() };
+}
+
+/**
+ * Cria uma ficha independente para o aluno a partir de um modelo da biblioteca.
+ * A cópia atômica e as verificações de tenant/papel acontecem na RPC 067.
+ */
+export async function atribuirTreinoBiblioteca(
+  slug: string,
+  treinoModeloId: string,
+  _estado: EstadoAcao,
+  formData: FormData
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "treinos");
+  if (sessao.papel === "recepcao") {
+    return { erro: "Seu perfil não pode atribuir treinos." };
+  }
+
+  const alunoId = String(formData.get("aluno_id") ?? "").trim();
+  if (!FORMATO_UUID.test(treinoModeloId) || !FORMATO_UUID.test(alunoId)) {
+    return { erro: "Selecione um aluno válido." };
+  }
+
+  const nomeTreino = String(formData.get("nome_treino") ?? "").trim();
+  if (nomeTreino.length > 120) {
+    return { erro: "O nome do treino deve ter no máximo 120 caracteres." };
+  }
+
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("atribuir_modelo_treino", {
+    p_treino_modelo_id: treinoModeloId,
+    p_aluno_id: alunoId,
+    p_nome_treino: nomeTreino || null,
+  });
+
+  if (error || !data) {
+    return {
+      erro: await erroAmigavel(error, "atribuir o treino ao aluno"),
+    };
+  }
+
+  revalidatePath(`/painel/${slug}/treinos`);
+  revalidatePath(`/painel/${slug}/alunos`);
+  return { ok: true, savedAt: Date.now(), id: String(data) };
 }
 
 /**
