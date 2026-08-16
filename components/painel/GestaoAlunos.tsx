@@ -1176,6 +1176,18 @@ function FormularioAluno({
           </Field>
         </div>
 
+        {/* Trava suave: ao CRIAR (não ao editar) um aluno sem plano, avisa a
+            consequência em vez de deixar virar "pendente" silenciosamente. O
+            "Nenhum" continua disponível — é escape consciente, não bloqueio. */}
+        {!alunoExistente && planoSelecionadoId === "" && planos.length > 0 && (
+          <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            <strong>Sem plano</strong>, a matrícula é criada como{" "}
+            <strong>pendente</strong>: o aluno <strong>não libera na catraca</strong>{" "}
+            até você definir um plano. Você já pode montar e atribuir treinos, mas
+            o ideal é escolher o plano agora.
+          </p>
+        )}
+
         {/* Painel de ciclo e pagamento inicial — somente ao cadastrar com plano recorrente */}
         {exibirPagamento && planoSelecionado && (
           <div className="rounded-xl border border-ink-600 bg-ink-800/60 p-4 space-y-4">

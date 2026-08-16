@@ -108,6 +108,17 @@ export function traduzirErro(erro: ErroTecnico, acao: string): string {
   const mensagem = String(erro?.message ?? "");
   const texto = mensagem.toLowerCase();
 
+  // --- Regra de negócio de uma função/RPC ---------------------------------
+  // P0001 é o SQLSTATE de um `raise exception` de PL/pgSQL sem código próprio.
+  // Neste projeto TODO `raise exception` das funções/RPCs traz uma frase curta
+  // em português já pensada para o usuário ("Aluno ativo não encontrado nesta
+  // academia", "O nome do treino deve ter no máximo 120 caracteres", etc.).
+  // Mostrar essa frase é muito melhor do que a genérica com "(código P0001)".
+  if (codigo === "P0001" && mensagem.trim()) {
+    const frase = mensagem.trim();
+    return frase.endsWith(".") ? frase : `${frase}.`;
+  }
+
   // --- Estrutura ausente no banco -----------------------------------------
   // PGRST205/42P01 (tabela) e PGRST204/42703 (coluna): o código do app espera
   // algo que este banco ainda não tem — migration não aplicada. Não é erro do

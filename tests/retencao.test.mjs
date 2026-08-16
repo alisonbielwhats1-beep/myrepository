@@ -7,6 +7,7 @@
  * são explícitas de propósito, para o teste rodar sem nenhuma dependência nova.
  */
 import {
+  calcularStatusFinanceiro,
   classificarRetencao,
   configRetencaoDe,
   hojeSaoPaulo,
@@ -156,6 +157,46 @@ console.log("\n7. Dashboard e Retencao classificam o mesmo aluno igualmente");
   const daRetencao = amostra.filter((r) => r.classificacao !== "normal").length;
   check("painel conta 1 sumido", doPainel === 1, `-> ${doPainel}`);
   check("retencao lista 3 (atencao+risco+sumido)", daRetencao === 3, `-> ${daRetencao}`);
+}
+
+console.log("\ncalcularStatusFinanceiro — em aberto não vencida = alerta (âmbar)");
+{
+  const hoje = hojeSaoPaulo();
+  const desloca = (dias) => {
+    const t = new Date(`${hoje}T12:00:00Z`);
+    t.setUTCDate(t.getUTCDate() + dias);
+    return t.toISOString().slice(0, 10);
+  };
+  const ONTEM = desloca(-1);
+  const AMANHA = desloca(1);
+
+  check(
+    "sem mensalidade -> em_dia",
+    calcularStatusFinanceiro([]) === "em_dia"
+  );
+  check(
+    "só paga -> em_dia",
+    calcularStatusFinanceiro([{ status: "pago", data: ONTEM }]) === "em_dia"
+  );
+  check(
+    "pendente vencida (ontem) -> inadimplente",
+    calcularStatusFinanceiro([{ status: "pendente", data: ONTEM }]) === "inadimplente"
+  );
+  check(
+    "pendente que vence hoje -> pendente (alerta)",
+    calcularStatusFinanceiro([{ status: "pendente", data: hoje }]) === "pendente"
+  );
+  check(
+    "pendente a vencer (amanhã) -> pendente (alerta) [antes era em_dia]",
+    calcularStatusFinanceiro([{ status: "pendente", data: AMANHA }]) === "pendente"
+  );
+  check(
+    "atrasada + a vencer -> inadimplente (o atraso manda)",
+    calcularStatusFinanceiro([
+      { status: "pendente", data: AMANHA },
+      { status: "pendente", data: ONTEM },
+    ]) === "inadimplente"
+  );
 }
 
 console.log(`\n=== ${passou} passaram, ${falhou} falharam ===`);

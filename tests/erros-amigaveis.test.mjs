@@ -176,5 +176,37 @@ console.log("\n10. Garantia geral — nenhuma mensagem devolve jargão");
   check("toda mensagem é uma frase terminada em ponto", semPonto.length === 0, `-> ${semPonto.join(" | ")}`);
 }
 
+console.log("\nP0001 (raise exception de RPC) mostra a frase de negócio, não o código");
+{
+  const semPlano = traduzirErro(
+    {
+      code: "P0001",
+      message:
+        "Aluno não encontrado nesta academia ou com matrícula inativa (trancada/cancelada). Reative a matrícula para atribuir treinos.",
+    },
+    "atribuir o treino ao aluno"
+  );
+  check(
+    "surfaceia a mensagem da RPC",
+    semPlano.startsWith("Aluno não encontrado nesta academia"),
+    `-> "${semPlano}"`
+  );
+  check(
+    "não vaza o código P0001",
+    !semPlano.includes("P0001"),
+    `-> "${semPlano}"`
+  );
+
+  const semPonto = traduzirErro(
+    { code: "P0001", message: "Seu perfil não pode atribuir treinos" },
+    "atribuir o treino"
+  );
+  check(
+    "acrescenta ponto final quando a RPC não tem",
+    semPonto === "Seu perfil não pode atribuir treinos.",
+    `-> "${semPonto}"`
+  );
+}
+
 console.log(`\n=== ${passou} passaram, ${falhou} falharam ===`);
 process.exit(falhou > 0 ? 1 : 0);

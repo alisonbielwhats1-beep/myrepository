@@ -5,9 +5,12 @@ import { useFormState } from "react-dom";
 import {
   ChevronDown,
   BookPlus,
+  Copy,
   Dumbbell,
   Layers,
+  Loader2,
   Lock,
+  Pencil,
   Plus,
   Repeat,
   Search,
@@ -31,13 +34,17 @@ import { nivelDoTreino, type NivelTreino } from "@/lib/treinos";
 import { cn } from "@/lib/utils";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
-import ExercicioBuilder from "@/components/painel/ExercicioBuilder";
+import ExercicioBuilder, {
+  type LinhaExercicio,
+} from "@/components/painel/ExercicioBuilder";
 import CompartilharTreino from "@/components/painel/CompartilharTreino";
 import AtribuirTreino from "@/components/painel/AtribuirTreino";
 import {
   criarTreinoBiblioteca,
   criarExercicioCatalogo,
   definirVisibilidadeTreino,
+  duplicarTreino,
+  editarTreinoBiblioteca,
   excluirTreinoBiblioteca,
 } from "@/app/painel/[slug]/treinos/actions";
 
@@ -332,6 +339,7 @@ export default function GestaoTreinos({
                     key={t.id}
                     slug={slug}
                     treino={t}
+                    catalogo={catalogo}
                     podeAtribuir={podeAtribuir}
                     userId={userId}
                     ehGestor={ehGestor}
@@ -349,17 +357,20 @@ export default function GestaoTreinos({
 function CardTreino({
   slug,
   treino,
+  catalogo,
   podeAtribuir,
   userId,
   ehGestor,
 }: {
   slug: string;
   treino: Treino;
+  catalogo: CatalogoExercicio[];
   podeAtribuir: boolean;
   userId: string;
   ehGestor: boolean;
 }) {
   const [aberto, setAberto] = useState(false);
+  const [editando, setEditando] = useState(false);
   const exercicios = treino.exercicios ?? [];
 
   const nivel = nivelDoTreino(treino);
@@ -495,15 +506,29 @@ function CardTreino({
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-ink-700 pt-4">
         {podeAtribuir && <AtribuirTreino slug={slug} treino={treino} />}
-        {/* Modelo da plataforma é global: a academia não compartilha nem
-            exclui — só atribui a um aluno. */}
+        {/* Modelo da plataforma é global: a academia não compartilha, edita nem
+            exclui o original — só atribui a um aluno ou DUPLICA para personalizar. */}
         {!ehPlataforma && <CompartilharTreino slug={slug} treino={treino} />}
         {podeAlternar && (
           <VisibilidadeToggle slug={slug} treino={treino} nivel={nivel} />
         )}
+        {podeAlternar && (
+          <button
+            type="button"
+            onClick={() => setEditando((v) => !v)}
+            aria-expanded={editando}
+            className="btn-ghost"
+            title="Editar nome, dados e exercícios deste treino"
+          >
+            <Pencil className="h-4 w-4" /> {editando ? "Fechar edição" : "Editar"}
+          </button>
+        )}
+        {podeAtribuir && (
+          <DuplicarBotao slug={slug} treino={treino} ehPlataforma={ehPlataforma} />
+        )}
         {ehPlataforma ? (
           <span className="ml-auto text-xs text-slate-500">
-            Modelo GestAcad — atribua a um aluno para usar
+            Modelo GestAcad — atribua ou duplique para personalizar
           </span>
         ) : (
           <div className="ml-auto">
@@ -515,7 +540,167 @@ function CardTreino({
           </div>
         )}
       </div>
+
+      {editando && !ehPlataforma && (
+        <FormularioEdicaoTreinoModelo
+          slug={slug}
+          treino={treino}
+          catalogo={catalogo}
+          onSalvo={() => setEditando(false)}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * Botão "Duplicar": cria uma cópia editável do modelo na academia da sessão
+ * (inclusive a partir de um modelo padrão da plataforma, para personalizar). O
+ * revalidatePath da action atualiza a lista — o card novo aparece sozinho.
+ */
+function DuplicarBotao({
+  slug,
+  treino,
+  ehPlataforma,
+}: {
+  slug: string;
+  treino: Treino;
+  ehPlataforma: boolean;
+}) {
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const duplicar = async () => {
+    setEnviando(true);
+    setErro(null);
+    const r = await duplicarTreino(slug, treino.id);
+    if ("erro" in r) setErro(r.erro);
+    setEnviando(false);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={duplicar}
+      disabled={enviando}
+      title={
+        erro ??
+        (ehPlataforma
+          ? "Criar uma cópia editável na sua academia"
+          : "Duplicar este treino")
+      }
+      className={cn("btn-ghost", erro && "border-red-500/40 text-red-300")}
+    >
+      {enviando ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Copy className="h-4 w-4" />
+      )}
+      Duplicar
+    </button>
+  );
+}
+
+/** Formulário inline de edição de um treino-modelo (dados + exercícios). */
+function FormularioEdicaoTreinoModelo({
+  slug,
+  treino,
+  catalogo,
+  onSalvo,
+}: {
+  slug: string;
+  treino: Treino;
+  catalogo: CatalogoExercicio[];
+  onSalvo: () => void;
+}) {
+  const acao = editarTreinoBiblioteca.bind(null, slug, treino.id);
+  const [estado, formAction] = useFormState(acao, {});
+
+  useEffect(() => {
+    if (estado.ok) onSalvo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado.savedAt]);
+
+  const iniciais: LinhaExercicio[] = (treino.exercicios ?? []).map((ex) => ({
+    nome_exercicio: ex.nome_exercicio,
+    series: ex.series,
+    repeticoes: ex.repeticoes,
+    carga_kg: ex.carga_kg ?? 0,
+    descanso_segundos: ex.descanso_segundos ?? 0,
+    observacoes: ex.observacoes ?? "",
+    imagem_demonstracao_url: ex.imagem_demonstracao_url ?? "",
+    video_demonstracao_url: ex.video_demonstracao_url ?? "",
+  }));
+
+  return (
+    <form
+      action={formAction}
+      className="mt-4 space-y-4 rounded-xl border border-ink-700 bg-ink-900/40 p-4"
+    >
+      <h4 className="flex items-center gap-2 text-sm font-semibold text-white">
+        <Pencil className="h-4 w-4 text-volt-300" /> Editar treino
+      </h4>
+
+      {estado.erro && (
+        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          {estado.erro}
+        </p>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">
+            Nome do treino
+          </span>
+          <input
+            name="nome_treino"
+            defaultValue={treino.nome_treino}
+            className="inp"
+            required
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">
+            Modalidade
+          </span>
+          <input
+            name="modalidade"
+            defaultValue={treino.modalidade ?? ""}
+            className="inp"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">
+            Objetivo
+          </span>
+          <input
+            name="objetivo"
+            defaultValue={treino.objetivo ?? ""}
+            className="inp"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">
+            Nível
+          </span>
+          <input name="nivel" defaultValue={treino.nivel ?? ""} className="inp" />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-400">
+            Público-alvo
+          </span>
+          <input
+            name="publico_alvo"
+            defaultValue={treino.publico_alvo ?? ""}
+            className="inp"
+          />
+        </label>
+      </div>
+
+      <ExercicioBuilder slug={slug} catalogo={catalogo} iniciais={iniciais} />
+
+      <FormActions salvarLabel="Salvar alterações" />
+    </form>
   );
 }
 
