@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessao } from "@/lib/auth";
-import { podeAcessar } from "@/lib/permissoes";
+import { podeGerenciarTreinos } from "@/lib/permissoes";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -22,8 +22,7 @@ export async function GET(
   }
   if (
     sessao.academia.slug_url !== params.slug ||
-    !podeAcessar(sessao.papel, "treinos") ||
-    sessao.papel === "recepcao"
+    !podeGerenciarTreinos(sessao.papel)
   ) {
     return NextResponse.json({ erro: "Sem permissão." }, { status: 403 });
   }

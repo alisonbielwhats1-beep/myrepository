@@ -8,6 +8,7 @@ import {
 
 import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
+import { podeGerenciarTreinos } from "@/lib/permissoes";
 import {
   lerExerciciosDoFormulario,
   montarLinhasExercicio,
@@ -148,7 +149,7 @@ export async function atribuirTreinoBiblioteca(
   formData: FormData
 ): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "treinos");
-  if (sessao.papel === "recepcao") {
+  if (!podeGerenciarTreinos(sessao.papel)) {
     return { erro: "Seu perfil não pode atribuir treinos." };
   }
 
@@ -203,7 +204,7 @@ export async function removerAtribuicaoTreino(
   treinoAtribuidoId: string
 ): Promise<{ erro: string } | { ok: true }> {
   const sessao = await requireSecao(slug, "treinos");
-  if (sessao.papel === "recepcao") {
+  if (!podeGerenciarTreinos(sessao.papel)) {
     return { erro: "Seu perfil não pode remover treinos." };
   }
   if (!FORMATO_UUID.test(treinoAtribuidoId)) {
@@ -276,7 +277,7 @@ export async function definirVisibilidadeTreino(
   visibilidade: "academia" | "instrutor"
 ): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "treinos");
-  if (sessao.papel === "recepcao") {
+  if (!podeGerenciarTreinos(sessao.papel)) {
     return { erro: "Seu perfil não pode alterar treinos." };
   }
   if (!FORMATO_UUID.test(treinoId)) {
@@ -295,19 +296,42 @@ export async function definirVisibilidadeTreino(
   revalidatePath(`/painel/${slug}/treinos`);
 }
 
-/** Liga/desliga o compartilhamento público (QR) de um treino. */
+/**
+ * Liga/desliga o compartilhamento público (QR) de um TREINO-MODELO da academia.
+ *
+ * Restrições de segurança (defesa em profundidade além do RLS):
+ *   • recepção não publica treinos (mesma regra de atribuir/visibilidade);
+ *   • só treino-modelo (aluno_id IS NULL): a ficha individual de um aluno NUNCA
+ *     é exposta num link sem login — o nome da ficha costuma conter o nome do
+ *     aluno, e a UI só oferece o QR para modelos da biblioteca;
+ *   • `.eq(academia_id)` já barra o modelo de plataforma (academia_id NULL).
+ * Devolve { erro } em vez de lançar, para o cliente reverter o toggle sem
+ * deixar a UI dessincronizada do banco (nada de estado público silencioso).
+ */
 export async function definirPublicoTreino(
   slug: string,
   treinoId: string,
   publico: boolean
-): Promise<void> {
+): Promise<{ erro: string } | { ok: true }> {
   const sessao = await requireSecao(slug, "treinos");
+  if (!podeGerenciarTreinos(sessao.papel)) {
+    return { erro: "Seu perfil não pode compartilhar treinos." };
+  }
+  if (!FORMATO_UUID.test(treinoId)) {
+    return { erro: "Treino inválido." };
+  }
   const supabase = createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("treinos")
     .update({ publico })
     .eq("id", treinoId)
-    .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(await erroAmigavel(error, "atualizar treino"));
+    .eq("academia_id", sessao.academia.id)
+    .is("aluno_id", null)
+    .select("id");
+  if (error) return { erro: await erroAmigavel(error, "atualizar treino") };
+  if (!data || data.length === 0) {
+    return { erro: "Treino não encontrado ou não pode ser compartilhado." };
+  }
   revalidatePath(`/painel/${slug}/treinos`);
+  return { ok: true };
 }

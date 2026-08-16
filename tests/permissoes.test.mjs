@@ -5,7 +5,11 @@
  * Mesmo esquema dos outros testes do projeto: compila lib/permissoes.ts +
  * lib/types.ts para .test-build-perm/ e roda com Node puro, sem framework.
  */
-import { podeAcessar, removeriaUltimoDono } from "../.test-build-perm/permissoes.js";
+import {
+  podeAcessar,
+  podeGerenciarTreinos,
+  removeriaUltimoDono,
+} from "../.test-build-perm/permissoes.js";
 
 let passou = 0;
 let falhou = 0;
@@ -88,6 +92,20 @@ console.log("\n5. removeriaUltimoDono — guarda do último proprietário ativo"
   check(
     "rebaixar um dono para gerente quando há outro dono é permitido",
     removeriaUltimoDono("dono", "gerente", 2) === false
+  );
+}
+
+console.log("\n6. podeGerenciarTreinos — gerenciar treinos (atribuir/compartilhar/visibilidade)");
+{
+  // Dono, gerente e instrutor gerenciam treinos.
+  for (const papel of ["dono", "gerente", "instrutor"]) {
+    check(`${papel} pode gerenciar treinos`, podeGerenciarTreinos(papel) === true);
+  }
+  // Recepção VÊ a seção de treinos, mas NÃO gerencia (atribuir/compartilhar/etc).
+  check("recepcao vê a seção de treinos", podeAcessar("recepcao", "treinos") === true);
+  check(
+    "recepcao NÃO gerencia treinos (não atribui/compartilha)",
+    podeGerenciarTreinos("recepcao") === false
   );
 }
 

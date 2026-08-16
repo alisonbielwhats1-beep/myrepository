@@ -48,6 +48,18 @@ export function podeAcessar(papel: Papel, secao: Secao): boolean {
 }
 
 /**
+ * Quem pode GERENCIAR treinos (atribuir a aluno, remover atribuição, alterar
+ * visibilidade, compartilhar por link público). A recepção enxerga a seção de
+ * treinos (para consulta/apoio ao aluno), mas não executa essas ações de
+ * escrita — dono, gerente e instrutor sim. Centraliza a regra antes repetida
+ * como `papel === "recepcao"` em cada Server Action / rota de API, evitando
+ * que uma delas divirja das outras.
+ */
+export function podeGerenciarTreinos(papel: Papel): boolean {
+  return podeAcessar(papel, "treinos") && papel !== "recepcao";
+}
+
+/**
  * Verdadeiro se trocar o papel de alguém (ou removê-la) deixaria a academia
  * sem nenhum "dono". `papelNovo` é `null` no caso de remoção.
  *
