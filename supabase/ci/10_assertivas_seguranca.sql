@@ -67,6 +67,14 @@ begin
      where schemaname = 'public'
        and tablename  = 'perfis_admin'
        and cmd in ('UPDATE', 'ALL')
+       -- Ignora a policy restrita ao `service_role` (schema.sql cria uma
+       -- "service_role_total_perfis_admin" FOR ALL TO service_role). O
+       -- service_role faz bypass de RLS e NUNCA é o papel de um usuário
+       -- autenticado, então essa policy não é via de escalada de recepcao/
+       -- instrutor — o UPDATE deles passa pela "perfil_equipe_update_dono"
+       -- (migration 014), que exige dono e é o que esta assertiva protege.
+       -- Sem este recorte a assertiva dá falso-positivo e trava o CI.
+       and not (array_length(roles, 1) = 1 and roles[1] = 'service_role')
   loop
     if position('papel' in lower(r.expr)) = 0 then
       raise exception
@@ -185,6 +193,16 @@ begin
    where n.nspname = 'public'
      and c.relkind = 'r'
      and c.relrowsecurity
+     -- Tabelas com deny-all INTENCIONAL: RLS ligada e nenhuma policy de
+     -- propósito, porque o acesso é só via funções SECURITY DEFINER (que rodam
+     -- como owner e não passam por RLS) ou a tabela nunca é lida pela API. Não
+     -- são o bug funcional (policy esquecida) que A6 procura — o próprio teste
+     -- multi-tenant (20_teste_rls, T6) confirma logs_erros invisível de propósito.
+     and c.relname not in (
+       'logs_erros',             -- log cruzado; ninguém lê pela API (T6)
+       'sessoes_treino',         -- acesso só via iniciar/salvar/finalizar_sessao_treino (045)
+       'backup_padronizacao_060' -- backup interno da migration 060
+     )
      and not exists (
        select 1 from pg_policies p
         where p.schemaname = 'public' and p.tablename = c.relname

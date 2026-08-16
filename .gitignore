@@ -47,4 +47,5 @@ next-env.d.ts
 /.test-build-venc
 /.test-build-senha
 /.test-build-intelligence
+/.test-build-treinos
 .vercel

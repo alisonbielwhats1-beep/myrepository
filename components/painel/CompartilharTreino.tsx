@@ -47,6 +47,7 @@ function Dialog({
   const [publico, setPublico] = useState(treino.publico);
   const [pending, start] = useTransition();
   const [copiado, setCopiado] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   const url =
     typeof window !== "undefined"
@@ -56,7 +57,15 @@ function Dialog({
   const alternarPublico = () => {
     const novo = !publico;
     setPublico(novo);
-    start(() => definirPublicoTreino(slug, treino.id, novo));
+    setErro(null);
+    start(async () => {
+      const r = await definirPublicoTreino(slug, treino.id, novo);
+      if (r && "erro" in r) {
+        // Reverte a UI: o banco não mudou, então o estado precisa voltar.
+        setPublico(!novo);
+        setErro(r.erro);
+      }
+    });
   };
 
   const copiar = async () => {
@@ -93,6 +102,12 @@ function Dialog({
           <h3 className="font-semibold">Link público do treino</h3>
         </div>
         <p className="mt-1 text-sm text-slate-400">{treino.nome_treino}</p>
+
+        {erro && (
+          <p className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            {erro}
+          </p>
+        )}
 
         {publico ? (
           <>

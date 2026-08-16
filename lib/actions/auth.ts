@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { erroAmigavel } from "../erros-servidor";
 import { validarNovaSenha, validarAlteracaoSenha } from "../senha";
 
@@ -43,10 +43,14 @@ export async function entrarAction(
   }
 
   const supabase = createClient();
+  // Rate limit: as funções são service_role-only (migration 078) — a anon key é
+  // pública e não pode manipular o contador. O signInWithPassword abaixo segue
+  // no cliente anon (fluxo de auth normal, que grava o cookie de sessão).
+  const rateLimit = createServiceRoleClient();
   const ip = ipDoCliente();
 
   // Rate limit anti-brute-force: bloqueia o IP após muitas falhas seguidas.
-  const { data: espera } = await supabase.rpc("login_espera_segundos", {
+  const { data: espera } = await rateLimit.rpc("login_espera_segundos", {
     p_chave: ip,
   });
   if (typeof espera === "number" && espera > 0) {
@@ -65,12 +69,12 @@ export async function entrarAction(
 
   if (error || !data.user) {
     // Registra a falha (pode disparar o bloqueio do IP).
-    await supabase.rpc("login_registrar_falha", { p_chave: ip });
+    await rateLimit.rpc("login_registrar_falha", { p_chave: ip });
     return { erro: "E-mail ou senha inválidos." };
   }
 
   // Login válido: zera o contador do IP.
-  await supabase.rpc("login_registrar_sucesso", { p_chave: ip });
+  await rateLimit.rpc("login_registrar_sucesso", { p_chave: ip });
 
   const adminEmails = (process.env.ADMIN_EMAILS ?? "")
     .split(",")

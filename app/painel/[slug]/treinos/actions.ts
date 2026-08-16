@@ -8,6 +8,7 @@ import {
 
 import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
+import { podeGerenciarTreinos } from "@/lib/permissoes";
 import {
   lerExerciciosDoFormulario,
   montarLinhasExercicio,
@@ -38,12 +39,12 @@ export async function criarTreinoBiblioteca(
   if ("erro" in lidos) return lidos;
   const exercicios = lidos.exercicios;
 
-  // Visibilidade: novo treino nasce privado do instrutor por padrão. Só
-  // 'academia' e 'instrutor' são escolhíveis aqui; 'plataforma' é do GestAcad.
+  // Visibilidade (migration 077): privado (padrão) / equipe / academia. A
+  // origem é sempre 'instrutor' (autoria) — mudar quem vê não muda a autoria.
+  const visRaw = String(formData.get("visibilidade") ?? "");
   const visibilidade =
-    String(formData.get("visibilidade") ?? "") === "academia"
-      ? "academia"
-      : "instrutor";
+    visRaw === "academia" ? "academia" : visRaw === "equipe" ? "equipe" : "privado";
+  const origemTipo = "instrutor";
 
   const { count } = await supabase
     .from("treinos")
@@ -65,6 +66,7 @@ export async function criarTreinoBiblioteca(
       profissional_nome: sessao.nome,
       origem: "manual",
       visibilidade,
+      origem_tipo: origemTipo,
       ordem: (count ?? 0) + 1,
     })
     .select()
@@ -148,7 +150,7 @@ export async function atribuirTreinoBiblioteca(
   formData: FormData
 ): Promise<EstadoAcao> {
   const sessao = await requireSecao(slug, "treinos");
-  if (sessao.papel === "recepcao") {
+  if (!podeGerenciarTreinos(sessao.papel)) {
     return { erro: "Seu perfil não pode atribuir treinos." };
   }
 
@@ -203,7 +205,7 @@ export async function removerAtribuicaoTreino(
   treinoAtribuidoId: string
 ): Promise<{ erro: string } | { ok: true }> {
   const sessao = await requireSecao(slug, "treinos");
-  if (sessao.papel === "recepcao") {
+  if (!podeGerenciarTreinos(sessao.papel)) {
     return { erro: "Seu perfil não pode remover treinos." };
   }
   if (!FORMATO_UUID.test(treinoAtribuidoId)) {
@@ -266,21 +268,25 @@ export async function excluirTreinoBiblioteca(
 }
 
 /**
- * Alterna a visibilidade de um treino-modelo entre 'instrutor' (privado) e
- * 'academia' (compartilhado com a equipe). O RLS (migration 068) garante que
- * só o dono do treino ou dono/gerente consigam efetivar a mudança.
+ * Define a visibilidade de um treino-modelo entre os três níveis (migration
+ * 077): 'privado' (só o criador), 'equipe' (equipe técnica) ou 'academia'
+ * (todo o tenant). O RLS (068/077) garante que só o dono do treino ou
+ * dono/gerente consigam efetivar a mudança.
  */
 export async function definirVisibilidadeTreino(
   slug: string,
   treinoId: string,
-  visibilidade: "academia" | "instrutor"
+  visibilidade: "privado" | "equipe" | "academia"
 ): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "treinos");
-  if (sessao.papel === "recepcao") {
+  if (!podeGerenciarTreinos(sessao.papel)) {
     return { erro: "Seu perfil não pode alterar treinos." };
   }
   if (!FORMATO_UUID.test(treinoId)) {
     return { erro: "Treino inválido." };
+  }
+  if (!["privado", "equipe", "academia"].includes(visibilidade)) {
+    return { erro: "Visibilidade inválida." };
   }
   const supabase = createClient();
   const { error } = await supabase
@@ -295,19 +301,42 @@ export async function definirVisibilidadeTreino(
   revalidatePath(`/painel/${slug}/treinos`);
 }
 
-/** Liga/desliga o compartilhamento público (QR) de um treino. */
+/**
+ * Liga/desliga o compartilhamento público (QR) de um TREINO-MODELO da academia.
+ *
+ * Restrições de segurança (defesa em profundidade além do RLS):
+ *   • recepção não publica treinos (mesma regra de atribuir/visibilidade);
+ *   • só treino-modelo (aluno_id IS NULL): a ficha individual de um aluno NUNCA
+ *     é exposta num link sem login — o nome da ficha costuma conter o nome do
+ *     aluno, e a UI só oferece o QR para modelos da biblioteca;
+ *   • `.eq(academia_id)` já barra o modelo de plataforma (academia_id NULL).
+ * Devolve { erro } em vez de lançar, para o cliente reverter o toggle sem
+ * deixar a UI dessincronizada do banco (nada de estado público silencioso).
+ */
 export async function definirPublicoTreino(
   slug: string,
   treinoId: string,
   publico: boolean
-): Promise<void> {
+): Promise<{ erro: string } | { ok: true }> {
   const sessao = await requireSecao(slug, "treinos");
+  if (!podeGerenciarTreinos(sessao.papel)) {
+    return { erro: "Seu perfil não pode compartilhar treinos." };
+  }
+  if (!FORMATO_UUID.test(treinoId)) {
+    return { erro: "Treino inválido." };
+  }
   const supabase = createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("treinos")
     .update({ publico })
     .eq("id", treinoId)
-    .eq("academia_id", sessao.academia.id);
-  if (error) throw new Error(await erroAmigavel(error, "atualizar treino"));
+    .eq("academia_id", sessao.academia.id)
+    .is("aluno_id", null)
+    .select("id");
+  if (error) return { erro: await erroAmigavel(error, "atualizar treino") };
+  if (!data || data.length === 0) {
+    return { erro: "Treino não encontrado ou não pode ser compartilhado." };
+  }
   revalidatePath(`/painel/${slug}/treinos`);
+  return { ok: true };
 }

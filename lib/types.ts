@@ -288,13 +288,26 @@ export interface Treino {
   publico_alvo?: string | null;
   origem?: string;
   /**
-   * Nível de visibilidade do treino-modelo (migration 068):
-   *   • plataforma → curado pelo GestAcad (academia_id null), todas as academias veem;
-   *   • academia   → compartilhado com toda a equipe da academia;
-   *   • instrutor  → privado de `criado_por`; além dele, só dono/gerente enxergam.
-   * Fichas de aluno (aluno_id != null) ignoram este campo.
+   * Nível de visibilidade do treino-modelo (migration 077):
+   *   • privado  → só `criado_por`; além dele, só dono/gerente enxergam;
+   *   • equipe   → equipe técnica (dono/gerente/instrutor); recepção não vê;
+   *   • academia → todo o tenant, inclusive recepção.
+   * Fichas de aluno (aluno_id != null) ignoram este campo. A ORIGEM está em
+   * `origem_tipo`. Os valores `instrutor`/`plataforma` são legados (pré-077) e
+   * só aparecem em dados ainda não migrados — tratados no fallback de nivelDoTreino.
    */
-  visibilidade?: "plataforma" | "academia" | "instrutor";
+  visibilidade?: "privado" | "equipe" | "academia" | "instrutor" | "plataforma";
+  /**
+   * ORIGEM do treino (migration 076) — eixo ortogonal à visibilidade, que
+   * antes vivia conflacionada em `visibilidade`:
+   *   • gestacad  → curado pela plataforma (academia_id null);
+   *   • academia  → pertence ao tenant (inclui fichas de aluno);
+   *   • instrutor → autorado por um profissional da academia (`criado_por`).
+   * Fonte de verdade para classificar a origem/nível na UI. `visibilidade`
+   * passa a responder só por PRIVADO/EQUIPE/ACADEMIA. Opcional no tipo para
+   * tolerar dados anteriores à migração (fallback em `lib/treinos.ts`).
+   */
+  origem_tipo?: "gestacad" | "academia" | "instrutor";
   codigo_importacao?: string | null;
   metadados?: Record<string, unknown>;
   modelo_origem_id?: string | null;
