@@ -295,6 +295,17 @@ export interface Treino {
    * Fichas de aluno (aluno_id != null) ignoram este campo.
    */
   visibilidade?: "plataforma" | "academia" | "instrutor";
+  /**
+   * ORIGEM do treino (migration 076) — eixo ortogonal à visibilidade, que
+   * antes vivia conflacionada em `visibilidade`:
+   *   • gestacad  → curado pela plataforma (academia_id null);
+   *   • academia  → pertence ao tenant (inclui fichas de aluno);
+   *   • instrutor → autorado por um profissional da academia (`criado_por`).
+   * Fonte de verdade para classificar a origem/nível na UI. `visibilidade`
+   * passa a responder só por PRIVADO/EQUIPE/ACADEMIA. Opcional no tipo para
+   * tolerar dados anteriores à migração (fallback em `lib/treinos.ts`).
+   */
+  origem_tipo?: "gestacad" | "academia" | "instrutor";
   codigo_importacao?: string | null;
   metadados?: Record<string, unknown>;
   modelo_origem_id?: string | null;

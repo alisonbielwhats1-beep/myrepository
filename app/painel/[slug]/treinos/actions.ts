@@ -45,6 +45,9 @@ export async function criarTreinoBiblioteca(
     String(formData.get("visibilidade") ?? "") === "academia"
       ? "academia"
       : "instrutor";
+  // Dual-write (migration 076): a ORIGEM é sempre do instrutor que cria o
+  // modelo aqui — compartilhar com a equipe muda a VISIBILIDADE, não a origem.
+  const origemTipo = "instrutor";
 
   const { count } = await supabase
     .from("treinos")
@@ -66,6 +69,7 @@ export async function criarTreinoBiblioteca(
       profissional_nome: sessao.nome,
       origem: "manual",
       visibilidade,
+      origem_tipo: origemTipo,
       ordem: (count ?? 0) + 1,
     })
     .select()

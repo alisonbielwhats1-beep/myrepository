@@ -26,6 +26,7 @@ import {
   Papel,
   Treino,
 } from "@/lib/types";
+import { nivelDoTreino, type NivelTreino } from "@/lib/treinos";
 import { cn } from "@/lib/utils";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
@@ -38,15 +39,6 @@ import {
   definirVisibilidadeTreino,
   excluirTreinoBiblioteca,
 } from "@/app/painel/[slug]/treinos/actions";
-
-/** Nível de visibilidade efetivo de um treino-modelo, para exibição e filtro. */
-type NivelTreino = "plataforma" | "academia" | "instrutor";
-
-function nivelDoTreino(t: Treino): NivelTreino {
-  if (t.visibilidade === "plataforma" || !t.academia_id) return "plataforma";
-  if (t.visibilidade === "instrutor") return "instrutor";
-  return "academia";
-}
 
 const MODALIDADES_SUGERIDAS = [
   "Musculação",
