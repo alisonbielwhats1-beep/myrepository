@@ -193,6 +193,16 @@ begin
    where n.nspname = 'public'
      and c.relkind = 'r'
      and c.relrowsecurity
+     -- Tabelas com deny-all INTENCIONAL: RLS ligada e nenhuma policy de
+     -- propósito, porque o acesso é só via funções SECURITY DEFINER (que rodam
+     -- como owner e não passam por RLS) ou a tabela nunca é lida pela API. Não
+     -- são o bug funcional (policy esquecida) que A6 procura — o próprio teste
+     -- multi-tenant (20_teste_rls, T6) confirma logs_erros invisível de propósito.
+     and c.relname not in (
+       'logs_erros',             -- log cruzado; ninguém lê pela API (T6)
+       'sessoes_treino',         -- acesso só via iniciar/salvar/finalizar_sessao_treino (045)
+       'backup_padronizacao_060' -- backup interno da migration 060
+     )
      and not exists (
        select 1 from pg_policies p
         where p.schemaname = 'public' and p.tablename = c.relname
