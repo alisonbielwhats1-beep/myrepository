@@ -67,6 +67,14 @@ begin
      where schemaname = 'public'
        and tablename  = 'perfis_admin'
        and cmd in ('UPDATE', 'ALL')
+       -- Ignora a policy restrita ao `service_role` (schema.sql cria uma
+       -- "service_role_total_perfis_admin" FOR ALL TO service_role). O
+       -- service_role faz bypass de RLS e NUNCA é o papel de um usuário
+       -- autenticado, então essa policy não é via de escalada de recepcao/
+       -- instrutor — o UPDATE deles passa pela "perfil_equipe_update_dono"
+       -- (migration 014), que exige dono e é o que esta assertiva protege.
+       -- Sem este recorte a assertiva dá falso-positivo e trava o CI.
+       and not (array_length(roles, 1) = 1 and roles[1] = 'service_role')
   loop
     if position('papel' in lower(r.expr)) = 0 then
       raise exception

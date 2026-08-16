@@ -150,7 +150,14 @@ begin
   ) = 'geracaosaude';
 
   if v_quantidade <> 1 then
-    raise exception 'Importação cancelada: esperado 1 tenant Geração Saúde, encontrado %', v_quantidade;
+    -- A importação é específica de um cliente (Geração Saúde). Num banco que não
+    -- tem esse tenant — CI de banco efêmero, um ambiente novo, um restore limpo —
+    -- não há o que importar: pula sem falhar (antes era `raise exception`, que
+    -- travava o workflow validar-banco num Postgres vazio). Onde o tenant existe
+    -- (produção), segue a importação normalmente. Só a parte ESTRUTURAL desta
+    -- migração (colunas, RLS, índices, acima deste bloco) precisa rodar sempre.
+    raise notice 'Import Vinicius pulado: % academia(s) "Geração Saúde" (esperado 1).', v_quantidade;
+    return;
   end if;
 
   select a.id into v_academia_id
@@ -169,7 +176,10 @@ begin
     ) like '%vinicius%';
 
   if v_quantidade <> 1 then
-    raise exception 'Importação cancelada: esperado 1 profissional Vinicius na Geração Saúde, encontrado %', v_quantidade;
+    -- Mesmo princípio: sem o profissional Vinicius no tenant (banco genérico),
+    -- pula a importação em vez de abortar a migração inteira.
+    raise notice 'Import Vinicius pulado: % profissional(is) Vinicius na Geração Saúde (esperado 1).', v_quantidade;
+    return;
   end if;
 
   select p.id, p.nome into v_profissional_id, v_profissional_nome

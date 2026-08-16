@@ -86,9 +86,15 @@ jobs:
         # cairiam logo depois da própria migration ("056_x.sql" vem antes de
         # "056_x_rollback.sql" na ordem lexicográfica) e desfariam a feature
         # que acabou de ser criada — o CI validaria um banco sem ela.
+        #
+        # Os seeds de DEMONSTRAÇÃO (`*_dados_demo.sql`: 004 e 004b) também ficam
+        # de FORA: são dados fictícios que EXIGEM uma academia pré-existente e
+        # dão `raise exception` num banco vazio — travavam este CI logo no 004,
+        # antes de qualquer migration estrutural ser validada. São conteúdo, não
+        # esquema; um ambiente novo/restore aplica o esquema sem eles.
         run: |
           set -euo pipefail
-          for arquivo in $(ls supabase/migrations/*.sql | grep -v '_rollback\.sql$' | sort); do
+          for arquivo in $(ls supabase/migrations/*.sql | grep -vE '(_rollback|_dados_demo)\.sql$' | sort); do
             echo "── $(basename "$arquivo")"
             psql "$PGURL" -v ON_ERROR_STOP=1 -q -f "$arquivo"
           done
@@ -160,7 +166,9 @@ jobs:
         run: |
           set -euo pipefail
           psql "$PGURL" -v ON_ERROR_STOP=1 -q -f supabase/schema.sql
-          for arquivo in $(ls supabase/migrations/*.sql | sort); do
+          # Mesma exclusão do job canônico: rollbacks e seeds de demonstração
+          # não entram na sequência (ver comentário detalhado acima).
+          for arquivo in $(ls supabase/migrations/*.sql | grep -vE '(_rollback|_dados_demo)\.sql$' | sort); do
             psql "$PGURL" -v ON_ERROR_STOP=1 -q -f "$arquivo"
           done
           echo "── re-executando schema.sql (é o que o README instrui) ──"

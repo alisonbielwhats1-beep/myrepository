@@ -93,6 +93,7 @@ $$;
 do $$
 declare
   v_us_alfa uuid := (select valor from _ids where chave = 'us_alfa');
+  v_ac_alfa uuid := (select valor from _ids where chave = 'ac_alfa');
   v_ac_beta uuid := (select valor from _ids where chave = 'ac_beta');
   n bigint;
 begin
@@ -106,8 +107,16 @@ begin
   select count(*) into n from public.alunos where nome = 'Aluno Beta';
   perform pg_temp.checar('aluno da Beta invisivel', n, 0);
 
-  select count(*) into n from public.treinos;
-  perform pg_temp.checar('treinos visiveis = 1', n, 1);
+  -- Isolamento de treinos: o dono da Alfa vê os treinos DO SEU tenant (1: a
+  -- ficha do Aluno Alfa) e nenhum da Beta. Os treinos-modelo de PLATAFORMA
+  -- (academia_id NULL, "Padrão GestAcad", migrations 069+) são compartilhados
+  -- de propósito com todas as academias — não são vazamento entre tenants, então
+  -- a contagem é recortada por academia_id em vez de `count(*)` do total.
+  select count(*) into n from public.treinos where academia_id = v_ac_alfa;
+  perform pg_temp.checar('treinos do tenant Alfa visiveis = 1', n, 1);
+
+  select count(*) into n from public.treinos where academia_id = v_ac_beta;
+  perform pg_temp.checar('treino da Beta invisivel', n, 0);
 
   select count(*) into n from public.receitas;
   perform pg_temp.checar('receitas visiveis = 1', n, 1);
