@@ -38,6 +38,7 @@ import {
 } from "@/lib/types";
 import {
   badgeStatusFinanceiro,
+  rotuloStatusFinanceiro,
   badgeStatusMatricula,
   cn,
   hojeSaoPaulo,
@@ -649,7 +650,7 @@ function LinhaAluno({
                 badgeStatusFinanceiro(statusFinanceiro)
               )}
             >
-              {statusFinanceiro === "inadimplente" ? "inadimplente" : "vence hoje"}
+              {rotuloStatusFinanceiro(statusFinanceiro)}
             </button>
           )}
           {totalAberto > 0 && (
@@ -890,7 +891,7 @@ function SituacaoFinanceira({
           <p className="mt-0.5">
             {statusFinanceiro ? (
               <span className={cn("chip text-[10px]", badgeStatusFinanceiro(statusFinanceiro))}>
-                {statusFinanceiro === "em_dia" ? "Em dia" : statusFinanceiro === "inadimplente" ? "Inadimplente" : "Vence hoje"}
+                {rotuloStatusFinanceiro(statusFinanceiro)}
               </span>
             ) : (
               <span className="text-sm text-slate-500">—</span>

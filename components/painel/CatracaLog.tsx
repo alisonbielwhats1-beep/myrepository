@@ -16,6 +16,7 @@ import {
 import { Aluno, DecisaoAcesso, Plano, StatusFinanceiro } from "@/lib/types";
 import {
   badgeStatusFinanceiro,
+  rotuloStatusFinanceiro,
   badgeStatusMatricula,
   cn,
   formatBRL,
@@ -284,11 +285,7 @@ function CartaoAlunoSelecionado({
           </span>
           {statusFinanceiro && (
             <span className={cn("chip text-[10px]", badgeStatusFinanceiro(statusFinanceiro))}>
-              {statusFinanceiro === "inadimplente"
-                ? "inadimplente"
-                : statusFinanceiro === "pendente"
-                ? "vence hoje"
-                : "em dia"}
+              {rotuloStatusFinanceiro(statusFinanceiro)}
             </span>
           )}
           <span className="inline-flex items-center gap-1 text-slate-500">
