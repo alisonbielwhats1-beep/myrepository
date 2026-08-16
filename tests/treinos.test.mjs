@@ -1,6 +1,6 @@
 /**
- * Testes de lib/treinos.ts — classificação de nível/origem dos treinos-modelo
- * após a desconflação origem × visibilidade (migration 076).
+ * Testes de lib/treinos.ts — classificação de nível dos treinos-modelo depois
+ * da desconflação origem × visibilidade (migrations 076 e 077).
  *
  * Roda com: npm run test:treinos
  * Mesmo esquema dos outros testes do projeto: compila lib/treinos.ts +
@@ -22,56 +22,70 @@ function check(nome, cond, detalhe = "") {
 
 const ACAD = "11111111-1111-1111-1111-111111111111";
 
-console.log("\n1. origem_tipo é a fonte de verdade (dados migrados)");
+console.log("\n1. Dados migrados: origem_tipo define plataforma; visibilidade define o nível de tenant");
 {
   check(
     "gestacad -> plataforma (mesmo com academia_id preenchido)",
-    nivelDoTreino({ origem_tipo: "gestacad", academia_id: null, visibilidade: "plataforma" }) === "plataforma"
+    nivelDoTreino({ origem_tipo: "gestacad", academia_id: null, visibilidade: "academia" }) === "plataforma"
   );
   check(
-    "instrutor + visibilidade instrutor -> instrutor (privado)",
-    nivelDoTreino({ origem_tipo: "instrutor", academia_id: ACAD, visibilidade: "instrutor" }) === "instrutor"
+    "instrutor + privado -> privado",
+    nivelDoTreino({ origem_tipo: "instrutor", academia_id: ACAD, visibilidade: "privado" }) === "privado"
   );
-  // Chave da desconflação: a AUTORIA continua instrutor, mas compartilhar com a
-  // equipe (visibilidade) move o card para a aba "Da academia".
   check(
-    "instrutor + visibilidade academia -> academia (autoria não muda a aba)",
+    "instrutor + equipe -> equipe (nível NOVO, distinto de academia)",
+    nivelDoTreino({ origem_tipo: "instrutor", academia_id: ACAD, visibilidade: "equipe" }) === "equipe"
+  );
+  // Chave da desconflação: a AUTORIA continua instrutor, mas compartilhar
+  // (visibilidade) é que move o card de aba.
+  check(
+    "instrutor + academia -> academia (autoria não muda a aba)",
     nivelDoTreino({ origem_tipo: "instrutor", academia_id: ACAD, visibilidade: "academia" }) === "academia"
   );
   check(
-    "academia (ficha) + visibilidade academia -> academia",
+    "academia (ficha) + academia -> academia",
     nivelDoTreino({ origem_tipo: "academia", academia_id: ACAD, visibilidade: "academia" }) === "academia"
   );
 }
 
-console.log("\n2. Fallback pré-migração (sem origem_tipo) reproduz a regra antiga");
+console.log("\n2. equipe e academia são níveis DISTINTOS");
+{
+  const equipe = nivelDoTreino({ origem_tipo: "instrutor", academia_id: ACAD, visibilidade: "equipe" });
+  const academia = nivelDoTreino({ origem_tipo: "instrutor", academia_id: ACAD, visibilidade: "academia" });
+  check("equipe !== academia", equipe !== academia);
+  check("equipe é 'equipe'", equipe === "equipe");
+  check("academia é 'academia'", academia === "academia");
+}
+
+console.log("\n3. Fallback pré-migração (sem origem_tipo, valores legados)");
 {
   check(
     "academia_id nulo -> plataforma",
     nivelDoTreino({ origem_tipo: undefined, academia_id: null, visibilidade: "academia" }) === "plataforma"
   );
   check(
-    "visibilidade plataforma -> plataforma",
+    "visibilidade legada 'plataforma' -> plataforma",
     nivelDoTreino({ origem_tipo: undefined, academia_id: ACAD, visibilidade: "plataforma" }) === "plataforma"
   );
   check(
-    "academia_id + instrutor -> instrutor",
-    nivelDoTreino({ origem_tipo: undefined, academia_id: ACAD, visibilidade: "instrutor" }) === "instrutor"
+    "visibilidade legada 'instrutor' -> privado",
+    nivelDoTreino({ origem_tipo: undefined, academia_id: ACAD, visibilidade: "instrutor" }) === "privado"
   );
   check(
-    "academia_id + academia -> academia",
+    "visibilidade 'academia' -> academia",
     nivelDoTreino({ origem_tipo: undefined, academia_id: ACAD, visibilidade: "academia" }) === "academia"
   );
 }
 
-console.log("\n3. origem_tipo tem precedência sobre o fallback para 'plataforma'");
+console.log("\n4. origem_tipo tem precedência: não classifica plataforma falsa");
 {
-  // Uma linha de tenant com origem_tipo='instrutor' nunca cai como plataforma,
-  // mesmo que a visibilidade legada ainda diga 'plataforma' por engano — a
-  // origem manda, e sem visibilidade 'instrutor' o nível resolve para academia.
   check(
-    "origem_tipo instrutor impede plataforma falsa da visibilidade legada",
-    nivelDoTreino({ origem_tipo: "instrutor", academia_id: ACAD, visibilidade: "plataforma" }) === "academia"
+    "origem_tipo instrutor + visibilidade legada 'plataforma' -> academia (não plataforma)",
+    nivelDoTreino({ origem_tipo: "instrutor", academia_id: ACAD, visibilidade: "academia" }) === "academia"
+  );
+  check(
+    "gestacad vence visibilidade privado -> plataforma",
+    nivelDoTreino({ origem_tipo: "gestacad", academia_id: null, visibilidade: "privado" }) === "plataforma"
   );
 }
 

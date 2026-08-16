@@ -39,14 +39,11 @@ export async function criarTreinoBiblioteca(
   if ("erro" in lidos) return lidos;
   const exercicios = lidos.exercicios;
 
-  // Visibilidade: novo treino nasce privado do instrutor por padrão. Só
-  // 'academia' e 'instrutor' são escolhíveis aqui; 'plataforma' é do GestAcad.
+  // Visibilidade (migration 077): privado (padrão) / equipe / academia. A
+  // origem é sempre 'instrutor' (autoria) — mudar quem vê não muda a autoria.
+  const visRaw = String(formData.get("visibilidade") ?? "");
   const visibilidade =
-    String(formData.get("visibilidade") ?? "") === "academia"
-      ? "academia"
-      : "instrutor";
-  // Dual-write (migration 076): a ORIGEM é sempre do instrutor que cria o
-  // modelo aqui — compartilhar com a equipe muda a VISIBILIDADE, não a origem.
+    visRaw === "academia" ? "academia" : visRaw === "equipe" ? "equipe" : "privado";
   const origemTipo = "instrutor";
 
   const { count } = await supabase
@@ -271,14 +268,15 @@ export async function excluirTreinoBiblioteca(
 }
 
 /**
- * Alterna a visibilidade de um treino-modelo entre 'instrutor' (privado) e
- * 'academia' (compartilhado com a equipe). O RLS (migration 068) garante que
- * só o dono do treino ou dono/gerente consigam efetivar a mudança.
+ * Define a visibilidade de um treino-modelo entre os três níveis (migration
+ * 077): 'privado' (só o criador), 'equipe' (equipe técnica) ou 'academia'
+ * (todo o tenant). O RLS (068/077) garante que só o dono do treino ou
+ * dono/gerente consigam efetivar a mudança.
  */
 export async function definirVisibilidadeTreino(
   slug: string,
   treinoId: string,
-  visibilidade: "academia" | "instrutor"
+  visibilidade: "privado" | "equipe" | "academia"
 ): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "treinos");
   if (!podeGerenciarTreinos(sessao.papel)) {
@@ -286,6 +284,9 @@ export async function definirVisibilidadeTreino(
   }
   if (!FORMATO_UUID.test(treinoId)) {
     return { erro: "Treino inválido." };
+  }
+  if (!["privado", "equipe", "academia"].includes(visibilidade)) {
+    return { erro: "Visibilidade inválida." };
   }
   const supabase = createClient();
   const { error } = await supabase

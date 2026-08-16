@@ -16,6 +16,7 @@ import {
   Target,
   Timer,
   Users,
+  UsersRound,
   UserRound,
   Weight,
   X,
@@ -50,7 +51,13 @@ const MODALIDADES_SUGERIDAS = [
 ];
 
 /** Filtro por nível de visibilidade (segmento no topo da tela). */
-type NivelFiltro = "todos" | "plataforma" | "academia" | "meus" | "equipe";
+type NivelFiltro =
+  | "todos"
+  | "plataforma"
+  | "academia"
+  | "equipe"
+  | "meus"
+  | "privados_equipe";
 
 export default function GestaoTreinos({
   slug,
@@ -76,14 +83,17 @@ export default function GestaoTreinos({
   const [nivelFiltro, setNivelFiltro] = useState<NivelFiltro>("todos");
 
   // Quantos treinos existem em cada nível — define quais abas mostrar.
+  // "meus" e "privados_equipe" recortam os PRIVADOS (meus vs. de outros);
+  // "equipe" e "academia" são os níveis compartilhados.
   const contagemNivel = useMemo(() => {
-    const c = { plataforma: 0, academia: 0, meus: 0, equipe: 0 };
+    const c = { plataforma: 0, academia: 0, equipe: 0, meus: 0, privadosEquipe: 0 };
     for (const t of treinos) {
       const nv = nivelDoTreino(t);
       if (nv === "plataforma") c.plataforma++;
       else if (nv === "academia") c.academia++;
-      else if (t.criado_por === userId) c.meus++;
-      else c.equipe++;
+      else if (nv === "equipe") c.equipe++;
+      else if (t.criado_por === userId) c.meus++; // privado meu
+      else c.privadosEquipe++; // privado de outro (dono/gerente enxerga)
     }
     return c;
   }, [treinos, userId]);
@@ -93,8 +103,10 @@ export default function GestaoTreinos({
     const nv = nivelDoTreino(t);
     if (nivelFiltro === "plataforma") return nv === "plataforma";
     if (nivelFiltro === "academia") return nv === "academia";
-    if (nivelFiltro === "meus") return nv === "instrutor" && t.criado_por === userId;
-    if (nivelFiltro === "equipe") return nv === "instrutor" && t.criado_por !== userId;
+    if (nivelFiltro === "equipe") return nv === "equipe";
+    if (nivelFiltro === "meus") return nv === "privado" && t.criado_por === userId;
+    if (nivelFiltro === "privados_equipe")
+      return nv === "privado" && t.criado_por !== userId;
     return true;
   };
 
@@ -146,10 +158,11 @@ export default function GestaoTreinos({
   // Abas de nível: só aparecem as que têm treino (evita aba vazia confundindo).
   const abasNivel: { valor: NivelFiltro; label: string; qtd: number }[] = [
     { valor: "meus" as NivelFiltro, label: "Meus treinos", qtd: contagemNivel.meus },
+    { valor: "equipe" as NivelFiltro, label: "Da equipe", qtd: contagemNivel.equipe },
     { valor: "academia" as NivelFiltro, label: "Da academia", qtd: contagemNivel.academia },
     { valor: "plataforma" as NivelFiltro, label: "Padrão GestAcad", qtd: contagemNivel.plataforma },
     ...(ehGestor
-      ? [{ valor: "equipe" as NivelFiltro, label: "Privados da equipe", qtd: contagemNivel.equipe }]
+      ? [{ valor: "privados_equipe" as NivelFiltro, label: "Privados da equipe", qtd: contagemNivel.privadosEquipe }]
       : []),
   ].filter((a) => a.qtd > 0);
 
@@ -218,7 +231,8 @@ export default function GestaoTreinos({
             >
               {aba.valor === "plataforma" && <Sparkles className="h-3.5 w-3.5" />}
               {aba.valor === "academia" && <Users className="h-3.5 w-3.5" />}
-              {(aba.valor === "meus" || aba.valor === "equipe") && (
+              {aba.valor === "equipe" && <UsersRound className="h-3.5 w-3.5" />}
+              {(aba.valor === "meus" || aba.valor === "privados_equipe") && (
                 <Lock className="h-3.5 w-3.5" />
               )}
               {aba.label}
@@ -529,7 +543,14 @@ function SeloNivel({
       </span>
     );
   }
-  // instrutor (privado)
+  if (nivel === "equipe") {
+    return (
+      <span className="chip border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
+        <UsersRound className="h-3.5 w-3.5" /> Da equipe
+      </span>
+    );
+  }
+  // privado
   return (
     <span className="chip border-amber-500/30 bg-amber-500/10 text-amber-300">
       <Lock className="h-3.5 w-3.5" />
@@ -540,7 +561,20 @@ function SeloNivel({
   );
 }
 
-/** Botão que alterna o treino entre privado do instrutor e da academia. */
+/** Níveis de visibilidade que o gestor/autor pode definir, na ordem de abertura. */
+const OPCOES_VISIBILIDADE: {
+  valor: "privado" | "equipe" | "academia";
+  label: string;
+}[] = [
+  { valor: "privado", label: "Privado" },
+  { valor: "equipe", label: "Equipe" },
+  { valor: "academia", label: "Academia" },
+];
+
+/**
+ * Seletor de visibilidade em três níveis (migration 077). Otimista: reflete a
+ * escolha na hora e reverte se a Server Action falhar (RLS barra quem não pode).
+ */
 function VisibilidadeToggle({
   slug,
   treino,
@@ -550,41 +584,56 @@ function VisibilidadeToggle({
   treino: Treino;
   nivel: NivelTreino;
 }) {
+  // nivel só chega aqui como privado/equipe/academia (plataforma não alterna).
+  const atualInicial: "privado" | "equipe" | "academia" =
+    nivel === "academia" ? "academia" : nivel === "equipe" ? "equipe" : "privado";
+  const [atual, setAtual] = useState(atualInicial);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const alvo = nivel === "instrutor" ? "academia" : "instrutor";
 
-  const alternar = async () => {
+  const definir = async (alvo: "privado" | "equipe" | "academia") => {
+    if (alvo === atual || enviando) return;
+    const anterior = atual;
+    setAtual(alvo);
     setEnviando(true);
     setErro(null);
     const r = await definirVisibilidadeTreino(slug, treino.id, alvo);
-    if (r && "erro" in r) setErro(r.erro);
-    // Sempre reabilita: na aba "Todos" o card não desmonta ao trocar de nível,
-    // então sem isto o botão ficava travado após o 1º clique (não dava p/ reverter).
+    if (r && "erro" in r) {
+      setAtual(anterior); // reverte: o banco não mudou
+      setErro(r.erro);
+    }
     setEnviando(false);
   };
 
   return (
-    <button
-      type="button"
-      onClick={alternar}
-      disabled={enviando}
-      title={erro ?? undefined}
-      className={cn(
-        "chip border-ink-600 bg-ink-800 text-slate-300 transition hover:border-volt-500/50 hover:text-white disabled:opacity-60",
-        erro && "border-red-500/40 text-red-300"
-      )}
+    <span
+      className="inline-flex items-center gap-0.5 rounded-lg border border-ink-600 bg-ink-800 p-0.5"
+      title={erro ?? "Quem pode ver este treino"}
+      role="group"
+      aria-label="Visibilidade do treino"
     >
-      {alvo === "academia" ? (
-        <>
-          <Users className="h-3.5 w-3.5" /> Compartilhar com a academia
-        </>
-      ) : (
-        <>
-          <Lock className="h-3.5 w-3.5" /> Tornar privado
-        </>
-      )}
-    </button>
+      {OPCOES_VISIBILIDADE.map((op) => (
+        <button
+          key={op.valor}
+          type="button"
+          onClick={() => definir(op.valor)}
+          disabled={enviando}
+          aria-pressed={atual === op.valor}
+          className={cn(
+            "rounded-md px-2 py-1 text-xs font-medium transition disabled:opacity-60",
+            atual === op.valor
+              ? "bg-volt-300 text-ink-950"
+              : "text-slate-400 hover:text-slate-200",
+            erro && "text-red-300"
+          )}
+        >
+          {op.valor === "privado" && <Lock className="mr-1 inline h-3 w-3" />}
+          {op.valor === "equipe" && <UsersRound className="mr-1 inline h-3 w-3" />}
+          {op.valor === "academia" && <Users className="mr-1 inline h-3 w-3" />}
+          {op.label}
+        </button>
+      ))}
+    </span>
   );
 }
 
@@ -691,12 +740,12 @@ function FormularioTreino({
         <legend className="mb-1.5 text-xs font-medium text-slate-400">
           Quem pode ver este treino?
         </legend>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-3">
           <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-ink-600 bg-ink-900/50 p-3 has-[:checked]:border-amber-500/50 has-[:checked]:bg-amber-500/5">
             <input
               type="radio"
               name="visibilidade"
-              value="instrutor"
+              value="privado"
               defaultChecked
               className="mt-0.5 accent-amber-400"
             />
@@ -705,8 +754,25 @@ function FormularioTreino({
                 <Lock className="h-3.5 w-3.5 text-amber-300" /> Só eu (privado)
               </span>
               <span className="mt-0.5 block text-xs text-slate-500">
-                Fica na sua lista. Dono/gerente também veem. Você pode
-                compartilhar com a academia depois.
+                Fica na sua lista. Dono/gerente também veem. Dá para
+                compartilhar depois.
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-ink-600 bg-ink-900/50 p-3 has-[:checked]:border-indigo-500/50 has-[:checked]:bg-indigo-500/5">
+            <input
+              type="radio"
+              name="visibilidade"
+              value="equipe"
+              className="mt-0.5 accent-indigo-400"
+            />
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-sm font-medium text-white">
+                <UsersRound className="h-3.5 w-3.5 text-indigo-300" /> A equipe
+              </span>
+              <span className="mt-0.5 block text-xs text-slate-500">
+                A equipe técnica (dono, gerente e instrutores) vê. A recepção
+                não.
               </span>
             </span>
           </label>
@@ -722,7 +788,7 @@ function FormularioTreino({
                 <Users className="h-3.5 w-3.5 text-sky-300" /> Toda a academia
               </span>
               <span className="mt-0.5 block text-xs text-slate-500">
-                Toda a equipe da academia vê e pode usar em qualquer aluno.
+                Todo o time da academia vê, inclusive a recepção.
               </span>
             </span>
           </label>
