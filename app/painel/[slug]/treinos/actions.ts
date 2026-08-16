@@ -340,3 +340,204 @@ export async function definirPublicoTreino(
   revalidatePath(`/painel/${slug}/treinos`);
   return { ok: true };
 }
+
+/**
+ * Edita um TREINO-MODELO da biblioteca (nome, objetivo, modalidade, nível,
+ * público-alvo e a lista inteira de exercícios). Só modelos da própria
+ * academia — nunca fichas de aluno (aluno_id != null) e nunca o modelo padrão
+ * da plataforma (academia_id null), que deve permanecer intacto.
+ *
+ * O `share_token` é preservado (o UPDATE não o toca), então o QR/link público
+ * já divulgado continua válido. Editar um modelo NÃO altera fichas já
+ * atribuídas — elas são cópias independentes (comportamento de snapshot).
+ *
+ * A permissão fina (autor OU dono/gerente) é garantida pelo RLS (068): se o
+ * usuário não puder editar, o UPDATE não afeta nenhuma linha e devolvemos erro
+ * em vez de um "ok" silencioso.
+ */
+export async function editarTreinoBiblioteca(
+  slug: string,
+  treinoId: string,
+  _estado: EstadoAcao,
+  formData: FormData
+): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "treinos");
+  if (!podeGerenciarTreinos(sessao.papel)) {
+    return { erro: "Seu perfil não pode editar treinos." };
+  }
+  if (!FORMATO_UUID.test(treinoId)) return { erro: "Treino inválido." };
+
+  const nomeTreino = String(formData.get("nome_treino") ?? "").trim();
+  if (!nomeTreino) return { erro: "Informe o nome do treino." };
+
+  const lidos = lerExerciciosDoFormulario(formData.get("exercicios_json"));
+  if ("erro" in lidos) return lidos;
+
+  const supabase = createClient();
+  const { data: atualizado, error: erroTreino } = await supabase
+    .from("treinos")
+    .update({
+      nome_treino: nomeTreino,
+      objetivo: String(formData.get("objetivo") ?? "").trim() || null,
+      modalidade: String(formData.get("modalidade") ?? "").trim() || null,
+      nivel: String(formData.get("nivel") ?? "").trim() || null,
+      publico_alvo: String(formData.get("publico_alvo") ?? "").trim() || null,
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq("id", treinoId)
+    .eq("academia_id", sessao.academia.id)
+    .is("aluno_id", null)
+    .select("id");
+
+  if (erroTreino) {
+    return { erro: await erroAmigavel(erroTreino, "atualizar o treino") };
+  }
+  if (!atualizado || atualizado.length === 0) {
+    return { erro: "Treino não encontrado ou sem permissão para editar." };
+  }
+
+  // Substitui os exercícios (delete + insert). Guarda os antigos para restaurar
+  // se o insert novo falhar — sem transação no cliente, é o que evita ficha vazia.
+  const { data: anteriores } = await supabase
+    .from("exercicios_treino")
+    .select(
+      "nome_exercicio, series, repeticoes, carga_kg, descanso_segundos, observacoes, imagem_demonstracao_url, video_demonstracao_url, ordem"
+    )
+    .eq("treino_id", treinoId)
+    .order("ordem", { ascending: true });
+
+  const { error: erroRemocao } = await supabase
+    .from("exercicios_treino")
+    .delete()
+    .eq("treino_id", treinoId);
+  if (erroRemocao) {
+    return { erro: await erroAmigavel(erroRemocao, "atualizar os exercícios") };
+  }
+
+  const { error: erroInsercao } = await supabase
+    .from("exercicios_treino")
+    .insert(montarLinhasExercicio(treinoId, lidos.exercicios));
+  if (erroInsercao) {
+    if (anteriores && anteriores.length > 0) {
+      await supabase
+        .from("exercicios_treino")
+        .insert(anteriores.map((a) => ({ ...a, treino_id: treinoId })));
+    }
+    return { erro: await erroAmigavel(erroInsercao, "salvar os exercícios") };
+  }
+
+  revalidatePath(`/painel/${slug}/treinos`);
+  return { ok: true, savedAt: Date.now() };
+}
+
+/**
+ * Duplica um treino-modelo criando uma CÓPIA independente na biblioteca da
+ * academia da sessão. Serve tanto para clonar um modelo próprio quanto para
+ * PERSONALIZAR um modelo padrão da plataforma (GestAcad): a cópia nasce na
+ * academia e o original nunca é tocado.
+ *
+ * A cópia nasce como modelo do instrutor (origem_tipo='instrutor'), PRIVADA e
+ * com link público desligado — o dono decide depois se compartilha. Ganha um
+ * `share_token` próprio (default do banco). Os exercícios são copiados junto.
+ */
+export async function duplicarTreino(
+  slug: string,
+  treinoId: string
+): Promise<{ erro: string } | { ok: true; id: string }> {
+  const sessao = await requireSecao(slug, "treinos");
+  if (!podeGerenciarTreinos(sessao.papel)) {
+    return { erro: "Seu perfil não pode duplicar treinos." };
+  }
+  if (!FORMATO_UUID.test(treinoId)) return { erro: "Treino inválido." };
+
+  const supabase = createClient();
+  // Lê o modelo de origem. O RLS deixa ver os modelos da própria academia
+  // (respeitando a visibilidade) e os de plataforma — exatamente o conjunto
+  // duplicável. Ficha de aluno (aluno_id != null) nunca é duplicável aqui.
+  const { data: origem, error: erroLeitura } = await supabase
+    .from("treinos")
+    .select(
+      "nome_treino, objetivo, modalidade, nivel, publico_alvo, exercicios:exercicios_treino(nome_exercicio, series, repeticoes, carga_kg, descanso_segundos, observacoes, imagem_demonstracao_url, video_demonstracao_url, ordem)"
+    )
+    .eq("id", treinoId)
+    .is("aluno_id", null)
+    .maybeSingle();
+
+  if (erroLeitura) {
+    return { erro: await erroAmigavel(erroLeitura, "duplicar o treino") };
+  }
+  if (!origem) return { erro: "Treino não encontrado." };
+
+  const { count } = await supabase
+    .from("treinos")
+    .select("id", { count: "exact", head: true })
+    .eq("academia_id", sessao.academia.id)
+    .is("aluno_id", null);
+
+  const nomeCopia = `${origem.nome_treino} (cópia)`.slice(0, 120);
+  const { data: novo, error: erroInsert } = await supabase
+    .from("treinos")
+    .insert({
+      academia_id: sessao.academia.id,
+      aluno_id: null,
+      nome_treino: nomeCopia,
+      objetivo: origem.objetivo,
+      modalidade: origem.modalidade,
+      nivel: origem.nivel,
+      publico_alvo: origem.publico_alvo,
+      criado_por: sessao.userId,
+      profissional_nome: sessao.nome,
+      origem: "manual",
+      origem_tipo: "instrutor",
+      visibilidade: "privado",
+      publico: false,
+      ordem: (count ?? 0) + 1,
+    })
+    .select("id")
+    .single();
+
+  if (erroInsert || !novo) {
+    return { erro: await erroAmigavel(erroInsert, "duplicar o treino") };
+  }
+
+  type LinhaOrigem = {
+    nome_exercicio: string;
+    series: number;
+    repeticoes: string;
+    carga_kg: number | null;
+    descanso_segundos: number | null;
+    observacoes: string | null;
+    imagem_demonstracao_url: string | null;
+    video_demonstracao_url: string | null;
+    ordem: number;
+  };
+  const exercicios = ((origem.exercicios ?? []) as LinhaOrigem[])
+    .slice()
+    .sort((a, b) => a.ordem - b.ordem);
+
+  if (exercicios.length > 0) {
+    const linhas = exercicios.map((ex, i) => ({
+      treino_id: novo.id,
+      nome_exercicio: ex.nome_exercicio,
+      series: ex.series,
+      repeticoes: ex.repeticoes,
+      carga_kg: ex.carga_kg,
+      descanso_segundos: ex.descanso_segundos,
+      observacoes: ex.observacoes,
+      imagem_demonstracao_url: ex.imagem_demonstracao_url,
+      video_demonstracao_url: ex.video_demonstracao_url,
+      ordem: i + 1,
+    }));
+    const { error: erroEx } = await supabase
+      .from("exercicios_treino")
+      .insert(linhas);
+    if (erroEx) {
+      // Desfaz a cópia para não deixar modelo vazio.
+      await supabase.from("treinos").delete().eq("id", novo.id);
+      return { erro: await erroAmigavel(erroEx, "copiar os exercícios") };
+    }
+  }
+
+  revalidatePath(`/painel/${slug}/treinos`);
+  return { ok: true, id: novo.id };
+}
