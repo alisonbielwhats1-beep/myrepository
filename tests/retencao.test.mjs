@@ -11,6 +11,7 @@ import {
   classificarRetencao,
   configRetencaoDe,
   hojeSaoPaulo,
+  rotuloStatusFinanceiro,
 } from "../.test-build/utils.js";
 
 let passou = 0;
@@ -183,12 +184,19 @@ console.log("\ncalcularStatusFinanceiro — em aberto não vencida = alerta (âm
     calcularStatusFinanceiro([{ status: "pendente", data: ONTEM }]) === "inadimplente"
   );
   check(
-    "pendente que vence hoje -> pendente (alerta)",
+    "pendente que vence hoje -> pendente (Vence hoje)",
     calcularStatusFinanceiro([{ status: "pendente", data: hoje }]) === "pendente"
   );
   check(
-    "pendente a vencer (amanhã) -> pendente (alerta) [antes era em_dia]",
-    calcularStatusFinanceiro([{ status: "pendente", data: AMANHA }]) === "pendente"
+    "pendente a vencer (amanhã) -> a_vencer (A vencer, não 'Vence hoje')",
+    calcularStatusFinanceiro([{ status: "pendente", data: AMANHA }]) === "a_vencer"
+  );
+  check(
+    "vence hoje + a vencer -> pendente (o mais urgente manda o rótulo)",
+    calcularStatusFinanceiro([
+      { status: "pendente", data: AMANHA },
+      { status: "pendente", data: hoje },
+    ]) === "pendente"
   );
   check(
     "atrasada + a vencer -> inadimplente (o atraso manda)",
@@ -197,6 +205,12 @@ console.log("\ncalcularStatusFinanceiro — em aberto não vencida = alerta (âm
       { status: "pendente", data: ONTEM },
     ]) === "inadimplente"
   );
+
+  // Rótulos: 'a_vencer' não pode dizer "Vence hoje".
+  check("rótulo a_vencer = 'A vencer'", rotuloStatusFinanceiro("a_vencer") === "A vencer");
+  check("rótulo pendente = 'Vence hoje'", rotuloStatusFinanceiro("pendente") === "Vence hoje");
+  check("rótulo inadimplente = 'Inadimplente'", rotuloStatusFinanceiro("inadimplente") === "Inadimplente");
+  check("rótulo em_dia = 'Em dia'", rotuloStatusFinanceiro("em_dia") === "Em dia");
 }
 
 console.log(`\n=== ${passou} passaram, ${falhou} falharam ===`);

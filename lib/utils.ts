@@ -134,12 +134,13 @@ export function diasEntre(de: string, ate: string): number {
  * Datas comparadas sempre em America/Sao_Paulo (ver `hojeSaoPaulo`):
  *  - Sem mensalidade em aberto → "em_dia"
  *  - Existe pendente com data < hoje → "inadimplente" (atrasada → vermelho)
- *  - Existe pendente com data >= hoje → "pendente" (em aberto e não atrasada,
- *    vence hoje ou nos próximos dias → alerta/âmbar)
+ *  - Existe pendente com data === hoje → "pendente" ("Vence hoje" → âmbar)
+ *  - Existe pendente só com data > hoje → "a_vencer" ("A vencer" → âmbar)
  *
- * A cobrança do mês é gerada só quando o vencimento se aproxima (não há meses
- * futuros empilhados), então marcar toda mensalidade em aberto como alerta não
- * deixa a tela poluída — reflete "há algo a receber" sem ainda ser atraso.
+ * "a_vencer" e "pendente" são ambos alerta/âmbar (em aberto, não atrasado) —
+ * o que muda é só o rótulo: uma mensalidade que vence só dia 31 não pode
+ * dizer "Vence hoje". Se houver alguma vencendo hoje E outra futura, "vence
+ * hoje" (mais urgente) manda no rótulo.
  */
 export function calcularStatusFinanceiro(
   mensalidades: Array<{ status: string; data: string }>
@@ -149,8 +150,22 @@ export function calcularStatusFinanceiro(
   if (pendentes.length === 0) return "em_dia";
   const vencidas = pendentes.filter((m) => m.data < hoje);
   if (vencidas.length > 0) return "inadimplente";
-  // Toda pendente restante está em aberto e ainda não venceu → alerta.
-  return "pendente";
+  const venceHoje = pendentes.some((m) => m.data === hoje);
+  return venceHoje ? "pendente" : "a_vencer";
+}
+
+/** Rótulo curto do status financeiro, para os chips na tela. */
+export function rotuloStatusFinanceiro(status: StatusFinanceiro): string {
+  switch (status) {
+    case "em_dia":
+      return "Em dia";
+    case "a_vencer":
+      return "A vencer";
+    case "pendente":
+      return "Vence hoje";
+    case "inadimplente":
+      return "Inadimplente";
+  }
 }
 
 const MOTIVOS_CADASTRAIS: Record<string, string> = {
@@ -403,6 +418,8 @@ export function badgeStatusFinanceiro(status: StatusFinanceiro): string {
   switch (status) {
     case "em_dia":
       return "bg-volt-500/15 text-volt-300 border-volt-500/30";
+    // "a vencer" e "vence hoje": ambos em aberto e não atrasados → alerta âmbar.
+    case "a_vencer":
     case "pendente":
       return "bg-amber-500/15 text-amber-300 border-amber-500/30";
     case "inadimplente":

@@ -6,7 +6,11 @@ export type StatusMatricula = "ativa" | "inativa" | "trancada" | "pendente" | "c
 
 /** Status financeiro calculado pelas mensalidades do aluno.
  *  Não é persistido — derivado em tempo de execução. */
-export type StatusFinanceiro = "em_dia" | "pendente" | "inadimplente";
+export type StatusFinanceiro =
+  | "em_dia"
+  | "a_vencer"
+  | "pendente"
+  | "inadimplente";
 export type OrigemAcesso = "Direto" | "Gympass" | "TotalPass" | "qr";
 export type StatusLiberacao = "liberado" | "negado" | "pendente" | "alerta";
 

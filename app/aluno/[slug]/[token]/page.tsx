@@ -42,10 +42,11 @@ import {
   formatDataHora,
   hojeSaoPaulo,
 } from "@/lib/utils";
-import type { ResultadoAcesso } from "@/lib/types";
+import type { ResultadoAcesso, StatusFinanceiro } from "@/lib/types";
 
-const ROTULO_FINANCEIRO: Record<"em_dia" | "pendente" | "inadimplente", string> = {
+const ROTULO_FINANCEIRO: Record<StatusFinanceiro, string> = {
   em_dia: "Em dia",
+  a_vencer: "A vencer",
   pendente: "Vence hoje",
   inadimplente: "Mensalidade em atraso",
 };
