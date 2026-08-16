@@ -132,10 +132,14 @@ export function diasEntre(de: string, ate: string): number {
  * Recebe apenas os campos necessários para evitar over-fetch.
  *
  * Datas comparadas sempre em America/Sao_Paulo (ver `hojeSaoPaulo`):
- *  - Sem mensalidades → "em_dia"
- *  - Existe pendente com data > hoje → "em_dia"  (ainda não venceu)
- *  - Existe pendente com data === hoje → "pendente" (vence hoje, não é atraso)
- *  - Existe pendente com data < hoje → "inadimplente"
+ *  - Sem mensalidade em aberto → "em_dia"
+ *  - Existe pendente com data < hoje → "inadimplente" (atrasada → vermelho)
+ *  - Existe pendente com data >= hoje → "pendente" (em aberto e não atrasada,
+ *    vence hoje ou nos próximos dias → alerta/âmbar)
+ *
+ * A cobrança do mês é gerada só quando o vencimento se aproxima (não há meses
+ * futuros empilhados), então marcar toda mensalidade em aberto como alerta não
+ * deixa a tela poluída — reflete "há algo a receber" sem ainda ser atraso.
  */
 export function calcularStatusFinanceiro(
   mensalidades: Array<{ status: string; data: string }>
@@ -145,8 +149,8 @@ export function calcularStatusFinanceiro(
   if (pendentes.length === 0) return "em_dia";
   const vencidas = pendentes.filter((m) => m.data < hoje);
   if (vencidas.length > 0) return "inadimplente";
-  const venceHoje = pendentes.some((m) => m.data === hoje);
-  return venceHoje ? "pendente" : "em_dia";
+  // Toda pendente restante está em aberto e ainda não venceu → alerta.
+  return "pendente";
 }
 
 const MOTIVOS_CADASTRAIS: Record<string, string> = {

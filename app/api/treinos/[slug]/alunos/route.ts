@@ -32,7 +32,9 @@ export async function GET(
     .from("alunos")
     .select("id, nome, matricula_codigo")
     .eq("academia_id", sessao.academia.id)
-    .eq("status_matricula", "ativa")
+    // 'pendente' (recém-criado, sem plano) também pode receber treino
+    // (migration 080). Trancada/cancelada/inativa ficam de fora.
+    .in("status_matricula", ["ativa", "pendente"])
     .order("nome", { ascending: true })
     .limit(20);
 
