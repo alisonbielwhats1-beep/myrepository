@@ -19,6 +19,14 @@ name: Validar banco (Postgres efêmero)
 #   3. O isolamento entre academias funciona de fato, com duas academias reais
 #      (supabase/ci/20_teste_rls_multitenant.sql) — o teste que faltava.
 #
+# ESCOPO — só banco
+#   Os testes de domínio, typecheck, lint e build ficavam aqui dentro, e por
+#   isso herdavam o filtro `paths: supabase/**` abaixo: um PR puramente de
+#   TypeScript não rodava verificação nenhuma. Eles se mudaram para
+#   `validar-app.yml`, que roda em TODO push e PR. Este workflow segue
+#   filtrado de propósito — sobe containers de Postgres, e só faz sentido
+#   quando o esquema muda.
+#
 # SEGURANÇA
 #   Este workflow NUNCA toca produção. Não usa nenhum secret, não conhece a
 #   URL do Supabase e não tem credencial de banco nenhuma além do Postgres
@@ -188,41 +196,3 @@ jobs:
         # policies de treinos/exercicios_treino (são 100% das migrations), então
         # a visibilidade fina sobrevive ao re-run do schema. Este job é a prova.
         run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/ci/21_teste_treinos_rls_rpc.sql
-
-  # ---------------------------------------------------------------------------
-  # Testes de domínio em TypeScript que já existem no projeto e nunca rodaram
-  # em CI — só localmente, quando alguém lembrava.
-  # ---------------------------------------------------------------------------
-  testes-e-build:
-    name: Testes, typecheck, lint e build
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-
-      - run: npm ci
-
-      - name: Testes de domínio (8 suítes)
-        run: npm test
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Build
-        # Placeholders: o build do Next não conecta no Supabase, mas as libs
-        # exigem que as variáveis existam. Valores fictícios de propósito —
-        # nenhuma credencial real entra neste workflow.
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://exemplo.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: chave-ficticia-de-ci
-          SUPABASE_SERVICE_ROLE_KEY: chave-ficticia-de-ci
-          NEXT_PUBLIC_SITE_URL: http://localhost:3000
-        run: npm run build

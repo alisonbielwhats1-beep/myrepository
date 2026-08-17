@@ -123,27 +123,63 @@ navegador. Confirme que ela não tem prefixo `NEXT_PUBLIC_` e que nenhuma tela
 
 **Onde:** Supabase → Authentication → Emails / SMTP Settings.
 
-- **O que configurar:** um SMTP próprio (Resend, SendGrid, Brevo, Amazon SES).
-- **Por quê:** o serviço de e-mail embutido do Supabase é limitado a poucos
-  envios por hora e destinado a desenvolvimento. Sem SMTP próprio, se vários
-  funcionários pedirem recuperação na mesma tarde, parte não recebe — e a tela
-  sempre responde "enviamos" (de propósito, para não revelar quais e-mails têm
-  conta), então a falha passa despercebida.
+> ⚠️ **O SMTP próprio é pré-requisito para editar os e-mails.** Sem ele, o
+> Supabase mostra o aviso *"Set up custom SMTP to edit templates — Emails will
+> be sent using the default templates"* e deixa **Subject e Body somente
+> leitura**. É por isso que o e-mail de recuperação continua em inglês: não é
+> possível traduzir enquanto o serviço embutido estiver em uso.
+
+- **O que configurar:** um SMTP próprio (Resend, Brevo, SendGrid, Amazon SES).
+  Todos têm plano gratuito que cobre com folga o volume de uma academia —
+  confira os limites atuais no site de cada um.
+- **Por quê (além dos templates):** o serviço embutido do Supabase é limitado a
+  poucos envios por hora e destinado a desenvolvimento. Sem SMTP próprio, se
+  vários funcionários pedirem recuperação na mesma tarde, parte não recebe — e a
+  tela sempre responde "enviamos" (de propósito, para não revelar quais e-mails
+  têm conta), então a falha passa despercebida.
 - **Remetente:** um endereço do seu domínio (ex.: `nao-responda@seudominio`),
   não um Gmail pessoal, para não cair em spam.
+
+### Passo a passo (exemplo com Resend)
+
+1. Crie a conta em resend.com e **verifique seu domínio** (o painel mostra os
+   registros DNS a incluir — SPF e DKIM). Sem domínio verificado o envio fica
+   restrito ao seu próprio e-mail.
+2. Gere uma **API key**.
+3. No Supabase → Authentication → **SMTP Settings** → *Enable Custom SMTP*:
+   - Host: `smtp.resend.com`
+   - Porta: `587`
+   - Usuário: `resend`
+   - Senha: a API key gerada
+   - Sender email: `nao-responda@seudominio` · Sender name: `GestAcad`
+4. Salve. O aviso de template bloqueado some e **Subject/Body ficam editáveis**
+   — aí sim dá para aplicar o template do item 4.
 
 **Como testar:** peça recuperação com um e-mail real e confirme a chegada,
 inclusive no spam. Se demorar/faltar, o SMTP é a causa.
 
 ## 4. Templates de e-mail
 
-**Onde:** Supabase → Authentication → Email Templates.
+**Onde:** Supabase → Authentication → Emails → Reset Password.
 
-- **Reset Password:** o link precisa apontar para o fluxo PKCE
-  (`{{ .ConfirmationURL }}`), que o Supabase resolve para a Redirect URL
-  configurada no item 1. O template padrão já funciona; se personalizar,
-  mantenha `{{ .ConfirmationURL }}`.
-- Traduza o texto para português se quiser — não afeta o funcionamento.
+**Depende do item 3:** enquanto não houver SMTP próprio, os campos ficam
+bloqueados e o Supabase envia o template padrão, em inglês. Nada quebra por
+causa disso — o app funciona com o template padrão (ver abaixo) —, mas a
+tradução e a marca só entram depois do SMTP.
+
+**Com o SMTP configurado**, aplique o template pronto:
+
+1. Assunto: `Redefinir sua senha — GestAcad`
+2. Body (aba **Source**): cole o conteúdo de
+   [`email-recuperacao-senha.html`](./email-recuperacao-senha.html)
+3. Salve e envie um teste para você mesmo.
+
+**Sem o SMTP**, o padrão do Supabase (`{{ .ConfirmationURL }}`) continua
+funcionando: o link cai em `/auth/recuperar` quando a allow-list do item 1
+estiver correta e, se não estiver, o `GateRecuperacaoSenha` corrige o rumo em
+qualquer página. As duas limitações do padrão são o idioma e o fato de o link
+só abrir no mesmo navegador em que a recuperação foi pedida — ambas resolvidas
+pelo template do arquivo acima.
 
 ## 5. Expiração dos links
 

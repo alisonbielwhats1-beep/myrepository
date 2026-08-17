@@ -1,0 +1,68 @@
+name: Validar app (testes, typecheck, lint e build)
+
+# =============================================================================
+# Verificação de TODA mudança de código, sem filtro de caminho.
+#
+# POR QUE ESTE WORKFLOW EXISTE, SEPARADO DE validar-banco.yml
+#   Os testes de domínio, o typecheck, o lint e o build moravam dentro do
+#   `validar-banco.yml`, que só dispara quando a mudança toca `supabase/**`.
+#   Consequência: um PR puramente de TypeScript — a maioria deles — não rodava
+#   verificação nenhuma. Os PRs #13 e #14 passaram exatamente assim, com o
+#   Vercel como único check; a garantia veio de rodar tudo na mão. Um teste
+#   quebrado por uma mudança de front entraria sem ninguém perceber.
+#
+#   Aqui não há `paths:` de propósito: qualquer push ou PR passa por estas
+#   verificações. As duas checagens de banco continuam em `validar-banco.yml`,
+#   filtradas por `supabase/**`, porque sobem um Postgres e só fazem sentido
+#   quando o esquema muda.
+#
+# SEGURANÇA
+#   Não usa secret nenhum. As variáveis do build são placeholders fictícios: o
+#   build do Next não conecta no Supabase, só exige que as variáveis existam.
+# =============================================================================
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch: {}
+
+# Um push novo no mesmo branch cancela a execução anterior, que já ficou
+# obsoleta — evita fila de runs concorrentes no mesmo código.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  testes-e-build:
+    name: Testes, typecheck, lint e build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Testes de domínio
+        run: npm test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        # Placeholders: o build do Next não conecta no Supabase, mas as libs
+        # exigem que as variáveis existam. Valores fictícios de propósito —
+        # nenhuma credencial real entra neste workflow.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://exemplo.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: chave-ficticia-de-ci
+          SUPABASE_SERVICE_ROLE_KEY: chave-ficticia-de-ci
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+        run: npm run build
