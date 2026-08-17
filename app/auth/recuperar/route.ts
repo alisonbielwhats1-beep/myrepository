@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { erroAmigavel } from "@/lib/erros-servidor";
 import {
   PAGINA_NOVA_SENHA,
   PAGINA_PEDIR_LINK,
@@ -42,9 +43,12 @@ export async function GET(req: NextRequest) {
   // O Supabase pode recusar o token antes de chegar aqui.
   const erro = searchParams.get("error_code") ?? searchParams.get("error");
   if (erro) {
-    return pedirNovoLink(
-      mensagemErroRecuperacao(erro, searchParams.get("error_description") ?? "")
+    const descricao = searchParams.get("error_description") ?? "";
+    await registrar(
+      { code: erro, message: descricao },
+      "validar o link de recuperação (recusado pelo Supabase)"
     );
+    return pedirNovoLink(mensagemErroRecuperacao(erro, descricao));
   }
 
   const supabase = createClient();
@@ -57,6 +61,7 @@ export async function GET(req: NextRequest) {
       token_hash: tokenHash,
     });
     if (error) {
+      await registrar(error, "validar o link de recuperação (token_hash)");
       return pedirNovoLink(
         "Esse link de recuperação expirou ou já foi usado. Peça um novo abaixo."
       );
@@ -67,6 +72,7 @@ export async function GET(req: NextRequest) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
+      await registrar(error, "trocar o código de recuperação por uma sessão");
       return pedirNovoLink(
         "Abra o link no mesmo navegador em que pediu a recuperação, ou peça um novo abaixo."
       );
@@ -88,4 +94,25 @@ export async function GET(req: NextRequest) {
   return pedirNovoLink(
     "Link de recuperação inválido ou incompleto. Peça um novo abaixo."
   );
+}
+
+/**
+ * Registra a causa REAL da falha (console do servidor + `logs_erros`, que
+ * alimenta /admin/atividade) sem mostrá-la ao usuário.
+ *
+ * Sem isto, "expirou", "já foi usado", "aberto em outro navegador" e "token
+ * consumido por um antivírus de e-mail antes do clique" chegavam todos na tela
+ * como a mesma frase, e não havia como saber qual dos quatro tinha acontecido.
+ * A mensagem para o usuário segue genérica de propósito — o detalhe do erro
+ * diria se aquele e-mail tem conta.
+ */
+async function registrar(
+  erro: { code?: string | null; message?: string | null } | null,
+  acao: string
+): Promise<void> {
+  try {
+    await erroAmigavel(erro, acao);
+  } catch {
+    // Registrar a falha nunca pode virar uma segunda falha no fluxo de senha.
+  }
 }
