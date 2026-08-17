@@ -371,6 +371,25 @@ export async function getTreinosBiblioteca(
   return (data as Treino[]) ?? [];
 }
 
+/**
+ * Instrutores da academia (para o multi-select de "compartilhar com instrutores
+ * selecionados"). Só papel 'instrutor' — dono/gerente já veem tudo, então não
+ * entram como opção de compartilhamento.
+ */
+export async function getInstrutores(
+  academiaId: string
+): Promise<{ id: string; nome: string }[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("perfis_admin")
+    .select("id, nome")
+    .eq("academia_id", academiaId)
+    .eq("papel", "instrutor")
+    .order("nome", { ascending: true });
+  if (error) return [];
+  return (data as { id: string; nome: string }[]) ?? [];
+}
+
 export async function getAcessos(
   academiaId: string,
   limite = 50

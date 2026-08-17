@@ -1,7 +1,12 @@
 import type { Treino } from "./types";
 
 /** Nível efetivo de um treino-modelo, para selo e filtro na biblioteca. */
-export type NivelTreino = "plataforma" | "privado" | "equipe" | "academia";
+export type NivelTreino =
+  | "plataforma"
+  | "privado"
+  | "selecionado"
+  | "equipe"
+  | "academia";
 
 /**
  * Classifica o NÍVEL de um treino-modelo para as abas e o selo da biblioteca,
@@ -31,6 +36,8 @@ export function nivelDoTreino(
       return "academia";
     case "equipe":
       return "equipe";
+    case "selecionado":
+      return "selecionado";
     case "privado":
     case "instrutor": // legado (pré-077)
       return "privado";

@@ -302,6 +302,8 @@ export async function definirVisibilidadeTreino(
   if (error) {
     return { erro: await erroAmigavel(error, "alterar a visibilidade do treino") };
   }
+  // Ao sair de 'selecionado' para um nível fixo, limpa a ACL (não é mais usada).
+  await supabase.from("treinos_compartilhamento").delete().eq("treino_id", treinoId);
   revalidatePath(`/painel/${slug}/treinos`);
 }
 
@@ -665,4 +667,60 @@ export async function importarTreinosBiblioteca(
 
   if (criados > 0) revalidatePath(`/painel/${slug}/treinos`);
   return { criados, errosLinha, avisos: analise.avisos, savedAt: Date.now() };
+}
+
+/**
+ * Compartilha um treino-modelo com INSTRUTORES SELECIONADOS (migration 081):
+ * define visibilidade='selecionado' e substitui a ACL pela lista escolhida.
+ * Lista vazia → volta a 'privado' e limpa a ACL. Autor ou dono/gerente; o RLS
+ * (081) garante que só quem pode gerenciar efetiva a mudança e que os perfis
+ * pertencem à academia.
+ */
+export async function compartilharComInstrutores(
+  slug: string,
+  treinoId: string,
+  instrutorIds: string[]
+): Promise<{ erro: string } | { ok: true }> {
+  const sessao = await requireSecao(slug, "treinos");
+  if (!podeGerenciarTreinos(sessao.papel)) {
+    return { erro: "Seu perfil não pode compartilhar treinos." };
+  }
+  if (!FORMATO_UUID.test(treinoId)) {
+    return { erro: "Treino inválido." };
+  }
+  const ids = Array.from(
+    new Set((instrutorIds ?? []).filter((id) => FORMATO_UUID.test(id)))
+  ).slice(0, 50);
+
+  const supabase = createClient();
+  const visibilidade = ids.length > 0 ? "selecionado" : "privado";
+
+  const { data: atualizado, error: erroVis } = await supabase
+    .from("treinos")
+    .update({ visibilidade })
+    .eq("id", treinoId)
+    .eq("academia_id", sessao.academia.id)
+    .is("aluno_id", null)
+    .select("id");
+  if (erroVis) return { erro: await erroAmigavel(erroVis, "compartilhar o treino") };
+  if (!atualizado || atualizado.length === 0) {
+    return { erro: "Treino não encontrado ou sem permissão para compartilhar." };
+  }
+
+  // Substitui a ACL: apaga e reinsere os selecionados.
+  const { error: erroDel } = await supabase
+    .from("treinos_compartilhamento")
+    .delete()
+    .eq("treino_id", treinoId);
+  if (erroDel) return { erro: await erroAmigavel(erroDel, "atualizar o compartilhamento") };
+
+  if (ids.length > 0) {
+    const { error: erroIns } = await supabase
+      .from("treinos_compartilhamento")
+      .insert(ids.map((perfil_id) => ({ treino_id: treinoId, perfil_id })));
+    if (erroIns) return { erro: await erroAmigavel(erroIns, "atualizar o compartilhamento") };
+  }
+
+  revalidatePath(`/painel/${slug}/treinos`);
+  return { ok: true };
 }

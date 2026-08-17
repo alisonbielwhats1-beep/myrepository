@@ -365,6 +365,75 @@ begin
   perform pg_temp.checarb('treino excluído → link não expõe nada', v_pub is null, true);
 end $$;
 
+-- =============================================================================
+-- T8 — Compartilhamento com instrutores SELECIONADOS (ACL, migration 081).
+--       O autor marca visibilidade='selecionado' e libera para instrutores
+--       específicos via treinos_compartilhamento. Só quem está na ACL passa a
+--       ver; a recepção continua fora; e quem não gerencia o treino não pode
+--       gravar a ACL.
+-- =============================================================================
+do $$
+declare n bigint;
+  v_i1A uuid := (select valor from _ids where chave='i1A');
+  v_i2A uuid := (select valor from _ids where chave='i2A');
+  v_recA uuid := (select valor from _ids where chave='recA');
+  v_tpriv uuid := (select valor from _ids where chave='tpriv');
+begin
+  raise notice 'T8 — ACL: compartilhar com instrutores selecionados';
+
+  -- Antes de compartilhar: o instrutor 2 não vê o privado do instrutor 1.
+  perform pg_temp.vira(v_i2A);
+  select count(*) into n from public.treinos where id = v_tpriv;
+  perform pg_temp.checar('i2 NAO ve privado do i1 (pre-ACL)', n, 0);
+  reset role;
+
+  -- O AUTOR (i1) marca 'selecionado' e insere a ACL para o i2 — passa pelo RLS
+  -- de insert (posso_gerenciar_treino = autor) exatamente como a Server Action.
+  perform pg_temp.vira(v_i1A);
+  update public.treinos set visibilidade = 'selecionado' where id = v_tpriv;
+  insert into public.treinos_compartilhamento(treino_id, perfil_id)
+    values (v_tpriv, v_i2A);
+  reset role;
+
+  -- Agora o i2 (na ACL) vê o treino e o seu exercício.
+  perform pg_temp.vira(v_i2A);
+  select count(*) into n from public.treinos where id = v_tpriv;
+  perform pg_temp.checar('i2 PASSA a ver treino selecionado (na ACL)', n, 1);
+  select count(*) into n from public.exercicios_treino where treino_id = v_tpriv;
+  perform pg_temp.checar('i2 ve exercicio do treino selecionado', n, 1);
+  perform pg_temp.checarb('treino_compartilhado_comigo() true para i2',
+    public.treino_compartilhado_comigo(v_tpriv), true);
+  reset role;
+
+  -- A recepção continua SEM ver (selecionado não é academia).
+  perform pg_temp.vira(v_recA);
+  select count(*) into n from public.treinos where id = v_tpriv;
+  perform pg_temp.checar('recepção NAO ve treino selecionado', n, 0);
+  reset role;
+
+  -- Quem NÃO gerencia o treino (i2, que não é autor nem gestor) não pode
+  -- gravar a ACL — o RLS de insert barra.
+  perform pg_temp.vira(v_i2A);
+  begin
+    insert into public.treinos_compartilhamento(treino_id, perfil_id)
+      values (v_tpriv, v_i2A);
+    raise exception '[TREINOS] FALHA: i2 gravou ACL de treino que nao gerencia';
+  exception when insufficient_privilege or check_violation then
+    raise notice '  OK   i2 nao pode gravar ACL de treino alheio';
+  end;
+  reset role;
+
+  -- Voltar para 'privado' e limpar a ACL (autor) → o i2 deixa de ver.
+  perform pg_temp.vira(v_i1A);
+  delete from public.treinos_compartilhamento where treino_id = v_tpriv;
+  update public.treinos set visibilidade = 'privado' where id = v_tpriv;
+  reset role;
+  perform pg_temp.vira(v_i2A);
+  select count(*) into n from public.treinos where id = v_tpriv;
+  perform pg_temp.checar('i2 deixa de ver ao voltar para privado', n, 0);
+  reset role;
+end $$;
+
 select '== Integração RLS/RPC de Treinos passou ==' as resultado;
 
 rollback;

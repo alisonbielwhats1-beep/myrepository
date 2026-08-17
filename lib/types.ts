@@ -300,7 +300,13 @@ export interface Treino {
    * `origem_tipo`. Os valores `instrutor`/`plataforma` são legados (pré-077) e
    * só aparecem em dados ainda não migrados — tratados no fallback de nivelDoTreino.
    */
-  visibilidade?: "privado" | "equipe" | "academia" | "instrutor" | "plataforma";
+  visibilidade?:
+    | "privado"
+    | "selecionado"
+    | "equipe"
+    | "academia"
+    | "instrutor"
+    | "plataforma";
   /**
    * ORIGEM do treino (migration 076) — eixo ortogonal à visibilidade, que
    * antes vivia conflacionada em `visibilidade`:

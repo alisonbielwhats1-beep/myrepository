@@ -19,6 +19,7 @@ import {
   Target,
   Timer,
   Users,
+  UserCog,
   UsersRound,
   UserRound,
   Weight,
@@ -38,6 +39,7 @@ import ExercicioBuilder, {
   type LinhaExercicio,
 } from "@/components/painel/ExercicioBuilder";
 import CompartilharTreino from "@/components/painel/CompartilharTreino";
+import CompartilharInstrutores from "@/components/painel/CompartilharInstrutores";
 import AtribuirTreino from "@/components/painel/AtribuirTreino";
 import ImportarTreinos from "@/components/painel/ImportarTreinos";
 import {
@@ -71,6 +73,7 @@ export default function GestaoTreinos({
   slug,
   treinosIniciais,
   catalogo,
+  instrutores,
   podeAtribuir,
   userId,
   papel,
@@ -78,6 +81,7 @@ export default function GestaoTreinos({
   slug: string;
   treinosIniciais: Treino[];
   catalogo: CatalogoExercicio[];
+  instrutores: { id: string; nome: string }[];
   podeAtribuir: boolean;
   userId: string;
   papel: Papel;
@@ -112,9 +116,14 @@ export default function GestaoTreinos({
     if (nivelFiltro === "plataforma") return nv === "plataforma";
     if (nivelFiltro === "academia") return nv === "academia";
     if (nivelFiltro === "equipe") return nv === "equipe";
-    if (nivelFiltro === "meus") return nv === "privado" && t.criado_por === userId;
+    // "selecionado" (compartilhado com instrutores específicos) recorta junto
+    // dos privados: para o autor aparece em "Meus treinos"; para dono/gerente
+    // que não é o autor, em "Privados da equipe".
+    const ehPrivadoOuSelecionado = nv === "privado" || nv === "selecionado";
+    if (nivelFiltro === "meus")
+      return ehPrivadoOuSelecionado && t.criado_por === userId;
     if (nivelFiltro === "privados_equipe")
-      return nv === "privado" && t.criado_por !== userId;
+      return ehPrivadoOuSelecionado && t.criado_por !== userId;
     return true;
   };
 
@@ -342,6 +351,7 @@ export default function GestaoTreinos({
                     slug={slug}
                     treino={t}
                     catalogo={catalogo}
+                    instrutores={instrutores}
                     podeAtribuir={podeAtribuir}
                     userId={userId}
                     ehGestor={ehGestor}
@@ -360,6 +370,7 @@ function CardTreino({
   slug,
   treino,
   catalogo,
+  instrutores,
   podeAtribuir,
   userId,
   ehGestor,
@@ -367,6 +378,7 @@ function CardTreino({
   slug: string;
   treino: Treino;
   catalogo: CatalogoExercicio[];
+  instrutores: { id: string; nome: string }[];
   podeAtribuir: boolean;
   userId: string;
   ehGestor: boolean;
@@ -511,6 +523,13 @@ function CardTreino({
         {/* Modelo da plataforma é global: a academia não compartilha, edita nem
             exclui o original — só atribui a um aluno ou DUPLICA para personalizar. */}
         {!ehPlataforma && <CompartilharTreino slug={slug} treino={treino} />}
+        {podeAlternar && (
+          <CompartilharInstrutores
+            slug={slug}
+            treino={treino}
+            instrutores={instrutores}
+          />
+        )}
         {podeAlternar && (
           <VisibilidadeToggle slug={slug} treino={treino} nivel={nivel} />
         )}
@@ -734,6 +753,14 @@ function SeloNivel({
     return (
       <span className="chip border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
         <UsersRound className="h-3.5 w-3.5" /> Da equipe
+      </span>
+    );
+  }
+  if (nivel === "selecionado") {
+    return (
+      <span className="chip border-teal-500/30 bg-teal-500/10 text-teal-300">
+        <UserCog className="h-3.5 w-3.5" />
+        {souDono ? "Instrutores selecionados" : "Compartilhado comigo"}
       </span>
     );
   }
