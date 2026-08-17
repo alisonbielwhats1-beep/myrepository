@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { LogIn, Menu, X } from "lucide-react";
+import { ArrowUpRight, LogIn, Menu, X } from "lucide-react";
 import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
+  { href: "#o-produto", label: "O produto" },
   { href: "#funcionalidades", label: "Funcionalidades" },
+  { href: "#aplicativo", label: "App do aluno" },
   { href: "#como-funciona", label: "Como funciona" },
-  { href: "#aplicativo", label: "Aplicativo do aluno" },
-  { href: "#planos", label: "Planos" },
   { href: "#duvidas", label: "Dúvidas" },
 ];
 
@@ -82,7 +82,8 @@ export default function SiteHeader({
             {...propsDemo}
             className="btn-volt hidden !py-2 text-sm md:inline-flex"
           >
-            Agendar demonstração
+            Quero conhecer
+            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
           </a>
 
           <button
@@ -128,7 +129,8 @@ export default function SiteHeader({
               onClick={() => setAberto(false)}
               className="btn-volt w-full"
             >
-              Agendar demonstração
+              Quero conhecer
+              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
             </a>
             <Link
               href="/login"

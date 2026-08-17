@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   AlertTriangle,
+  ArrowRight,
   BarChart3,
   Bell,
   CalendarX2,
   CheckCircle2,
+  ChevronRight,
   ClipboardList,
   DollarSign,
   Dumbbell,
@@ -206,31 +208,53 @@ export default function Home() {
           />
           <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:py-24">
             <div className="animate-fade-up motion-reduce:animate-none">
-              <span className="chip border-volt-500/30 bg-volt-500/10 text-volt-300">
+              <span className="flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-volt-300">
+                <span className="h-px w-7 bg-volt-400" aria-hidden="true" />
                 Gestão completa para academias
               </span>
-              <h1 className="mt-5 text-[2.1rem] font-bold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
+              <h1 className="mt-5 text-[2.1rem] font-bold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
                 Sua academia organizada.{" "}
                 <span className="text-volt-300">
                   Seus alunos mais conectados.
                 </span>
               </h1>
               <p className="mt-5 max-w-xl text-base text-slate-300 sm:text-lg">
-                Controle alunos, mensalidades, acessos, treinos, financeiro e
-                resultados em um único sistema.
+                Gerencie alunos, mensalidades, acessos, treinos e sua operação em
+                um só lugar.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <a href={HREF_DEMO} {...PROPS_DEMO} className="btn-volt !py-3 text-base">
-                  Agendar demonstração
+                  Quero conhecer o GestAcad
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </a>
-                <a href="#funcionalidades" className="btn-ghost !py-3 text-base">
-                  Ver como funciona
+                <a href="#o-produto" className="btn-ghost !py-3 text-base">
+                  Ver o sistema
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </a>
               </div>
+
+              <ul className="mt-7 flex flex-wrap gap-x-5 gap-y-2">
+                {[
+                  "Dados separados por academia",
+                  "Equipe com permissões",
+                  "Experiência para o aluno",
+                ].map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-center gap-1.5 text-sm text-slate-400"
+                  >
+                    <CheckCircle2
+                      className="h-4 w-4 text-volt-300"
+                      aria-hidden="true"
+                    />
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
 
-            <div className="animate-fade-up motion-reduce:animate-none lg:pb-12">
+            <div className="animate-fade-up motion-reduce:animate-none lg:pb-20">
               <HeroProduto />
             </div>
           </div>

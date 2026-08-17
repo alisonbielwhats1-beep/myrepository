@@ -91,10 +91,30 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateY(12px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        "grow-up": {
+          "0%": { transform: "scaleY(0)" },
+          "100%": { transform: "scaleY(1)" },
+        },
+        "progress-fill": {
+          "0%": { width: "0%" },
+          "100%": { width: "var(--alvo, 66%)" },
+        },
+        "pulse-dot": {
+          "0%, 100%": { opacity: "1", transform: "scale(1)" },
+          "50%": { opacity: "0.4", transform: "scale(0.85)" },
+        },
       },
       animation: {
         "pulse-ring": "pulse-ring 2.2s cubic-bezier(0.2, 0.5, 0.3, 1) infinite",
         "fade-up": "fade-up 0.5s ease-out both",
+        float: "float 5s ease-in-out infinite",
+        "grow-up": "grow-up 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both",
+        "progress-fill": "progress-fill 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) both",
+        "pulse-dot": "pulse-dot 1.8s ease-in-out infinite",
       },
     },
   },
