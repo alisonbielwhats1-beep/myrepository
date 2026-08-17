@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <!-- Evita que o modo escuro do Gmail/Apple Mail inverta as cores da marca. -->
+    <meta name="color-scheme" content="dark" />
+    <meta name="supported-color-schemes" content="dark" />
+    <title>Redefinir sua senha — GestAcad</title>
+  </head>
+  <body
+    style="margin: 0; padding: 0; width: 100%; background-color: #07080d; color: #e2e8f0; -webkit-font-smoothing: antialiased;"
+  >
+    <!-- Prévia que aparece na caixa de entrada, antes de abrir o e-mail. -->
+    <div
+      style="display: none; max-height: 0; overflow: hidden; opacity: 0; mso-hide: all;"
+    >
+      Crie uma nova senha de acesso ao seu painel GestAcad. O link vale por 1 hora.
+      &#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;
+    </div>
+
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      border="0"
+      bgcolor="#07080D"
+      style="background-color: #07080d;"
+    >
+      <tr>
+        <td align="center" style="padding: 32px 16px;">
+          <!-- Card central, 600px -->
+          <table
+            role="presentation"
+            width="600"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="width: 600px; max-width: 100%; background-color: #12141d; border: 1px solid #242838; border-radius: 16px;"
+          >
+            <!-- Marca -->
+            <tr>
+              <td align="center" style="padding: 32px 32px 8px 32px;">
+                <span
+                  style="font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -0.3px; color: #ffffff;"
+                  >Gest<span style="color: #adff42;">Acad</span></span
+                >
+              </td>
+            </tr>
+
+            <!-- Título e texto -->
+            <tr>
+              <td style="padding: 16px 32px 0 32px;">
+                <h1
+                  style="margin: 0 0 12px 0; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 24px; line-height: 32px; font-weight: 700; color: #ffffff;"
+                >
+                  Redefinir sua senha
+                </h1>
+                <p
+                  style="margin: 0 0 8px 0; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 24px; color: #cbd5e1;"
+                >
+                  Recebemos um pedido para criar uma nova senha de acesso ao seu
+                  painel. Clique no botão abaixo para escolher a nova senha.
+                </p>
+              </td>
+            </tr>
+
+            <!-- Botão -->
+            <tr>
+              <td align="center" style="padding: 24px 32px 8px 32px;">
+                <!--[if mso]>
+                <v:roundrect
+                  xmlns:v="urn:schemas-microsoft-com:vml"
+                  xmlns:w="urn:schemas-microsoft-com:office:word"
+                  href="{{ .SiteURL }}/auth/recuperar?token_hash={{ .TokenHash }}&type=recovery"
+                  style="height:48px;v-text-anchor:middle;width:260px;"
+                  arcsize="26%"
+                  stroke="f"
+                  fillcolor="#ADFF42">
+                  <w:anchorlock/>
+                  <center style="color:#07080D;font-family:Segoe UI,Arial,sans-serif;font-size:16px;font-weight:bold;">
+                    Criar nova senha
+                  </center>
+                </v:roundrect>
+                <![endif]-->
+                <!--[if !mso]><!-- -->
+                <a
+                  href="{{ .SiteURL }}/auth/recuperar?token_hash={{ .TokenHash }}&type=recovery"
+                  style="display: inline-block; background-color: #adff42; color: #07080d; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 700; line-height: 20px; text-decoration: none; padding: 14px 32px; border-radius: 12px;"
+                  >Criar nova senha</a
+                >
+                <!--<![endif]-->
+              </td>
+            </tr>
+
+            <!-- Link em texto, para quem não consegue clicar no botão -->
+            <tr>
+              <td style="padding: 8px 32px 0 32px;">
+                <p
+                  style="margin: 0 0 6px 0; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 20px; color: #94a3b8;"
+                >
+                  Se o botão não funcionar, copie e cole este endereço no
+                  navegador:
+                </p>
+                <p
+                  style="margin: 0; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 20px; word-break: break-all;"
+                >
+                  <a
+                    href="{{ .SiteURL }}/auth/recuperar?token_hash={{ .TokenHash }}&type=recovery"
+                    style="color: #adff42; text-decoration: underline;"
+                    >{{ .SiteURL }}/auth/recuperar?token_hash={{ .TokenHash }}&type=recovery</a
+                  >
+                </p>
+              </td>
+            </tr>
+
+            <!-- Aviso de validade e segurança -->
+            <tr>
+              <td style="padding: 24px 32px 0 32px;">
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  style="background-color: #0b0d14; border: 1px solid #242838; border-radius: 12px;"
+                >
+                  <tr>
+                    <td style="padding: 14px 16px;">
+                      <p
+                        style="margin: 0; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 20px; color: #94a3b8;"
+                      >
+                        Este link vale por <strong style="color: #cbd5e1;">1 hora</strong>
+                        e só pode ser usado uma vez.<br />
+                        <strong style="color: #cbd5e1;">Não pediu a troca?</strong>
+                        Pode ignorar este e-mail — sua senha atual continua
+                        valendo e nada muda.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Rodapé -->
+            <tr>
+              <td style="padding: 24px 32px 32px 32px;">
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                >
+                  <tr>
+                    <td
+                      style="border-top: 1px solid #242838; padding-top: 20px;"
+                    >
+                      <p
+                        style="margin: 0 0 4px 0; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; line-height: 18px; color: #64748b;"
+                      >
+                        GestAcad — sistema de gestão para academias.
+                      </p>
+                      <p
+                        style="margin: 0; font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; line-height: 18px; color: #64748b;"
+                      >
+                        Enviado para {{ .Email }}. Este é um e-mail automático,
+                        não responda.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -60,26 +60,42 @@ o gate detecta o token na URL, estabelece a sessão e redireciona para
 `/redefinir-senha`. Você percebe pelo redirecionamento extra — vale corrigir a
 allow-list, mas o cliente não fica travado.
 
-### Opcional: link que funciona em outro celular/navegador
+### Recomendado: e-mail traduzido, com a marca e que funciona em qualquer aparelho
 
-O fluxo padrão (PKCE, `?code=`) exige abrir o link **no mesmo navegador** em que
-a recuperação foi pedida, porque o verificador fica guardado ali. É comum pedir
-no computador e abrir o e-mail no celular — nesse caso o app mostra o aviso
-"abra no mesmo navegador… ou peça um novo".
+O template padrão do Supabase é **em inglês** e usa `{{ .ConfirmationURL }}`,
+que tem dois problemas: passa pelo redirecionamento do Supabase (dependente da
+allow-list, a origem do bug do link caindo na home) e usa o fluxo PKCE, que
+exige abrir o link **no mesmo navegador** em que a recuperação foi pedida — mas
+é comum pedir no computador e abrir o e-mail no celular.
 
-Para permitir qualquer dispositivo, troque o template de e-mail
-(Authentication → Emails → Reset password) para usar o token no lugar da
-`ConfirmationURL`:
+O arquivo **[`email-recuperacao-senha.html`](./email-recuperacao-senha.html)**
+resolve os dois: está em português, com a identidade visual do GestAcad, e o
+botão aponta direto para o nosso domínio levando o token:
 
-```html
-<a href="{{ .SiteURL }}/auth/recuperar?token_hash={{ .TokenHash }}&type=recovery">
-  Redefinir senha
-</a>
+```
+{{ .SiteURL }}/auth/recuperar?token_hash={{ .TokenHash }}&type=recovery
 ```
 
-O código já aceita esse formato (`token_hash` + `type=recovery`, via
-`verifyOtp`), tanto na rota `/auth/recuperar` quanto no gate. Aproveite para
-traduzir o e-mail — o template padrão do Supabase é em inglês.
+Como não há redirecionamento intermediário, **a allow-list deixa de influenciar
+este fluxo** — basta o **Site URL** estar correto. E `token_hash` é validado com
+`verifyOtp`, que funciona em qualquer aparelho.
+
+**Como aplicar**
+
+1. Supabase → **Authentication → Emails → Reset Password**.
+2. Assunto: `Redefinir sua senha — GestAcad`
+3. Cole o conteúdo de `docs/email-recuperacao-senha.html` no corpo (Source/HTML).
+4. Envie um teste para você mesmo e confira: o botão deve abrir a tela
+   **"Criar nova senha"** direto, inclusive abrindo o e-mail no celular.
+
+**Detalhes do template**
+
+- Tabelas e estilos inline (Outlook, Gmail e Apple Mail ignoram CSS externo,
+  flexbox e grid); botão com fallback VML para o Outlook do Windows.
+- Sem imagens: nada quebra se o cliente bloquear o carregamento, e o logo é
+  texto.
+- Diz que o link **vale 1 hora**, que é o padrão do Supabase. Se você alterar em
+  Authentication → Providers → Email → *Email OTP Expiration*, ajuste a frase.
 
 ## 2. Variáveis de ambiente (Vercel e `.env.local`)
 
