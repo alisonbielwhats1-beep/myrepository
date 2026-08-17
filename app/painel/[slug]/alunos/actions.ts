@@ -355,7 +355,7 @@ export async function criarAluno(
   // cai no dia de hoje. O dia de hoje nunca precisa de limite — se hoje é 31,
   // é porque este mês tem 31.
   const diaVencimento =
-    lerDiaVencimento(formData.get("dia_vencimento") as string) ?? new Date().getDate();
+    lerDiaVencimento(formData.get("dia_vencimento") as string) ?? spHoje().dia;
 
   // Insere gerando a matrícula de forma atômica (helper compartilhado com a
   // importação em massa — mesma regra de insert, sem divergência).
@@ -510,7 +510,7 @@ export async function importarAlunos(
     };
   }
 
-  const diaPadrao = new Date().getDate();
+  const diaPadrao = spHoje().dia;
   let criados = 0;
   let ignorados = 0;
   const errosLinha = [...analise.erros];
@@ -588,7 +588,7 @@ export async function atualizarAluno(
   const diaVencimento =
     lerDiaVencimento(formData.get("dia_vencimento") as string) ??
     atual?.dia_vencimento ??
-    new Date().getDate();
+    spHoje().dia;
 
   const { error } = await supabase
     .from("alunos")
@@ -959,7 +959,7 @@ export async function registrarProgresso(
   const { error } = await supabase.from("progresso_aluno").insert({
     academia_id: sessao.academia.id,
     aluno_id: alunoId,
-    data: String(formData.get("data") ?? "").trim() || new Date().toISOString().slice(0, 10),
+    data: String(formData.get("data") ?? "").trim() || spHojeISO(),
     peso_kg: num("peso_kg"),
     percentual_gordura: num("percentual_gordura"),
     peito_cm: num("peito_cm"),

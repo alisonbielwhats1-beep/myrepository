@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { ArrowLeft, ShieldAlert } from "lucide-react";
 import Logo from "@/components/Logo";
+import { anoSaoPaulo } from "@/lib/utils";
 
 export const metadata = {
   title: "Termos de Uso — GestAcad",
 };
 
 export default function TermosDeUsoPage() {
-  const ano = new Date().getFullYear();
+  const ano = anoSaoPaulo();
 
   return (
     <main className="min-h-dvh bg-ink-950 bg-grid-fade">

@@ -41,6 +41,8 @@ import {
   rotuloStatusFinanceiro,
   badgeStatusMatricula,
   cn,
+  diaDoMesSaoPaulo,
+  formatDataISO,
   hojeSaoPaulo,
 } from "@/lib/utils";
 import { origemPublica } from "@/lib/site-url";
@@ -1033,7 +1035,7 @@ function FormularioAluno({
 
   const [pagamentoInicial, setPagamentoInicial] = useState<"a_pagar" | "pago_agora">("a_pagar");
   const [diaVencimento, setDiaVencimento] = useState(
-    alunoExistente?.dia_vencimento ?? new Date().getDate()
+    alunoExistente?.dia_vencimento ?? diaDoMesSaoPaulo()
   );
   const hoje = hojeSaoPaulo();
   const [dataPagamento, setDataPagamento] = useState(hoje);
@@ -1210,7 +1212,7 @@ function FormularioAluno({
               <div>
                 <p className="label-muted">Início do ciclo</p>
                 <p className="mt-0.5 font-semibold text-white">
-                  {new Date().toLocaleDateString("pt-BR")}
+                  {formatDataISO(hojeSaoPaulo())}
                 </p>
               </div>
               <div>

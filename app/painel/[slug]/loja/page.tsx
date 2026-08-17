@@ -9,6 +9,7 @@ import { requireSecao } from "@/lib/auth";
 import { getProdutos, getRelatorioVendas, getVendasRecentes } from "@/lib/data";
 import { Produto } from "@/lib/types";
 import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
+import { hojeSaoPaulo, somarDiasISO } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export default async function LojaPage({
     );
   }
 
-  const desde = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
+  const desde = somarDiasISO(hojeSaoPaulo(), -30);
 
   let produtos: Produto[] = [];
   try {

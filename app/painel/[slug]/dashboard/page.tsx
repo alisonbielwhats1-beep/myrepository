@@ -20,7 +20,7 @@ import UpgradeGuard from "@/components/ui/UpgradeGuard";
 import { requireSecao } from "@/lib/auth";
 import { getAcessosPeriodo, getContagemAlunos, getReceitas } from "@/lib/data";
 import { OrigemAcesso } from "@/lib/types";
-import { formatBRL } from "@/lib/utils";
+import { formatBRL, hojeSaoPaulo, somarDiasISO } from "@/lib/utils";
 import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
 
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -110,10 +110,13 @@ export default async function RelatoriosPage({
 
   const dadosFaturamento: PontoFaturamento[] = Array.from({ length: 7 }).map(
     (_, i) => {
-      const d = new Date(Date.now() - (6 - i) * 86400_000);
-      const iso = d.toISOString().slice(0, 10);
+      // Ancorado em SP: as chaves de `receitaPorDia` vêm de colunas `date`
+      // (dias de negócio em São Paulo). Montar a régua com Date.now()/UTC
+      // desalinhava o gráfico entre 21h e meia-noite — o dia de hoje caía
+      // fora da série e uma barra aparecia vazia.
+      const iso = somarDiasISO(hojeSaoPaulo(), i - 6);
       return {
-        dia: DIAS_SEMANA[d.getDay()],
+        dia: DIAS_SEMANA[new Date(`${iso}T00:00:00Z`).getUTCDay()],
         receitas: Math.round((receitaPorDia.get(iso) ?? 0) * 100) / 100,
       };
     }

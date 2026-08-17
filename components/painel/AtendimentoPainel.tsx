@@ -9,7 +9,7 @@ import {
   STATUS_ATENDIMENTO,
   StatusAtendimento,
 } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, formatDataDeInstante, formatDataHoraCompleta } from "@/lib/utils";
 import {
   atualizarStatusAtendimento,
   responderAtendimento,
@@ -100,7 +100,7 @@ function Ticket({ slug, atendimento }: { slug: string; atendimento: Atendimento 
             <span aria-hidden="true">·</span>
             {rotulo(CATEGORIAS_ATENDIMENTO, atendimento.categoria)}
             <span aria-hidden="true">·</span>
-            {new Date(atendimento.criado_em).toLocaleDateString("pt-BR")}
+            {formatDataDeInstante(atendimento.criado_em)}
           </p>
         </div>
         <span className={cn("chip flex-none", CLASSE_STATUS[atendimento.status])}>
@@ -122,7 +122,7 @@ function Ticket({ slug, atendimento }: { slug: string; atendimento: Atendimento 
             <p className="text-[11px] uppercase tracking-wide text-slate-500">
               {m.autor_tipo === "aluno" ? m.autor_nome : `${m.autor_nome} · academia`}
               {" · "}
-              {new Date(m.criado_em).toLocaleString("pt-BR")}
+              {formatDataHoraCompleta(m.criado_em)}
             </p>
             <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">
               {m.mensagem}

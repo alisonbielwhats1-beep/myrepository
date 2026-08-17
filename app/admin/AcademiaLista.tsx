@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { PlanoSaas } from "@/lib/types";
+import { formatDataDeInstante } from "@/lib/utils";
 import PlanoSelect from "./PlanoSelect";
 import RemoverAcademiaBtn from "./RemoverAcademiaBtn";
 import EditarAcademiaBtn from "./EditarAcademiaBtn";
@@ -121,7 +122,7 @@ export default function AcademiaLista({ academias }: { academias: AcademiaRow[] 
                     {totalPerfis}
                   </td>
                   <td className="px-5 py-3 text-slate-400">
-                    {new Date(a.criado_em).toLocaleDateString("pt-BR")}
+                    {formatDataDeInstante(a.criado_em)}
                   </td>
                   <td className="px-5 py-3">
                     <PlanoSelect academiaId={a.id} planoAtual={plano} />
