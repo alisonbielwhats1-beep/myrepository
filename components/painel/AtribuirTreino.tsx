@@ -35,31 +35,47 @@ type Atribuicao = {
 export default function AtribuirTreino({
   slug,
   treino,
+  variant = "volt",
+  label = "Atribuir a aluno",
+  controlado = false,
+  aberto: abertoProp,
+  onClose: onCloseProp,
 }: {
   slug: string;
   treino: Treino;
+  /** Estilo do gatilho. "outline" mantém a tela neutra (verde só no topo). */
+  variant?: "volt" | "outline";
+  label?: string;
+  /**
+   * Modo controlado: não renderiza gatilho próprio; o diálogo abre/fecha por
+   * `aberto`/`onClose` do pai. Usado quando o gatilho vive em outro lugar (ex.:
+   * um item do menu "•••"), para o diálogo não desmontar junto com o menu.
+   */
+  controlado?: boolean;
+  aberto?: boolean;
+  onClose?: () => void;
 }) {
-  const [aberto, setAberto] = useState(false);
+  const [abertoLocal, setAbertoLocal] = useState(false);
+  const aberto = controlado ? !!abertoProp : abertoLocal;
+  const fechar = () => (controlado ? onCloseProp?.() : setAbertoLocal(false));
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setAberto(true)}
-        className="btn-volt"
-        title="Criar uma cópia deste treino na ficha de um aluno"
-      >
-        <UserPlus className="h-4 w-4" />
-        Atribuir a aluno
-      </button>
+      {!controlado && (
+        <button
+          type="button"
+          onClick={() => setAbertoLocal(true)}
+          className={variant === "volt" ? "btn-volt" : "btn-outline"}
+          title="Criar uma cópia deste treino na ficha de um aluno"
+        >
+          <UserPlus className="h-4 w-4" />
+          {label}
+        </button>
+      )}
 
       {aberto &&
         createPortal(
-          <DialogAtribuir
-            slug={slug}
-            treino={treino}
-            onClose={() => setAberto(false)}
-          />,
+          <DialogAtribuir slug={slug} treino={treino} onClose={fechar} />,
           document.body
         )}
     </>

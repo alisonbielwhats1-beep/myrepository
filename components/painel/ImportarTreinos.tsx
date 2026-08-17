@@ -83,7 +83,7 @@ export default function ImportarTreinos({ slug }: { slug: string }) {
   if (!aberto) {
     return (
       <button type="button" onClick={() => setAberto(true)} className="btn-ghost">
-        <FileUp className="h-4 w-4" /> Importar planilha
+        <FileUp className="h-4 w-4" /> Importar
       </button>
     );
   }

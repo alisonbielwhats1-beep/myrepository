@@ -151,6 +151,15 @@ body {
       transition hover:border-ink-500 hover:bg-ink-700;
   }
 
+  /* Ação primária NEUTRA (grafite): destaque de ação sem gastar o verde, que
+     fica reservado ao CTA do topo e a estados positivos. Usado nas linhas de
+     treino ("Atribuir aluno" / "Usar modelo"). */
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border
+      border-ink-500 bg-ink-700 px-4 py-2.5 text-sm font-semibold text-white
+      transition hover:bg-ink-600 active:scale-[0.98];
+  }
+
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1
       text-xs font-medium;
