@@ -39,6 +39,7 @@ import ExercicioBuilder, {
 } from "@/components/painel/ExercicioBuilder";
 import CompartilharTreino from "@/components/painel/CompartilharTreino";
 import AtribuirTreino from "@/components/painel/AtribuirTreino";
+import ImportarTreinos from "@/components/painel/ImportarTreinos";
 import {
   criarTreinoBiblioteca,
   criarExercicioCatalogo,
@@ -194,6 +195,7 @@ export default function GestaoTreinos({
             ? "Fechar catálogo"
             : "Novo exercício do catálogo"}
         </button>
+        {podeAtribuir && <ImportarTreinos slug={slug} />}
       </div>
 
       {mostrarForm && (

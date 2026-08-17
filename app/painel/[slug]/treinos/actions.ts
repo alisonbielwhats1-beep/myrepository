@@ -14,6 +14,10 @@ import {
   montarLinhasExercicio,
 } from "@/lib/exercicios-treino";
 import {
+  analisarLinhasTreino,
+  linhasDoArquivo,
+} from "@/lib/importar-treinos";
+import {
   enviarMidiaExercicio,
   validarArquivoMidiaExercicio,
 } from "@/lib/midia-exercicios";
@@ -540,4 +544,125 @@ export async function duplicarTreino(
 
   revalidatePath(`/painel/${slug}/treinos`);
   return { ok: true, id: novo.id };
+}
+
+/** Resultado da importação de treinos por planilha (para a UI). */
+export type ResultadoImportacaoTreino = {
+  erro?: string;
+  criados?: number;
+  errosLinha?: { linha: number; motivo: string }[];
+  avisos?: { linha: number; motivo: string }[];
+  savedAt?: number;
+};
+
+/**
+ * Importa treinos-modelo em massa de uma planilha (.xlsx/.csv): uma linha por
+ * exercício, agrupada por nome de treino. Cada treino nasce PRIVADO do
+ * importador (origem_tipo='instrutor') — o dono compartilha depois. Reusa a
+ * mesma leitura/validação da pré-visualização (lib/importar-treinos) e o mesmo
+ * montador de exercícios do formulário manual.
+ */
+export async function importarTreinosBiblioteca(
+  slug: string,
+  _estado: ResultadoImportacaoTreino,
+  formData: FormData
+): Promise<ResultadoImportacaoTreino> {
+  const sessao = await requireSecao(slug, "treinos");
+  if (!podeGerenciarTreinos(sessao.papel)) {
+    return { erro: "Seu perfil não pode importar treinos." };
+  }
+
+  const arquivo = formData.get("arquivo");
+  if (!(arquivo instanceof File) || arquivo.size === 0) {
+    return { erro: "Selecione um arquivo Excel (.xlsx) ou CSV." };
+  }
+  if (arquivo.size > 5 * 1024 * 1024) {
+    return { erro: "Arquivo muito grande — máximo 5 MB." };
+  }
+
+  let grade: string[][];
+  try {
+    grade = await linhasDoArquivo(arquivo);
+  } catch {
+    return { erro: "Não consegui ler o arquivo. Use o modelo em Excel (.xlsx) ou um CSV." };
+  }
+
+  const analise = analisarLinhasTreino(grade);
+  if (analise.treinos.length === 0) {
+    return {
+      erro: analise.erros[0]?.motivo ?? "Nenhum treino válido na planilha.",
+      errosLinha: analise.erros,
+      avisos: analise.avisos,
+    };
+  }
+
+  const supabase = createClient();
+  const { count } = await supabase
+    .from("treinos")
+    .select("id", { count: "exact", head: true })
+    .eq("academia_id", sessao.academia.id)
+    .is("aluno_id", null);
+  let ordem = count ?? 0;
+
+  let criados = 0;
+  const errosLinha = [...analise.erros];
+
+  for (const t of analise.treinos) {
+    ordem += 1;
+    const { data: treino, error } = await supabase
+      .from("treinos")
+      .insert({
+        academia_id: sessao.academia.id,
+        aluno_id: null,
+        nome_treino: t.nome_treino,
+        objetivo: t.objetivo,
+        modalidade: t.modalidade,
+        nivel: t.nivel,
+        publico_alvo: t.publico_alvo,
+        criado_por: sessao.userId,
+        profissional_nome: sessao.nome,
+        origem: "importacao",
+        origem_tipo: "instrutor",
+        visibilidade: "privado",
+        ordem,
+      })
+      .select("id")
+      .single();
+
+    if (error || !treino) {
+      errosLinha.push({
+        linha: t.linha,
+        motivo: await erroAmigavel(error, `importar o treino "${t.nome_treino}"`),
+      });
+      continue;
+    }
+
+    const linhas = montarLinhasExercicio(
+      treino.id,
+      t.exercicios.map((e) => ({
+        nome_exercicio: e.nome_exercicio,
+        series: e.series,
+        repeticoes: e.repeticoes,
+        carga_kg: e.carga_kg,
+        descanso_segundos: e.descanso_segundos ?? 0,
+        observacoes: e.observacoes ?? "",
+        imagem_demonstracao_url: "",
+        video_demonstracao_url: "",
+      }))
+    );
+    const { error: erroEx } = await supabase.from("exercicios_treino").insert(linhas);
+    if (erroEx) {
+      // Desfaz o treino para não deixar modelo vazio.
+      await supabase.from("treinos").delete().eq("id", treino.id);
+      errosLinha.push({
+        linha: t.linha,
+        motivo: await erroAmigavel(erroEx, `salvar os exercícios de "${t.nome_treino}"`),
+      });
+      continue;
+    }
+    criados += 1;
+  }
+
+  if (criados > 0) revalidatePath(`/painel/${slug}/treinos`);
+  return { criados, errosLinha, avisos: analise.avisos, savedAt: Date.now() };
 }
