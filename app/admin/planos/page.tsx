@@ -5,7 +5,7 @@ import { requireAdminPlataforma } from "@/lib/admin-plataforma";
 import { intervaloLabel, MENSAGEM_ACIMA_DA_TABELA } from "@/lib/faixas-comerciais";
 import { PRECO_MENSAL_LABEL } from "@/lib/site-config";
 import { FaixaComercial } from "@/lib/types";
-import { formatBRL } from "@/lib/utils";
+import { formatBRL, formatDataHoraCompleta } from "@/lib/utils";
 import FaixaForm from "./FaixaForm";
 
 export const dynamic = "force-dynamic";
@@ -234,7 +234,7 @@ function Historico({
                     {l.acao}
                   </span>
                   <span className="ml-auto text-xs text-slate-500">
-                    {new Date(l.registrado_em).toLocaleString("pt-BR")}
+                    {formatDataHoraCompleta(l.registrado_em)}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500">por {l.usuario_email}</p>

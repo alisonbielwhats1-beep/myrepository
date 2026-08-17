@@ -18,6 +18,7 @@ import {
   classificarRetencao,
   cn,
   configRetencaoDe,
+  mesSaoPaulo,
 } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +53,7 @@ export default async function RetencaoPage({
   // Aniversariantes (Fase 13): antes carregava getAlunos() — a ficha inteira
   // de cada aluno da academia — só para ler data_nascimento. Agora usa a RPC
   // aniversariantes_do_mes (migration 038), que já filtra o mês no banco.
-  const mesAtual = new Date().getMonth();
+  const mesAtual = mesSaoPaulo();
   const [aniversariantesRows, retencao] = await Promise.all([
     getAlunosAniversariantes(mesAtual),
     getRetencaoAlunos(30),

@@ -29,7 +29,7 @@ export async function gerarFolha(
   const supabase = createClient();
   const comp = /^\d{4}-\d{2}-\d{2}$/.test(competencia)
     ? competencia
-    : new Date().toISOString().slice(0, 10);
+    : hojeSaoPaulo();
 
   const { data, error } = await supabase.rpc("gerar_folha_do_mes", {
     p_competencia: comp,

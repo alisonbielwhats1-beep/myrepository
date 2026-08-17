@@ -26,22 +26,75 @@ export function formatBRL(
   });
 }
 
-/** Retorna a hora no formato HH:mm a partir de um ISO string. */
+/**
+ * Fuso de referência do produto. O GestAcad opera no Brasil, então TODA data e
+ * hora exibida é a de São Paulo — nunca a do processo nem a do dispositivo.
+ *
+ * Explicitar o fuso em cada formatação é obrigatório: em Server Components e
+ * Server Actions o processo roda em UTC (Vercel), e `toLocaleString` sem
+ * `timeZone` usava esse UTC — um acesso liberado às 13h35 em São Paulo aparecia
+ * como 16h35 no app do aluno. No cliente, sem `timeZone`, o resultado passaria
+ * a depender do fuso do celular do usuário. Fixando aqui, servidor e cliente
+ * mostram exatamente o mesmo horário.
+ */
+export const FUSO_ACADEMIA = "America/Sao_Paulo";
+
+/** Hora (HH:mm) de um instante (timestamptz), no fuso da academia. */
 export function formatHora(iso: string): string {
   return new Date(iso).toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: FUSO_ACADEMIA,
   });
 }
 
-/** Retorna data e hora curtas (dd/mm HH:mm). */
+/** Data e hora curtas (dd/mm HH:mm) de um instante, no fuso da academia. */
 export function formatDataHora(iso: string): string {
   return new Date(iso).toLocaleString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: FUSO_ACADEMIA,
   });
+}
+
+/**
+ * Data (dd/mm/aaaa) de um INSTANTE (timestamptz: criado_em, respondido_em…),
+ * no fuso da academia. Para colunas `date` (YYYY-MM-DD) use `formatDataISO` —
+ * ali não existe instante, e converter para Date só cria risco de fuso.
+ */
+export function formatDataDeInstante(iso: string): string {
+  return new Date(iso).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: FUSO_ACADEMIA,
+  });
+}
+
+/** Data e hora completas (dd/mm/aaaa HH:mm) de um instante, no fuso da academia. */
+export function formatDataHoraCompleta(iso: string): string {
+  return new Date(iso).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: FUSO_ACADEMIA,
+  });
+}
+
+/**
+ * Data-calendário `YYYY-MM-DD` → `dd/mm/aaaa`, por manipulação de string.
+ *
+ * Não passa por `Date` de propósito: uma coluna `date` não tem hora nem fuso,
+ * e convertê-la para Date é justamente o que produz o clássico erro de um dia
+ * (`new Date("2026-08-17")` é meia-noite UTC = 16/08 21h em São Paulo).
+ */
+export function formatDataISO(data: string): string {
+  const [ano, mes, dia] = data.slice(0, 10).split("-");
+  return dia && mes && ano ? `${dia}/${mes}/${ano}` : data;
 }
 
 /** "há X min / há X h" a partir de uma data. */
@@ -96,11 +149,47 @@ export function hojeSaoPaulo(): string {
 /** Converte um instante (ISO ou Date) para a data-calendário YYYY-MM-DD em SP. */
 export function dataSaoPaulo(instante: string | Date): string {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
+    timeZone: FUSO_ACADEMIA,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   }).format(typeof instante === "string" ? new Date(instante) : instante);
+}
+
+/**
+ * Componentes de "hoje" no fuso da academia — substituem `new Date().getDate()`,
+ * `.getMonth()` e `.getFullYear()`, que leem o fuso do processo (UTC no
+ * servidor). No último dia do mês, entre 21h e meia-noite em São Paulo, o UTC
+ * já virou o dia 1º do mês seguinte: o dia de vencimento padrão saía como 1, e
+ * a lista de aniversariantes pulava para o mês errado.
+ *
+ * `mes` é 0-indexado, igual a `Date.getMonth()`, para troca direta.
+ */
+export function hojePartesSaoPaulo(): { ano: number; mes: number; dia: number } {
+  const [ano, mes, dia] = hojeSaoPaulo().split("-").map(Number);
+  return { ano, mes: mes - 1, dia };
+}
+
+/** Dia do mês (1–31) hoje em São Paulo. */
+export function diaDoMesSaoPaulo(): number {
+  return hojePartesSaoPaulo().dia;
+}
+
+/** Mês (0–11, igual a `Date.getMonth()`) hoje em São Paulo. */
+export function mesSaoPaulo(): number {
+  return hojePartesSaoPaulo().mes;
+}
+
+/** Ano hoje em São Paulo. */
+export function anoSaoPaulo(): number {
+  return hojePartesSaoPaulo().ano;
+}
+
+/** Soma (ou subtrai, com valor negativo) dias a uma data-calendário YYYY-MM-DD. */
+export function somarDiasISO(data: string, dias: number): string {
+  const d = new Date(`${data.slice(0, 10)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + dias);
+  return d.toISOString().slice(0, 10);
 }
 
 /**
@@ -113,7 +202,7 @@ export function dataSaoPaulo(instante: string | Date): string {
  */
 export function horaSaoPaulo(instante: string | Date): number {
   const partes = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Sao_Paulo",
+    timeZone: FUSO_ACADEMIA,
     hour: "2-digit",
     hourCycle: "h23",
   }).formatToParts(typeof instante === "string" ? new Date(instante) : instante);

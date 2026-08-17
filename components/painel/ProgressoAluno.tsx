@@ -5,6 +5,7 @@ import { useFormState } from "react-dom";
 import Image from "next/image";
 import { LineChart, Plus, Ruler, Scale } from "lucide-react";
 import { ProgressoAluno as TipoProgresso } from "@/lib/types";
+import { hojeSaoPaulo } from "@/lib/utils";
 import { GraficoProgressoPeso } from "@/components/painel/DashboardCharts";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
@@ -176,7 +177,7 @@ function FormularioProgresso({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado.savedAt]);
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeSaoPaulo();
 
   return (
     <form

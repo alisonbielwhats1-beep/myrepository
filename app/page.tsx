@@ -24,6 +24,7 @@ import SiteHeader from "@/components/site/SiteHeader";
 import HeroProduto from "@/components/site/HeroProduto";
 import FaqLista from "@/components/site/FaqLista";
 import { PRECO_MENSAL_LABEL, linkWhatsappComercial } from "@/lib/site-config";
+import { anoSaoPaulo } from "@/lib/utils";
 
 const TITULO_SITE = "GestAcad | Sistema de gestão para academias";
 const DESCRICAO_SITE =
@@ -190,7 +191,7 @@ const INCLUSO_NO_PLANO = [
 ];
 
 export default function Home() {
-  const ano = new Date().getFullYear();
+  const ano = anoSaoPaulo();
 
   return (
     <>

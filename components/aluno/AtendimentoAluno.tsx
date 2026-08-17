@@ -9,7 +9,7 @@ import {
   STATUS_ATENDIMENTO,
   StatusAtendimento,
 } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, formatDataDeInstante, formatDataHoraCompleta } from "@/lib/utils";
 
 type EstadoAcaoAluno = { erro?: string; ok?: boolean; savedAt?: number };
 type AcaoForm = (
@@ -185,7 +185,7 @@ function Ticket({
             {CATEGORIAS_ATENDIMENTO.find((c) => c.value === atendimento.categoria)
               ?.label ?? atendimento.categoria}
             {" · "}
-            {new Date(atendimento.criado_em).toLocaleDateString("pt-BR")}
+            {formatDataDeInstante(atendimento.criado_em)}
           </p>
         </div>
         <span className={cn("chip flex-none", CLASSE_STATUS[atendimento.status])}>
@@ -207,7 +207,7 @@ function Ticket({
             <p className="text-[11px] uppercase tracking-wide text-slate-500">
               {m.autor_tipo === "academia" ? "Academia" : "Você"}
               {" · "}
-              {new Date(m.criado_em).toLocaleString("pt-BR")}
+              {formatDataHoraCompleta(m.criado_em)}
             </p>
             <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">
               {m.mensagem}

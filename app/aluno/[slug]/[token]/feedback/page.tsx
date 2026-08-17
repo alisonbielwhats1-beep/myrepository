@@ -3,6 +3,7 @@ import FeedbackForm from "@/components/aluno/FeedbackForm";
 import { requireFichaAluno } from "@/lib/aluno-publico";
 import { getFeedbacksDoAluno } from "@/lib/data";
 import { FeedbackDoAluno } from "@/lib/types";
+import { formatDataDeInstante } from "@/lib/utils";
 import { enviarFeedback } from "@/app/aluno/[slug]/[token]/actions";
 
 export const dynamic = "force-dynamic";
@@ -56,7 +57,7 @@ export default async function AlunoFeedbackPage({
                     <span className="sr-only">{f.nota} de 5</span>
                   </div>
                   <span className="text-xs text-slate-500">
-                    {new Date(f.criado_em).toLocaleDateString("pt-BR")}
+                    {formatDataDeInstante(f.criado_em)}
                   </span>
                 </div>
 

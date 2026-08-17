@@ -49,4 +49,5 @@ next-env.d.ts
 /.test-build-intelligence
 /.test-build-treinos
 /.test-build-import-treinos
+/.test-build-fuso
 .vercel

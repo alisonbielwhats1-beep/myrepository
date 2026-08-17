@@ -15,7 +15,7 @@ import { GraficoProgressoPeso } from "@/components/painel/DashboardCharts";
 import AvatarAluno from "@/components/aluno/AvatarAluno";
 import FotoPerfilForm from "@/components/aluno/FotoPerfilForm";
 import { requireFichaAluno } from "@/lib/aluno-publico";
-import { badgeStatusMatricula, cn } from "@/lib/utils";
+import { badgeStatusMatricula, cn, formatDataDeInstante } from "@/lib/utils";
 import { atualizarFotoAluno } from "./actions";
 
 export default async function PerfilPage({
@@ -25,11 +25,7 @@ export default async function PerfilPage({
 }) {
   const ficha = await requireFichaAluno(params.slug, params.token);
   const { aluno, progresso } = ficha;
-  const alunoDesde = new Date(aluno.criado_em).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  const alunoDesde = formatDataDeInstante(aluno.criado_em);
 
   const dadosPeso = progresso
     .filter((p) => p.peso_kg != null)

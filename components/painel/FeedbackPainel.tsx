@@ -16,7 +16,7 @@ import {
   STATUS_FEEDBACK,
   StatusFeedback,
 } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, formatDataHoraCompleta, FUSO_ACADEMIA } from "@/lib/utils";
 import ConfirmButton from "@/components/ui/ConfirmButton";
 import {
   atualizarStatusFeedback,
@@ -186,6 +186,7 @@ export default function FeedbackPainel({
                     day: "2-digit",
                     month: "short",
                     year: "numeric",
+                    timeZone: FUSO_ACADEMIA,
                   })}
                 </span>
                 <div className="flex items-center gap-1">
@@ -248,7 +249,7 @@ function Tratamento({ slug, feedback }: { slug: string; feedback: Feedback }) {
           <p className="mt-2 text-[11px] text-slate-600">
             {feedback.respondido_por_nome ?? "Equipe"}
             {feedback.respondido_em &&
-              ` · ${new Date(feedback.respondido_em).toLocaleString("pt-BR")}`}
+              ` · ${formatDataHoraCompleta(feedback.respondido_em)}`}
           </p>
         </div>
       )}

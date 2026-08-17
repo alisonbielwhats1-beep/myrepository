@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import type { Treino } from "@/lib/types";
+import { formatDataDeInstante } from "@/lib/utils";
 import {
   atribuirTreinoBiblioteca,
   removerAtribuicaoTreino,
@@ -84,9 +85,8 @@ export default function AtribuirTreino({
 
 function formatarData(iso: string | null): string {
   if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  if (Number.isNaN(new Date(iso).getTime())) return "";
+  return formatDataDeInstante(iso);
 }
 
 function DialogAtribuir({
