@@ -434,6 +434,58 @@ begin
   reset role;
 end $$;
 
+-- =============================================================================
+-- T9 — Duplicar treino-modelo preserva a fidelidade e o isolamento.
+--       Reproduz as operações da Server Action duplicarTreino sob RLS: lê o
+--       modelo + exercícios (INCLUINDO configuracao), insere a cópia no tenant
+--       da sessão com o usuário atual como criador, e copia os exercícios com
+--       a configuracao intacta. Trava a regressão do bug B1 (configuracao caía).
+-- =============================================================================
+do $$
+declare
+  v_i1A uuid := (select valor from _ids where chave='i1A');
+  v_acadA uuid := (select valor from _ids where chave='acadA');
+  v_src uuid; v_copy uuid; v_cfg jsonb; n bigint;
+begin
+  raise notice 'T9 — duplicar preserva configuracao/tenant/autor';
+
+  -- Origem: modelo do i1 com um exercício que tem configuracao não-trivial.
+  insert into public.treinos(academia_id,aluno_id,nome_treino,criado_por,origem_tipo,visibilidade,ativo)
+    values (v_acadA,null,'Base p/ duplicar',v_i1A,'instrutor','privado',true) returning id into v_src;
+  insert into public.exercicios_treino(treino_id,nome_exercicio,series,repeticoes,carga_kg,descanso_segundos,observacoes,configuracao,ordem)
+    values (v_src,'Supino',4,'8',30,90,'obs',jsonb_build_object('metodo','drop-set','tempo','3-1-1'),1);
+
+  -- Simula duplicarTreino como o AUTOR i1A, passando pelo RLS de insert.
+  perform pg_temp.vira(v_i1A);
+  select configuracao into v_cfg from public.exercicios_treino where treino_id = v_src;
+  perform pg_temp.checarb('le configuracao do exercicio de origem', v_cfg ? 'metodo', true);
+
+  insert into public.treinos(academia_id,aluno_id,nome_treino,criado_por,profissional_nome,
+    origem,origem_tipo,visibilidade,publico,ordem)
+    values (v_acadA,null,'Base p/ duplicar (cópia)',v_i1A,'I1','manual','instrutor','privado',false,999)
+    returning id into v_copy;
+  insert into public.exercicios_treino(treino_id,nome_exercicio,series,repeticoes,carga_kg,
+    descanso_segundos,observacoes,configuracao,ordem)
+  select v_copy,nome_exercicio,series,repeticoes,carga_kg,descanso_segundos,observacoes,configuracao,ordem
+  from public.exercicios_treino where treino_id = v_src order by ordem;
+  reset role;
+
+  -- Fidelidade: a configuracao foi copiada (regressão do B1).
+  select configuracao into v_cfg from public.exercicios_treino where treino_id = v_copy;
+  perform pg_temp.checarb('copia PRESERVA configuracao (B1)', v_cfg->>'metodo' = 'drop-set', true);
+  perform pg_temp.checarb('copia preserva tempo da configuracao', v_cfg->>'tempo' = '3-1-1', true);
+
+  -- Isolamento/atributos da cópia: tenant certo, autor certo, sem aluno, não pública.
+  select count(*) into n from public.treinos
+    where id = v_copy and academia_id = v_acadA and aluno_id is null
+      and criado_por = v_i1A and publico = false;
+  perform pg_temp.checar('copia no tenant/autor certos, sem aluno, nao publica', n, 1);
+  -- share_token próprio (default do banco), nunca herdado.
+  select count(*) into n from public.treinos t
+    where t.id = v_copy and t.share_token is not null;
+  perform pg_temp.checar('copia ganha share_token proprio', n, 1);
+end $$;
+
 select '== Integração RLS/RPC de Treinos passou ==' as resultado;
 
 rollback;
