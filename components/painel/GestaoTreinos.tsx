@@ -1,30 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormState } from "react-dom";
 import {
+  BookPlus,
   Check,
   ChevronDown,
-  BookPlus,
   Copy,
   Dumbbell,
-  Layers,
+  Link2,
   Loader2,
   Lock,
+  MoreHorizontal,
   Pencil,
   Plus,
-  Repeat,
   Search,
-  Share2,
+  SlidersHorizontal,
   Sparkles,
-  Target,
-  Timer,
-  Users,
+  Trash2,
   UserCog,
+  UserPlus,
+  Users,
   UsersRound,
-  UserRound,
-  Weight,
   X,
 } from "lucide-react";
 import {
@@ -36,18 +34,15 @@ import {
 import { nivelDoTreino, type NivelTreino } from "@/lib/treinos";
 import { cn } from "@/lib/utils";
 import FormActions from "@/components/ui/FormActions";
-import ConfirmButton from "@/components/ui/ConfirmButton";
 import ExercicioBuilder, {
   type LinhaExercicio,
 } from "@/components/painel/ExercicioBuilder";
-import CompartilharTreino from "@/components/painel/CompartilharTreino";
-import CompartilharInstrutores from "@/components/painel/CompartilharInstrutores";
 import AtribuirTreino from "@/components/painel/AtribuirTreino";
 import ImportarTreinos from "@/components/painel/ImportarTreinos";
+import GerenciarAcesso from "@/components/painel/GerenciarAcesso";
 import {
   criarTreinoBiblioteca,
   criarExercicioCatalogo,
-  definirVisibilidadeTreino,
   duplicarTreino,
   editarTreinoBiblioteca,
   excluirTreinoBiblioteca,
@@ -62,14 +57,13 @@ const MODALIDADES_SUGERIDAS = [
   "Iniciante",
 ];
 
-/** Filtro por nível de visibilidade (segmento no topo da tela). */
-type NivelFiltro =
-  | "todos"
-  | "plataforma"
-  | "academia"
-  | "equipe"
-  | "meus"
-  | "privados_equipe";
+/** Abas principais (ORIGEM): partição — Meus + Academia + GestAcad = Todos. */
+type AbaOrigem = "todos" | "meus" | "academia" | "gestacad";
+
+/** Ordenação da lista. */
+type Ordenacao = "modalidade" | "nome" | "exercicios";
+
+type Instrutor = { id: string; nome: string };
 
 export default function GestaoTreinos({
   slug,
@@ -83,28 +77,39 @@ export default function GestaoTreinos({
   slug: string;
   treinosIniciais: Treino[];
   catalogo: CatalogoExercicio[];
-  instrutores: { id: string; nome: string }[];
+  instrutores: Instrutor[];
   podeAtribuir: boolean;
   userId: string;
   papel: Papel;
 }) {
   const treinos = treinosIniciais;
   const ehGestor = papel === "dono" || papel === "gerente";
+
   const [mostrarForm, setMostrarForm] = useState(treinos.length === 0);
   const [mostrarCatalogoForm, setMostrarCatalogoForm] = useState(false);
+  const [aba, setAba] = useState<AbaOrigem>("todos");
   const [busca, setBusca] = useState("");
-  const [modalidadeFiltro, setModalidadeFiltro] = useState<string>("");
-  const [nivelFiltro, setNivelFiltro] = useState<NivelFiltro>("todos");
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+
+  // Filtros avançados (dentro do painel "Filtros").
+  const [fModalidade, setFModalidade] = useState("");
+  const [fObjetivo, setFObjetivo] = useState("");
+  const [fNivel, setFNivel] = useState("");
+  const [fVisibilidade, setFVisibilidade] = useState("");
+  const [ordenacao, setOrdenacao] = useState<Ordenacao>("modalidade");
+
   const [avisoDuplicado, setAvisoDuplicado] = useState<string | null>(null);
 
-  // Após duplicar, a cópia nasce PRIVADA (cai em "Meus treinos"). Se um filtro/
-  // aba estiver ativo (ex.: "Padrão GestAcad"), o card novo ficaria escondido e
-  // pareceria que "nada aconteceu". Limpamos os filtros e avisamos onde a cópia
-  // ficou, para o novo card aparecer sempre.
+  // Após duplicar, a cópia nasce PRIVADA (vai para "Meus"). Se houver filtro/aba
+  // ativo, o card novo ficaria escondido — limpamos os filtros e avisamos onde a
+  // cópia ficou, para o card aparecer sempre. (Correção B2 da auditoria.)
   const aoDuplicar = (nomeBase: string) => {
-    setNivelFiltro("todos");
+    setAba("todos");
     setBusca("");
-    setModalidadeFiltro("");
+    setFModalidade("");
+    setFObjetivo("");
+    setFNivel("");
+    setFVisibilidade("");
     setAvisoDuplicado(`Cópia criada: "${nomeBase} (cópia)" — em Meus treinos.`);
   };
 
@@ -114,115 +119,141 @@ export default function GestaoTreinos({
     return () => window.clearTimeout(t);
   }, [avisoDuplicado]);
 
-  // Quantos treinos existem em cada nível — define quais abas mostrar.
-  // "meus" e "privados_equipe" recortam os PRIVADOS (meus vs. de outros);
-  // "equipe" e "academia" são os níveis compartilhados.
-  const contagemNivel = useMemo(() => {
-    const c = { plataforma: 0, academia: 0, equipe: 0, meus: 0, privadosEquipe: 0 };
-    for (const t of treinos) {
-      const nv = nivelDoTreino(t);
-      if (nv === "plataforma") c.plataforma++;
-      else if (nv === "academia") c.academia++;
-      else if (nv === "equipe") c.equipe++;
-      else if (t.criado_por === userId) c.meus++; // privado meu
-      else c.privadosEquipe++; // privado de outro (dono/gerente enxerga)
-    }
-    return c;
-  }, [treinos, userId]);
-
-  const passaNivel = (t: Treino): boolean => {
-    if (nivelFiltro === "todos") return true;
-    const nv = nivelDoTreino(t);
-    if (nivelFiltro === "plataforma") return nv === "plataforma";
-    if (nivelFiltro === "academia") return nv === "academia";
-    if (nivelFiltro === "equipe") return nv === "equipe";
-    // "selecionado" (compartilhado com instrutores específicos) recorta junto
-    // dos privados: para o autor aparece em "Meus treinos"; para dono/gerente
-    // que não é o autor, em "Privados da equipe".
-    const ehPrivadoOuSelecionado = nv === "privado" || nv === "selecionado";
-    if (nivelFiltro === "meus")
-      return ehPrivadoOuSelecionado && t.criado_por === userId;
-    if (nivelFiltro === "privados_equipe")
-      return ehPrivadoOuSelecionado && t.criado_por !== userId;
-    return true;
+  // Classifica a ORIGEM de cada treino para as abas (partição estável).
+  const origemDe = (t: Treino): Exclude<AbaOrigem, "todos"> => {
+    if (nivelDoTreino(t) === "plataforma") return "gestacad";
+    return t.criado_por === userId ? "meus" : "academia";
   };
 
-  // Lista de modalidades existentes (para os botões de filtro rápido).
-  const modalidades = useMemo(() => {
-    const set = new Set<string>();
-    for (const t of treinos) set.add(t.modalidade?.trim() || "Sem modalidade");
-    return Array.from(set).sort();
-  }, [treinos]);
+  const contagem = useMemo(() => {
+    const c = { todos: treinos.length, meus: 0, academia: 0, gestacad: 0 };
+    for (const t of treinos) c[origemDe(t)]++;
+    return c;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [treinos, userId]);
 
-  // Aplica nível + busca por texto (nome/objetivo/modalidade) + modalidade.
+  // Opções dinâmicas dos filtros (só o que existe na biblioteca).
+  const modalidades = useMemo(
+    () =>
+      Array.from(
+        new Set(treinos.map((t) => t.modalidade?.trim()).filter(Boolean))
+      ).sort() as string[],
+    [treinos]
+  );
+  const objetivos = useMemo(
+    () =>
+      Array.from(
+        new Set(treinos.map((t) => t.objetivo?.trim()).filter(Boolean))
+      ).sort() as string[],
+    [treinos]
+  );
+  const niveis = useMemo(
+    () =>
+      Array.from(
+        new Set(treinos.map((t) => t.nivel?.trim()).filter(Boolean))
+      ).sort() as string[],
+    [treinos]
+  );
+
+  const filtros = [fModalidade, fObjetivo, fNivel, fVisibilidade].filter(
+    Boolean
+  ).length;
+  const temFiltro =
+    aba !== "todos" || busca.trim() !== "" || filtros > 0;
+
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    return treinos.filter((t) => {
-      if (!passaNivel(t)) return false;
-      const mod = t.modalidade?.trim() || "Sem modalidade";
-      if (modalidadeFiltro && mod !== modalidadeFiltro) return false;
+    const lista = treinos.filter((t) => {
+      if (aba !== "todos" && origemDe(t) !== aba) return false;
+      if (fModalidade && (t.modalidade?.trim() || "") !== fModalidade)
+        return false;
+      if (fObjetivo && (t.objetivo?.trim() || "") !== fObjetivo) return false;
+      if (fNivel && (t.nivel?.trim() || "") !== fNivel) return false;
+      if (fVisibilidade && nivelDoTreino(t) !== fVisibilidade) return false;
       if (!termo) return true;
       const alvo = [
         t.nome_treino,
         t.objetivo ?? "",
         t.nivel ?? "",
         t.publico_alvo ?? "",
+        t.modalidade ?? "",
         t.profissional_nome ?? "",
-        mod,
         ...(t.exercicios ?? []).map((e) => e.nome_exercicio),
       ]
         .join(" ")
         .toLowerCase();
       return alvo.includes(termo);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [treinos, busca, modalidadeFiltro, nivelFiltro, userId]);
 
-  // Agrupa os treinos filtrados por modalidade.
-  const grupos = useMemo(() => {
-    const map = new Map<string, Treino[]>();
-    for (const t of filtrados) {
-      const k = t.modalidade?.trim() || "Sem modalidade";
-      if (!map.has(k)) map.set(k, []);
-      map.get(k)!.push(t);
+    const ordenado = lista.slice();
+    if (ordenacao === "nome") {
+      ordenado.sort((a, b) => a.nome_treino.localeCompare(b.nome_treino, "pt"));
+    } else if (ordenacao === "exercicios") {
+      ordenado.sort(
+        (a, b) => (b.exercicios?.length ?? 0) - (a.exercicios?.length ?? 0)
+      );
+    } else {
+      ordenado.sort(
+        (a, b) =>
+          (a.modalidade ?? "").localeCompare(b.modalidade ?? "", "pt") ||
+          a.ordem - b.ordem
+      );
     }
-    return Array.from(map.entries());
-  }, [filtrados]);
+    return ordenado;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    treinos,
+    aba,
+    busca,
+    fModalidade,
+    fObjetivo,
+    fNivel,
+    fVisibilidade,
+    ordenacao,
+    userId,
+  ]);
 
-  const temFiltro =
-    busca.trim() !== "" || modalidadeFiltro !== "" || nivelFiltro !== "todos";
+  const limparTudo = () => {
+    setAba("todos");
+    setBusca("");
+    setFModalidade("");
+    setFObjetivo("");
+    setFNivel("");
+    setFVisibilidade("");
+  };
 
-  // Abas de nível: só aparecem as que têm treino (evita aba vazia confundindo).
-  const abasNivel: { valor: NivelFiltro; label: string; qtd: number }[] = [
-    { valor: "meus" as NivelFiltro, label: "Meus treinos", qtd: contagemNivel.meus },
-    { valor: "equipe" as NivelFiltro, label: "Da equipe", qtd: contagemNivel.equipe },
-    { valor: "academia" as NivelFiltro, label: "Da academia", qtd: contagemNivel.academia },
-    { valor: "plataforma" as NivelFiltro, label: "Padrão GestAcad", qtd: contagemNivel.plataforma },
-    ...(ehGestor
-      ? [{ valor: "privados_equipe" as NivelFiltro, label: "Privados da equipe", qtd: contagemNivel.privadosEquipe }]
-      : []),
-  ].filter((a) => a.qtd > 0);
+  const abas: { valor: AbaOrigem; label: string; qtd: number }[] = [
+    { valor: "todos", label: "Todos", qtd: contagem.todos },
+    { valor: "meus", label: "Meus", qtd: contagem.meus },
+    { valor: "academia", label: "Academia", qtd: contagem.academia },
+    { valor: "gestacad", label: "GestAcad", qtd: contagem.gestacad },
+  ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap gap-2">
+    <div className="space-y-5">
+      {/* Ações do topo: CTA verde único + secundárias neutras. */}
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={() => setMostrarForm((v) => !v)}
+          onClick={() => {
+            setMostrarForm((v) => !v);
+            setMostrarCatalogoForm(false);
+          }}
           className={mostrarForm ? "btn-ghost" : "btn-volt"}
         >
-          <Plus className="h-4 w-4" />
-          {mostrarForm ? "Fechar formulário" : "Novo treino"}
+          {mostrarForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          {mostrarForm ? "Fechar" : "Novo treino"}
         </button>
         <button
           type="button"
-          onClick={() => setMostrarCatalogoForm((v) => !v)}
+          onClick={() => {
+            setMostrarCatalogoForm((v) => !v);
+            setMostrarForm(false);
+          }}
           className="btn-ghost"
         >
           <BookPlus className="h-4 w-4" />
-          {mostrarCatalogoForm
-            ? "Fechar catálogo"
-            : "Novo exercício do catálogo"}
+          Biblioteca de exercícios
         </button>
         {podeAtribuir && <ImportarTreinos slug={slug} />}
       </div>
@@ -240,7 +271,6 @@ export default function GestaoTreinos({
           onSalvo={() => setMostrarForm(false)}
         />
       )}
-
       {mostrarCatalogoForm && (
         <FormularioExercicioCatalogo
           slug={slug}
@@ -248,144 +278,172 @@ export default function GestaoTreinos({
         />
       )}
 
-      {/* Segmento por nível: Meus treinos / Da academia / Padrão GestAcad */}
-      {treinos.length > 0 && abasNivel.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 rounded-xl border border-ink-700 bg-ink-900/40 p-1.5">
-          <button
-            onClick={() => setNivelFiltro("todos")}
-            className={cn(
-              "rounded-lg px-3 py-1.5 text-xs font-semibold transition",
-              nivelFiltro === "todos"
-                ? "bg-volt-300 text-ink-950"
-                : "text-slate-400 hover:text-slate-200"
-            )}
-          >
-            Todos
-          </button>
-          {abasNivel.map((aba) => (
-            <button
-              key={aba.valor}
-              onClick={() => setNivelFiltro(aba.valor)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
-                nivelFiltro === aba.valor
-                  ? "bg-volt-300 text-ink-950"
-                  : "text-slate-400 hover:text-slate-200"
-              )}
-            >
-              {aba.valor === "plataforma" && <Sparkles className="h-3.5 w-3.5" />}
-              {aba.valor === "academia" && <Users className="h-3.5 w-3.5" />}
-              {aba.valor === "equipe" && <UsersRound className="h-3.5 w-3.5" />}
-              {(aba.valor === "meus" || aba.valor === "privados_equipe") && (
-                <Lock className="h-3.5 w-3.5" />
-              )}
-              {aba.label}
-              <span
-                className={cn(
-                  nivelFiltro === aba.valor ? "text-ink-950/60" : "text-slate-600"
-                )}
-              >
-                {aba.qtd}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Busca + filtro por modalidade */}
       {treinos.length > 0 && (
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-            <input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar treino por nome, objetivo ou exercício..."
-              className="inp pl-9"
-            />
-            {busca && (
+        <>
+          {/* Abas de ORIGEM (Todos | Meus | Academia | GestAcad). */}
+          <div className="flex flex-wrap gap-1 border-b border-ink-700">
+            {abas.map((a) => (
               <button
-                onClick={() => setBusca("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
-                aria-label="Limpar busca"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              onClick={() => setModalidadeFiltro("")}
-              className={cn(
-                "rounded-lg border px-3 py-1 text-xs font-medium transition",
-                modalidadeFiltro === ""
-                  ? "border-volt-500/40 bg-volt-500/10 text-volt-300"
-                  : "border-ink-600 bg-ink-800 text-slate-400 hover:text-slate-200"
-              )}
-            >
-              Todas
-            </button>
-            {modalidades.map((m) => (
-              <button
-                key={m}
-                onClick={() => setModalidadeFiltro(m)}
+                key={a.valor}
+                onClick={() => setAba(a.valor)}
                 className={cn(
-                  "rounded-lg border px-3 py-1 text-xs font-medium transition",
-                  modalidadeFiltro === m
-                    ? "border-volt-500/40 bg-volt-500/10 text-volt-300"
-                    : "border-ink-600 bg-ink-800 text-slate-400 hover:text-slate-200"
+                  "relative -mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition",
+                  aba === a.valor
+                    ? "border-volt-300 text-white"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
                 )}
               >
-                {m}
+                {a.valor === "gestacad" && <Sparkles className="h-3.5 w-3.5" />}
+                {a.label}
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 text-xs tabular-nums",
+                    aba === a.valor
+                      ? "bg-ink-700 text-slate-300"
+                      : "text-slate-600"
+                  )}
+                >
+                  {a.qtd}
+                </span>
               </button>
             ))}
           </div>
-        </div>
+
+          {/* Busca única + botão Filtros. */}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar treino por nome, objetivo ou exercício..."
+                className="inp pl-9"
+              />
+              {busca && (
+                <button
+                  onClick={() => setBusca("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                  aria-label="Limpar busca"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setFiltrosAbertos((v) => !v)}
+              className={cn(
+                "btn-ghost sm:w-auto",
+                (filtrosAbertos || filtros > 0) &&
+                  "border-volt-500/40 text-volt-200"
+              )}
+              aria-expanded={filtrosAbertos}
+            >
+              <SlidersHorizontal className="h-4 w-4" /> Filtros
+              {filtros > 0 && (
+                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-volt-300 px-1 text-xs font-semibold text-ink-950">
+                  {filtros}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {filtrosAbertos && (
+            <div className="grid gap-3 rounded-xl border border-ink-700 bg-ink-900/40 p-4 sm:grid-cols-2 lg:grid-cols-3">
+              <FiltroSelect
+                label="Modalidade"
+                value={fModalidade}
+                onChange={setFModalidade}
+                options={modalidades}
+              />
+              <FiltroSelect
+                label="Objetivo"
+                value={fObjetivo}
+                onChange={setFObjetivo}
+                options={objetivos}
+              />
+              <FiltroSelect
+                label="Dificuldade"
+                value={fNivel}
+                onChange={setFNivel}
+                options={niveis}
+              />
+              <FiltroSelect
+                label="Visibilidade"
+                value={fVisibilidade}
+                onChange={setFVisibilidade}
+                options={[
+                  { valor: "privado", rotulo: "Privado" },
+                  { valor: "selecionado", rotulo: "Instrutores" },
+                  { valor: "equipe", rotulo: "Equipe" },
+                  { valor: "academia", rotulo: "Academia" },
+                  { valor: "plataforma", rotulo: "Modelo GestAcad" },
+                ]}
+              />
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-400">
+                  Ordenar por
+                </span>
+                <select
+                  value={ordenacao}
+                  onChange={(e) => setOrdenacao(e.target.value as Ordenacao)}
+                  className="inp"
+                >
+                  <option value="modalidade">Modalidade</option>
+                  <option value="nome">Nome (A–Z)</option>
+                  <option value="exercicios">Mais exercícios</option>
+                </select>
+              </label>
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFModalidade("");
+                    setFObjetivo("");
+                    setFNivel("");
+                    setFVisibilidade("");
+                    setOrdenacao("modalidade");
+                  }}
+                  className="btn-ghost w-full"
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
+      {/* Lista */}
       {treinos.length === 0 && !mostrarForm ? (
         <div className="surface rounded-2xl p-8 text-center text-slate-400">
-          Nenhum treino na biblioteca ainda. Crie o primeiro (ex: “Treino A -
-          Peito e Tríceps”) e compartilhe por QR.
+          Nenhum treino na biblioteca ainda. Crie o primeiro (ex: “Treino A —
+          Peito e Tríceps”).
         </div>
       ) : filtrados.length === 0 && temFiltro ? (
         <div className="surface rounded-2xl p-8 text-center text-slate-400">
           Nenhum treino encontrado para o filtro atual.
           <button
-            onClick={() => {
-              setBusca("");
-              setModalidadeFiltro("");
-              setNivelFiltro("todos");
-            }}
+            onClick={limparTudo}
             className="ml-1 text-volt-300 underline-offset-2 hover:underline"
           >
-            Limpar filtros
+            Limpar
           </button>
         </div>
       ) : (
-        <div className="space-y-8">
-          {grupos.map(([modalidade, lista]) => (
-            <section key={modalidade} className="space-y-3">
-              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
-                <Layers className="h-4 w-4 text-volt-300" /> {modalidade}
-                <span className="text-slate-600">({lista.length})</span>
-              </h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                {lista.map((t) => (
-                  <CardTreino
-                    key={t.id}
-                    slug={slug}
-                    treino={t}
-                    catalogo={catalogo}
-                    instrutores={instrutores}
-                    podeAtribuir={podeAtribuir}
-                    userId={userId}
-                    ehGestor={ehGestor}
-                    onDuplicado={aoDuplicar}
-                  />
-                ))}
-              </div>
-            </section>
+        <div className="divide-y divide-ink-700/70 overflow-hidden rounded-2xl border border-ink-700 bg-ink-800/40">
+          {filtrados.map((t) => (
+            <LinhaTreino
+              key={t.id}
+              slug={slug}
+              treino={t}
+              catalogo={catalogo}
+              instrutores={instrutores}
+              podeAtribuir={podeAtribuir}
+              userId={userId}
+              ehGestor={ehGestor}
+              onDuplicado={aoDuplicar}
+            />
           ))}
         </div>
       )}
@@ -393,7 +451,88 @@ export default function GestaoTreinos({
   );
 }
 
-function CardTreino({
+/** Select de filtro reutilizável: aceita lista de strings ou {valor,rotulo}. */
+function FiltroSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: (string | { valor: string; rotulo: string })[];
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-medium text-slate-400">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="inp"
+        disabled={options.length === 0}
+      >
+        <option value="">Todos</option>
+        {options.map((o) => {
+          const valor = typeof o === "string" ? o : o.valor;
+          const rotulo = typeof o === "string" ? o : o.rotulo;
+          return (
+            <option key={valor} value={valor}>
+              {rotulo}
+            </option>
+          );
+        })}
+      </select>
+    </label>
+  );
+}
+
+/**
+ * Selo ÚNICO de acesso interno. Paleta neutra (grafite) para todos os níveis do
+ * tenant — diferenciados por ícone + rótulo, não por cor — mantendo a tela
+ * sóbria. O verde fica reservado ao modelo GestAcad (marca) e ao "Link ativo".
+ */
+function SeloAcesso({ nivel }: { nivel: NivelTreino }) {
+  if (nivel === "plataforma")
+    return (
+      <span className="chip border-volt-500/25 bg-volt-500/10 text-volt-300">
+        <Sparkles className="h-3.5 w-3.5" /> Modelo GestAcad
+      </span>
+    );
+
+  const neutro = "chip border-ink-500 bg-ink-700/60 text-slate-300";
+  if (nivel === "academia")
+    return (
+      <span className={neutro}>
+        <Users className="h-3.5 w-3.5" /> Academia
+      </span>
+    );
+  if (nivel === "equipe")
+    return (
+      <span className={neutro}>
+        <UsersRound className="h-3.5 w-3.5" /> Equipe
+      </span>
+    );
+  if (nivel === "selecionado")
+    return (
+      <span className={neutro}>
+        <UserCog className="h-3.5 w-3.5" /> Instrutores
+      </span>
+    );
+  return (
+    <span className={neutro}>
+      <Lock className="h-3.5 w-3.5" /> Privado
+    </span>
+  );
+}
+
+/**
+ * Linha horizontal de um treino-modelo (desktop full-width; empilha no mobile).
+ * Mostra só o essencial e concentra as ações secundárias no menu "•••".
+ */
+function LinhaTreino({
   slug,
   treino,
   catalogo,
@@ -406,7 +545,7 @@ function CardTreino({
   slug: string;
   treino: Treino;
   catalogo: CatalogoExercicio[];
-  instrutores: { id: string; nome: string }[];
+  instrutores: Instrutor[];
   podeAtribuir: boolean;
   userId: string;
   ehGestor: boolean;
@@ -414,194 +553,178 @@ function CardTreino({
 }) {
   const [aberto, setAberto] = useState(false);
   const [editando, setEditando] = useState(false);
-  const exercicios = treino.exercicios ?? [];
+  const [acessoAberto, setAcessoAberto] = useState(false);
+  const [atribuirAberto, setAtribuirAberto] = useState(false);
 
+  const exercicios = treino.exercicios ?? [];
   const nivel = nivelDoTreino(treino);
   const souDono = treino.criado_por === userId;
   const ehPlataforma = nivel === "plataforma";
-  // Só o autor do treino ou dono/gerente podem alternar a visibilidade.
-  // Treino da plataforma (GestAcad) é gerenciado fora da academia: a academia
-  // não compartilha nem exclui o modelo global — só atribui a um aluno (que
-  // gera uma cópia própria, essa sim compartilhável).
+  // Só o autor do treino ou dono/gerente gerenciam acesso/edição.
   const podeAlternar = !ehPlataforma && (souDono || ehGestor);
 
+  const nomesExercicios = exercicios.map((e) => e.nome_exercicio);
+  const preview = nomesExercicios.slice(0, 3);
+  const restantes = nomesExercicios.length - preview.length;
+
   return (
-    <div className="surface flex flex-col rounded-2xl p-5">
-      {/* Cabeçalho clicável: abre/fecha os detalhes do treino */}
+    <div className="group flex flex-col gap-3 p-4 transition hover:bg-ink-800/60 sm:flex-row sm:items-center sm:gap-4">
+      {/* Bloco clicável: abre/fecha os exercícios */}
       <button
         type="button"
         onClick={() => setAberto((v) => !v)}
         aria-expanded={aberto}
-        className="flex items-start justify-between gap-2 text-left"
+        className="min-w-0 flex-1 text-left"
       >
-        <div className="min-w-0">
-          <h3 className="font-semibold text-white">{treino.nome_treino}</h3>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <SeloNivel nivel={nivel} souDono={souDono} treino={treino} />
-            {treino.objetivo && (
-              <span className="chip border-magenta-500/30 bg-magenta-500/10 text-magenta-400">
-                <Target className="h-3.5 w-3.5" /> {treino.objetivo}
-              </span>
-            )}
-            {treino.nivel && (
-              <span className="chip border-sky-500/30 bg-sky-500/10 text-sky-300">
-                {treino.nivel}
-              </span>
-            )}
-            {treino.publico_alvo && (
-              <span className="chip border-ink-500 bg-ink-700/60 text-slate-300">
-                {treino.publico_alvo}
-              </span>
-            )}
-            <span className="text-xs text-slate-500">
-              {exercicios.length} exercícios
-            </span>
-          </div>
-        </div>
-        <div className="flex flex-none items-center gap-2">
-          {treino.publico && (
-            <span className="chip border-volt-500/30 bg-volt-500/10 text-volt-300">
-              <Share2 className="h-3 w-3" /> público
+        <div className="flex items-center gap-2">
+          <h3 className="truncate font-semibold text-white">
+            {treino.nome_treino}
+          </h3>
+          {treino.modalidade && (
+            <span className="hidden truncate text-sm text-slate-500 sm:inline">
+              — {treino.modalidade}
             </span>
           )}
           <ChevronDown
             className={cn(
-              "h-5 w-5 text-slate-500 transition-transform",
+              "h-4 w-4 flex-none text-slate-600 transition-transform",
               aberto && "rotate-180"
             )}
           />
         </div>
+
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+          <SeloAcesso nivel={nivel} />
+          {treino.publico && (
+            <span className="chip border-volt-500/25 bg-volt-500/10 text-volt-300">
+              <Link2 className="h-3.5 w-3.5" /> Link ativo
+            </span>
+          )}
+          {treino.objetivo && (
+            <span className="text-slate-500">· {treino.objetivo}</span>
+          )}
+        </div>
+
+        <p className="mt-1.5 truncate text-xs text-slate-500">
+          {exercicios.length}{" "}
+          {exercicios.length === 1 ? "exercício" : "exercícios"}
+          {preview.length > 0 && (
+            <span className="text-slate-600">
+              {" · "}
+              {preview.join(" · ")}
+              {restantes > 0 && ` · +${restantes}`}
+            </span>
+          )}
+        </p>
       </button>
 
-      {treino.profissional_nome && (
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
-          <UserRound className="h-3.5 w-3.5" />
-          Profissional: {treino.profissional_nome}
-        </p>
+      {/* Ações: primária neutra + menu ••• */}
+      <div className="flex flex-none items-center gap-2">
+        {ehPlataforma
+          ? podeAtribuir && (
+              <UsarModeloBotao
+                slug={slug}
+                treino={treino}
+                onDuplicado={onDuplicado}
+              />
+            )
+          : podeAtribuir && (
+              <AtribuirTreino
+                slug={slug}
+                treino={treino}
+                variant="outline"
+                label="Atribuir aluno"
+              />
+            )}
+
+        <MenuAcoes
+          slug={slug}
+          treino={treino}
+          ehPlataforma={ehPlataforma}
+          podeAlternar={podeAlternar}
+          podeAtribuir={podeAtribuir}
+          onEditar={() => {
+            setEditando((v) => !v);
+            setAberto(true);
+          }}
+          onGerenciarAcesso={() => setAcessoAberto(true)}
+          onAtribuir={() => setAtribuirAberto(true)}
+          onDuplicado={onDuplicado}
+        />
+      </div>
+
+      {/* Diálogo de atribuir controlado no nível da linha (para o modelo de
+          plataforma via menu "•••"), fora do menu que fecha ao clicar. */}
+      {ehPlataforma && podeAtribuir && (
+        <AtribuirTreino
+          slug={slug}
+          treino={treino}
+          controlado
+          aberto={atribuirAberto}
+          onClose={() => setAtribuirAberto(false)}
+        />
       )}
 
-      {aberto ? (
-        <ul className="mt-4 space-y-2">
-          {exercicios.length === 0 && (
-            <li className="text-sm text-slate-500">
-              Este treino ainda não tem exercícios.
-            </li>
-          )}
-          {exercicios.map((ex, i) => (
-            <li
-              key={ex.id}
-              className="flex items-center gap-3 rounded-xl border border-ink-700 bg-ink-900/40 p-2"
-            >
-              <div className="h-12 w-12 flex-none overflow-hidden rounded-lg bg-ink-700">
-                {ex.imagem_demonstracao_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={ex.imagem_demonstracao_url}
-                    alt={ex.nome_exercicio}
-                    className="media-native h-full w-full object-cover"
-                  />
-                ) : (
-                  <span className="grid h-full w-full place-items-center text-slate-500">
-                    <Dumbbell className="h-4 w-4" />
-                  </span>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-white">
-                  {i + 1}. {ex.nome_exercicio}
-                </p>
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400">
-                  <span className="flex items-center gap-1">
-                    <Repeat className="h-3 w-3" /> {ex.series}x {ex.repeticoes}
-                  </span>
-                  {!!ex.carga_kg && ex.carga_kg > 0 && (
-                    <span className="flex items-center gap-1">
-                      <Weight className="h-3 w-3" /> {ex.carga_kg} kg
-                    </span>
-                  )}
-                  {!!ex.descanso_segundos && (
-                    <span className="flex items-center gap-1">
-                      <Timer className="h-3 w-3" /> {ex.descanso_segundos}s
+      {/* Detalhes expandidos (exercícios) — ocupam a linha inteira */}
+      {aberto && (
+        <div className="w-full basis-full sm:order-last">
+          <ul className="mt-1 space-y-2">
+            {exercicios.length === 0 && (
+              <li className="text-sm text-slate-500">
+                Este treino ainda não tem exercícios.
+              </li>
+            )}
+            {exercicios.map((ex, i) => (
+              <li
+                key={ex.id}
+                className="flex items-center gap-3 rounded-xl border border-ink-700 bg-ink-900/40 p-2"
+              >
+                <div className="h-11 w-11 flex-none overflow-hidden rounded-lg bg-ink-700">
+                  {ex.imagem_demonstracao_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={ex.imagem_demonstracao_url}
+                      alt={ex.nome_exercicio}
+                      className="media-native h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="grid h-full w-full place-items-center text-slate-500">
+                      <Dumbbell className="h-4 w-4" />
                     </span>
                   )}
                 </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {exercicios.slice(0, 6).map((ex) => (
-            <span
-              key={ex.id}
-              className="chip border-ink-600 bg-ink-700/60 text-slate-300"
-            >
-              {ex.nome_exercicio}
-            </span>
-          ))}
-          {exercicios.length > 6 && (
-            <span className="chip border-ink-600 bg-ink-700/60 text-slate-400">
-              +{exercicios.length - 6}
-            </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-white">
+                    {i + 1}. {ex.nome_exercicio}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {ex.series}x {ex.repeticoes}
+                    {!!ex.carga_kg && ex.carga_kg > 0 && ` · ${ex.carga_kg} kg`}
+                    {!!ex.descanso_segundos &&
+                      ` · ${ex.descanso_segundos}s descanso`}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {editando && !ehPlataforma && (
+            <FormularioEdicaoTreinoModelo
+              slug={slug}
+              treino={treino}
+              catalogo={catalogo}
+              onSalvo={() => setEditando(false)}
+            />
           )}
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-ink-700 pt-4">
-        {podeAtribuir && <AtribuirTreino slug={slug} treino={treino} />}
-        {/* Modelo da plataforma é global: a academia não compartilha, edita nem
-            exclui o original — só atribui a um aluno ou DUPLICA para personalizar. */}
-        {!ehPlataforma && <CompartilharTreino slug={slug} treino={treino} />}
-        {podeAlternar && (
-          <CompartilharInstrutores
-            slug={slug}
-            treino={treino}
-            instrutores={instrutores}
-          />
-        )}
-        {podeAlternar && (
-          <VisibilidadeToggle slug={slug} treino={treino} nivel={nivel} />
-        )}
-        {podeAlternar && (
-          <button
-            type="button"
-            onClick={() => setEditando((v) => !v)}
-            aria-expanded={editando}
-            className="btn-ghost"
-            title="Editar nome, dados e exercícios deste treino"
-          >
-            <Pencil className="h-4 w-4" /> {editando ? "Fechar edição" : "Editar"}
-          </button>
-        )}
-        {podeAtribuir && (
-          <DuplicarBotao
-            slug={slug}
-            treino={treino}
-            ehPlataforma={ehPlataforma}
-            onDuplicado={onDuplicado}
-          />
-        )}
-        {ehPlataforma ? (
-          <span className="ml-auto text-xs text-slate-500">
-            Modelo GestAcad — atribua ou duplique para personalizar
-          </span>
-        ) : (
-          <div className="ml-auto">
-            <ConfirmButton
-              action={() => excluirTreinoBiblioteca(slug, treino.id)}
-              confirmText={`Excluir o treino "${treino.nome_treino}"?`}
-              label="Excluir treino"
-            />
-          </div>
-        )}
-      </div>
-
-      {editando && !ehPlataforma && (
-        <FormularioEdicaoTreinoModelo
+      {acessoAberto && podeAlternar && (
+        <GerenciarAcesso
           slug={slug}
           treino={treino}
-          catalogo={catalogo}
-          onSalvo={() => setEditando(false)}
+          instrutores={instrutores}
+          onClose={() => setAcessoAberto(false)}
         />
       )}
     </div>
@@ -609,34 +732,30 @@ function CardTreino({
 }
 
 /**
- * Botão "Duplicar": cria uma cópia editável do modelo na academia da sessão
- * (inclusive a partir de um modelo padrão da plataforma, para personalizar). O
- * revalidatePath da action atualiza a lista — o card novo aparece sozinho.
+ * "Usar modelo" — ação principal do Modelo GestAcad: cria uma cópia editável na
+ * academia (duplicarTreino, com a fidelidade e o refresh já validados na
+ * auditoria). O template original nunca é alterado.
  */
-function DuplicarBotao({
+function UsarModeloBotao({
   slug,
   treino,
-  ehPlataforma,
   onDuplicado,
 }: {
   slug: string;
   treino: Treino;
-  ehPlataforma: boolean;
   onDuplicado: (nomeBase: string) => void;
 }) {
   const router = useRouter();
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const duplicar = async () => {
+  const usar = async () => {
     setEnviando(true);
     setErro(null);
     const r = await duplicarTreino(slug, treino.id);
     if ("erro" in r) {
       setErro(r.erro);
     } else {
-      // Garante a atualização da lista mesmo com o cache do router client-side,
-      // e revela a cópia (limpa filtros + aviso) via o callback do pai.
       onDuplicado(treino.nome_treino);
       router.refresh();
     }
@@ -646,22 +765,209 @@ function DuplicarBotao({
   return (
     <button
       type="button"
-      onClick={duplicar}
+      onClick={usar}
       disabled={enviando}
-      title={
-        erro ??
-        (ehPlataforma
-          ? "Criar uma cópia editável na sua academia"
-          : "Duplicar este treino")
-      }
-      className={cn("btn-ghost", erro && "border-red-500/40 text-red-300")}
+      title={erro ?? "Criar uma cópia editável deste modelo na sua academia"}
+      className={cn("btn-outline", erro && "border-red-500/40 text-red-300")}
     >
       {enviando ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
         <Copy className="h-4 w-4" />
       )}
-      Duplicar
+      Usar modelo
+    </button>
+  );
+}
+
+/** Menu "•••" com as ações secundárias; Excluir separado das demais. */
+function MenuAcoes({
+  slug,
+  treino,
+  ehPlataforma,
+  podeAlternar,
+  podeAtribuir,
+  onEditar,
+  onGerenciarAcesso,
+  onAtribuir,
+  onDuplicado,
+}: {
+  slug: string;
+  treino: Treino;
+  ehPlataforma: boolean;
+  podeAlternar: boolean;
+  podeAtribuir: boolean;
+  onEditar: () => void;
+  onGerenciarAcesso: () => void;
+  onAtribuir: () => void;
+  onDuplicado: (nomeBase: string) => void;
+}) {
+  const router = useRouter();
+  const [aberto, setAberto] = useState(false);
+  const [ocupado, setOcupado] = useState<null | "duplicar" | "excluir">(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setAberto(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setAberto(false);
+    document.addEventListener("mousedown", fora);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", fora);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [aberto]);
+
+  const duplicar = async () => {
+    setOcupado("duplicar");
+    setErro(null);
+    const r = await duplicarTreino(slug, treino.id);
+    if ("erro" in r) {
+      setErro(r.erro);
+    } else {
+      setAberto(false);
+      onDuplicado(treino.nome_treino);
+      router.refresh();
+    }
+    setOcupado(null);
+  };
+
+  const excluir = async () => {
+    if (
+      !window.confirm(`Excluir o treino "${treino.nome_treino}"? Não dá para desfazer.`)
+    )
+      return;
+    setOcupado("excluir");
+    setErro(null);
+    const r = await excluirTreinoBiblioteca(slug, treino.id);
+    if (r && "erro" in r) {
+      setErro(r.erro);
+    } else {
+      setAberto(false);
+      router.refresh();
+    }
+    setOcupado(null);
+  };
+
+  // Sem nenhuma ação disponível (ex.: recepção num modelo de plataforma): oculta.
+  const temAlgumaAcao = podeAlternar || podeAtribuir;
+  if (!temAlgumaAcao) return null;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={aberto}
+        title="Mais ações"
+        className="grid h-9 w-9 place-items-center rounded-lg border border-ink-600 text-slate-400 transition hover:border-ink-500 hover:text-white"
+      >
+        {ocupado ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <MoreHorizontal className="h-5 w-5" />
+        )}
+      </button>
+
+      {aberto && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-40 mt-1 w-56 overflow-hidden rounded-xl border border-ink-600 bg-ink-900 py-1 shadow-xl"
+        >
+          {podeAlternar && (
+            <ItemMenu icone={<Pencil className="h-4 w-4" />} onClick={() => { setAberto(false); onEditar(); }}>
+              Editar
+            </ItemMenu>
+          )}
+          {podeAtribuir && (
+            <ItemMenu
+              icone={<Copy className="h-4 w-4" />}
+              onClick={duplicar}
+              carregando={ocupado === "duplicar"}
+            >
+              Duplicar
+            </ItemMenu>
+          )}
+          {podeAlternar && (
+            <ItemMenu
+              icone={<UserCog className="h-4 w-4" />}
+              onClick={() => { setAberto(false); onGerenciarAcesso(); }}
+            >
+              Gerenciar acesso
+            </ItemMenu>
+          )}
+          {/* No modelo de plataforma, a opção extra é atribuir direto a um aluno. */}
+          {ehPlataforma && podeAtribuir && (
+            <ItemMenu
+              icone={<UserPlus className="h-4 w-4" />}
+              onClick={() => {
+                setAberto(false);
+                onAtribuir();
+              }}
+            >
+              Atribuir a aluno
+            </ItemMenu>
+          )}
+
+          {podeAlternar && (
+            <>
+              <div className="my-1 border-t border-ink-700" />
+              <ItemMenu
+                icone={<Trash2 className="h-4 w-4" />}
+                onClick={excluir}
+                carregando={ocupado === "excluir"}
+                perigo
+              >
+                Excluir
+              </ItemMenu>
+            </>
+          )}
+
+          {erro && (
+            <p className="px-3 py-2 text-xs text-red-300">{erro}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ItemMenu({
+  icone,
+  children,
+  onClick,
+  carregando,
+  perigo,
+}: {
+  icone: React.ReactNode;
+  children: React.ReactNode;
+  onClick: () => void;
+  carregando?: boolean;
+  perigo?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      disabled={carregando}
+      className={cn(
+        "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition disabled:opacity-60",
+        perigo
+          ? "text-red-300 hover:bg-red-500/10"
+          : "text-slate-200 hover:bg-ink-700"
+      )}
+    >
+      <span className="flex-none">
+        {carregando ? <Loader2 className="h-4 w-4 animate-spin" /> : icone}
+      </span>
+      {children}
     </button>
   );
 }
@@ -700,7 +1006,7 @@ function FormularioEdicaoTreinoModelo({
   return (
     <form
       action={formAction}
-      className="mt-4 space-y-4 rounded-xl border border-ink-700 bg-ink-900/40 p-4"
+      className="mt-3 space-y-4 rounded-xl border border-ink-700 bg-ink-900/40 p-4"
     >
       <h4 className="flex items-center gap-2 text-sm font-semibold text-white">
         <Pencil className="h-4 w-4 text-volt-300" /> Editar treino
@@ -763,135 +1069,8 @@ function FormularioEdicaoTreinoModelo({
       </div>
 
       <ExercicioBuilder slug={slug} catalogo={catalogo} iniciais={iniciais} />
-
       <FormActions salvarLabel="Salvar alterações" />
     </form>
-  );
-}
-
-/** Selo do nível de visibilidade exibido no card do treino. */
-function SeloNivel({
-  nivel,
-  souDono,
-  treino,
-}: {
-  nivel: NivelTreino;
-  souDono: boolean;
-  treino: Treino;
-}) {
-  if (nivel === "plataforma") {
-    return (
-      <span className="chip border-volt-500/30 bg-volt-500/10 text-volt-300">
-        <Sparkles className="h-3.5 w-3.5" /> Padrão GestAcad
-      </span>
-    );
-  }
-  if (nivel === "academia") {
-    return (
-      <span className="chip border-sky-500/30 bg-sky-500/10 text-sky-300">
-        <Users className="h-3.5 w-3.5" /> Da academia
-      </span>
-    );
-  }
-  if (nivel === "equipe") {
-    return (
-      <span className="chip border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
-        <UsersRound className="h-3.5 w-3.5" /> Da equipe
-      </span>
-    );
-  }
-  if (nivel === "selecionado") {
-    return (
-      <span className="chip border-teal-500/30 bg-teal-500/10 text-teal-300">
-        <UserCog className="h-3.5 w-3.5" />
-        {souDono ? "Instrutores selecionados" : "Compartilhado comigo"}
-      </span>
-    );
-  }
-  // privado
-  return (
-    <span className="chip border-amber-500/30 bg-amber-500/10 text-amber-300">
-      <Lock className="h-3.5 w-3.5" />
-      {souDono
-        ? "Meu treino (privado)"
-        : `Privado · ${treino.profissional_nome ?? "instrutor"}`}
-    </span>
-  );
-}
-
-/** Níveis de visibilidade que o gestor/autor pode definir, na ordem de abertura. */
-const OPCOES_VISIBILIDADE: {
-  valor: "privado" | "equipe" | "academia";
-  label: string;
-}[] = [
-  { valor: "privado", label: "Privado" },
-  { valor: "equipe", label: "Equipe" },
-  { valor: "academia", label: "Academia" },
-];
-
-/**
- * Seletor de visibilidade em três níveis (migration 077). Otimista: reflete a
- * escolha na hora e reverte se a Server Action falhar (RLS barra quem não pode).
- */
-function VisibilidadeToggle({
-  slug,
-  treino,
-  nivel,
-}: {
-  slug: string;
-  treino: Treino;
-  nivel: NivelTreino;
-}) {
-  // nivel só chega aqui como privado/equipe/academia (plataforma não alterna).
-  const atualInicial: "privado" | "equipe" | "academia" =
-    nivel === "academia" ? "academia" : nivel === "equipe" ? "equipe" : "privado";
-  const [atual, setAtual] = useState(atualInicial);
-  const [enviando, setEnviando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-
-  const definir = async (alvo: "privado" | "equipe" | "academia") => {
-    if (alvo === atual || enviando) return;
-    const anterior = atual;
-    setAtual(alvo);
-    setEnviando(true);
-    setErro(null);
-    const r = await definirVisibilidadeTreino(slug, treino.id, alvo);
-    if (r && "erro" in r) {
-      setAtual(anterior); // reverte: o banco não mudou
-      setErro(r.erro);
-    }
-    setEnviando(false);
-  };
-
-  return (
-    <span
-      className="inline-flex items-center gap-0.5 rounded-lg border border-ink-600 bg-ink-800 p-0.5"
-      title={erro ?? "Quem pode ver este treino"}
-      role="group"
-      aria-label="Visibilidade do treino"
-    >
-      {OPCOES_VISIBILIDADE.map((op) => (
-        <button
-          key={op.valor}
-          type="button"
-          onClick={() => definir(op.valor)}
-          disabled={enviando}
-          aria-pressed={atual === op.valor}
-          className={cn(
-            "rounded-md px-2 py-1 text-xs font-medium transition disabled:opacity-60",
-            atual === op.valor
-              ? "bg-volt-300 text-ink-950"
-              : "text-slate-400 hover:text-slate-200",
-            erro && "text-red-300"
-          )}
-        >
-          {op.valor === "privado" && <Lock className="mr-1 inline h-3 w-3" />}
-          {op.valor === "equipe" && <UsersRound className="mr-1 inline h-3 w-3" />}
-          {op.valor === "academia" && <Users className="mr-1 inline h-3 w-3" />}
-          {op.label}
-        </button>
-      ))}
-    </span>
   );
 }
 
@@ -960,11 +1139,7 @@ function FormularioTreino({
           <span className="mb-1 block text-xs font-medium text-slate-400">
             Objetivo
           </span>
-          <input
-            name="objetivo"
-            placeholder="Ex: Hipertrofia"
-            className="inp"
-          />
+          <input name="objetivo" placeholder="Ex: Hipertrofia" className="inp" />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-400">
@@ -999,30 +1174,30 @@ function FormularioTreino({
           Quem pode ver este treino?
         </legend>
         <div className="grid gap-2 sm:grid-cols-3">
-          <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-ink-600 bg-ink-900/50 p-3 has-[:checked]:border-amber-500/50 has-[:checked]:bg-amber-500/5">
+          <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-ink-600 bg-ink-900/50 p-3 has-[:checked]:border-volt-500/50 has-[:checked]:bg-volt-500/5">
             <input
               type="radio"
               name="visibilidade"
               value="privado"
               defaultChecked
-              className="mt-0.5 accent-amber-400"
+              className="mt-0.5 accent-volt-400"
             />
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-sm font-medium text-white">
-                <Lock className="h-3.5 w-3.5 text-amber-300" /> Só eu (privado)
+                <Lock className="h-3.5 w-3.5 text-slate-300" /> Só eu (privado)
               </span>
               <span className="mt-0.5 block text-xs text-slate-500">
-                Fica na sua lista. Dono/gerente também veem. Dá para
-                compartilhar depois.
+                Fica na sua lista. Dono/gerente também veem. Dá para liberar
+                depois em “Gerenciar acesso”.
               </span>
             </span>
           </label>
-          <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-ink-600 bg-ink-900/50 p-3 has-[:checked]:border-indigo-500/50 has-[:checked]:bg-indigo-500/5">
+          <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-ink-600 bg-ink-900/50 p-3 has-[:checked]:border-volt-500/50 has-[:checked]:bg-volt-500/5">
             <input
               type="radio"
               name="visibilidade"
               value="equipe"
-              className="mt-0.5 accent-indigo-400"
+              className="mt-0.5 accent-volt-400"
             />
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-sm font-medium text-white">
@@ -1034,12 +1209,12 @@ function FormularioTreino({
               </span>
             </span>
           </label>
-          <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-ink-600 bg-ink-900/50 p-3 has-[:checked]:border-sky-500/50 has-[:checked]:bg-sky-500/5">
+          <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-ink-600 bg-ink-900/50 p-3 has-[:checked]:border-volt-500/50 has-[:checked]:bg-volt-500/5">
             <input
               type="radio"
               name="visibilidade"
               value="academia"
-              className="mt-0.5 accent-sky-400"
+              className="mt-0.5 accent-volt-400"
             />
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-sm font-medium text-white">
@@ -1149,11 +1324,7 @@ function FormularioExercicioCatalogo({
             <span className="mb-1 block text-xs font-medium text-slate-400">
               Repetições
             </span>
-            <input
-              name="repeticoes_padrao"
-              defaultValue="12"
-              className="inp"
-            />
+            <input name="repeticoes_padrao" defaultValue="12" className="inp" />
           </label>
         </div>
       </div>

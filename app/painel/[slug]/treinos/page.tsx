@@ -27,9 +27,7 @@ export default async function TreinosPage({
       <div>
         <h1 className="text-2xl font-bold text-white">Treinos</h1>
         <p className="text-sm text-slate-400">
-          Biblioteca de treinos por modalidade (Treino A, B, Funcional…). Cada
-          treino pode ser compartilhado por QR Code — a pessoa escaneia e vê os
-          exercícios com a animação de execução.
+          Crie, organize e atribua fichas aos seus alunos.
         </p>
       </div>
 
