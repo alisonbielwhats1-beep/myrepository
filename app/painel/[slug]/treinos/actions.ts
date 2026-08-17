@@ -261,13 +261,24 @@ export async function excluirTreinoBiblioteca(
   treinoId: string
 ): Promise<{ erro: string } | void> {
   const sessao = await requireSecao(slug, "treinos");
+  if (!podeGerenciarTreinos(sessao.papel)) {
+    return { erro: "Seu perfil não pode excluir treinos." };
+  }
+  if (!FORMATO_UUID.test(treinoId)) return { erro: "Treino inválido." };
   const supabase = createClient();
-  const { error } = await supabase
+  // Só treino-modelo (aluno_id NULL) da própria academia. `.select()` revela se
+  // o RLS barrou (instrutor tentando excluir modelo de outro) — sem no-op mudo.
+  const { data, error } = await supabase
     .from("treinos")
     .delete()
     .eq("id", treinoId)
-    .eq("academia_id", sessao.academia.id);
+    .eq("academia_id", sessao.academia.id)
+    .is("aluno_id", null)
+    .select("id");
   if (error) return { erro: await erroAmigavel(error, "excluir o treino") };
+  if (!data || data.length === 0) {
+    return { erro: "Treino não encontrado ou sem permissão para excluir." };
+  }
   revalidatePath(`/painel/${slug}/treinos`);
 }
 
@@ -463,7 +474,7 @@ export async function duplicarTreino(
   const { data: origem, error: erroLeitura } = await supabase
     .from("treinos")
     .select(
-      "nome_treino, objetivo, modalidade, nivel, publico_alvo, exercicios:exercicios_treino(nome_exercicio, series, repeticoes, carga_kg, descanso_segundos, observacoes, imagem_demonstracao_url, video_demonstracao_url, ordem)"
+      "nome_treino, objetivo, modalidade, nivel, publico_alvo, exercicios:exercicios_treino(nome_exercicio, series, repeticoes, carga_kg, descanso_segundos, observacoes, imagem_demonstracao_url, video_demonstracao_url, configuracao, ordem)"
     )
     .eq("id", treinoId)
     .is("aluno_id", null)
@@ -515,6 +526,7 @@ export async function duplicarTreino(
     observacoes: string | null;
     imagem_demonstracao_url: string | null;
     video_demonstracao_url: string | null;
+    configuracao: Record<string, unknown> | null;
     ordem: number;
   };
   const exercicios = ((origem.exercicios ?? []) as LinhaOrigem[])
@@ -532,6 +544,8 @@ export async function duplicarTreino(
       observacoes: ex.observacoes,
       imagem_demonstracao_url: ex.imagem_demonstracao_url,
       video_demonstracao_url: ex.video_demonstracao_url,
+      // Preserva a configuração por exercício (mesma fidelidade do atribuir).
+      configuracao: ex.configuracao ?? {},
       ordem: i + 1,
     }));
     const { error: erroEx } = await supabase

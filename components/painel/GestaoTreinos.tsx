@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useFormState } from "react-dom";
 import {
+  Check,
   ChevronDown,
   BookPlus,
   Copy,
@@ -93,6 +95,24 @@ export default function GestaoTreinos({
   const [busca, setBusca] = useState("");
   const [modalidadeFiltro, setModalidadeFiltro] = useState<string>("");
   const [nivelFiltro, setNivelFiltro] = useState<NivelFiltro>("todos");
+  const [avisoDuplicado, setAvisoDuplicado] = useState<string | null>(null);
+
+  // Após duplicar, a cópia nasce PRIVADA (cai em "Meus treinos"). Se um filtro/
+  // aba estiver ativo (ex.: "Padrão GestAcad"), o card novo ficaria escondido e
+  // pareceria que "nada aconteceu". Limpamos os filtros e avisamos onde a cópia
+  // ficou, para o novo card aparecer sempre.
+  const aoDuplicar = (nomeBase: string) => {
+    setNivelFiltro("todos");
+    setBusca("");
+    setModalidadeFiltro("");
+    setAvisoDuplicado(`Cópia criada: "${nomeBase} (cópia)" — em Meus treinos.`);
+  };
+
+  useEffect(() => {
+    if (!avisoDuplicado) return;
+    const t = window.setTimeout(() => setAvisoDuplicado(null), 6000);
+    return () => window.clearTimeout(t);
+  }, [avisoDuplicado]);
 
   // Quantos treinos existem em cada nível — define quais abas mostrar.
   // "meus" e "privados_equipe" recortam os PRIVADOS (meus vs. de outros);
@@ -206,6 +226,12 @@ export default function GestaoTreinos({
         </button>
         {podeAtribuir && <ImportarTreinos slug={slug} />}
       </div>
+
+      {avisoDuplicado && (
+        <p className="flex items-start gap-2 rounded-xl border border-volt-500/30 bg-volt-500/10 px-3 py-2 text-sm text-volt-200">
+          <Check className="mt-0.5 h-4 w-4 flex-none" /> {avisoDuplicado}
+        </p>
+      )}
 
       {mostrarForm && (
         <FormularioTreino
@@ -355,6 +381,7 @@ export default function GestaoTreinos({
                     podeAtribuir={podeAtribuir}
                     userId={userId}
                     ehGestor={ehGestor}
+                    onDuplicado={aoDuplicar}
                   />
                 ))}
               </div>
@@ -374,6 +401,7 @@ function CardTreino({
   podeAtribuir,
   userId,
   ehGestor,
+  onDuplicado,
 }: {
   slug: string;
   treino: Treino;
@@ -382,6 +410,7 @@ function CardTreino({
   podeAtribuir: boolean;
   userId: string;
   ehGestor: boolean;
+  onDuplicado: (nomeBase: string) => void;
 }) {
   const [aberto, setAberto] = useState(false);
   const [editando, setEditando] = useState(false);
@@ -545,7 +574,12 @@ function CardTreino({
           </button>
         )}
         {podeAtribuir && (
-          <DuplicarBotao slug={slug} treino={treino} ehPlataforma={ehPlataforma} />
+          <DuplicarBotao
+            slug={slug}
+            treino={treino}
+            ehPlataforma={ehPlataforma}
+            onDuplicado={onDuplicado}
+          />
         )}
         {ehPlataforma ? (
           <span className="ml-auto text-xs text-slate-500">
@@ -583,11 +617,14 @@ function DuplicarBotao({
   slug,
   treino,
   ehPlataforma,
+  onDuplicado,
 }: {
   slug: string;
   treino: Treino;
   ehPlataforma: boolean;
+  onDuplicado: (nomeBase: string) => void;
 }) {
+  const router = useRouter();
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -595,7 +632,14 @@ function DuplicarBotao({
     setEnviando(true);
     setErro(null);
     const r = await duplicarTreino(slug, treino.id);
-    if ("erro" in r) setErro(r.erro);
+    if ("erro" in r) {
+      setErro(r.erro);
+    } else {
+      // Garante a atualização da lista mesmo com o cache do router client-side,
+      // e revela a cópia (limpa filtros + aviso) via o callback do pai.
+      onDuplicado(treino.nome_treino);
+      router.refresh();
+    }
     setEnviando(false);
   };
 
