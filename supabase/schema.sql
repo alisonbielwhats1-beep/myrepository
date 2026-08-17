@@ -558,12 +558,21 @@ create policy "academia_tenant_update" on public.academias
 
 -- 6.3 Tabelas com coluna academia_id direta: select/insert/update/delete
 -- restritos ao tenant do admin autenticado.
+--
+-- `treinos` NÃO entra aqui de propósito: sua policy fina de visibilidade
+-- (privado/equipe/academia) e a detecção de modelo de plataforma dependem de
+-- colunas (`visibilidade`, `origem_tipo`, `criado_por`) que só nascem nas
+-- migrations 066/068/076/077. Se o schema.sql recriasse a policy simples de
+-- tenant aqui, RE-EXECUTAR o schema.sql sobre um banco já migrado REVERTERIA a
+-- visibilidade fina (um instrutor voltaria a ver o privado de outro). Por isso a
+-- policy de `treinos` (e a de `exercicios_treino`, abaixo) é 100% das migrations
+-- — mesmo princípio já aplicado a obter_ficha_aluno/perfil_equipe_update (P0-03).
 do $$
 declare
   tbl text;
 begin
   foreach tbl in array array[
-    'alunos', 'planos', 'treinos', 'acessos_catraca',
+    'alunos', 'planos', 'acessos_catraca',
     'funcionarios', 'receitas', 'despesas', 'progresso_aluno',
     'produtos', 'feedbacks', 'historico_planos'
   ] loop
@@ -594,33 +603,14 @@ begin
   end loop;
 end$$;
 
--- 6.4 exercicios_treino não tem academia_id direta: resolve via treinos.
+-- 6.4 exercicios_treino: policies de tenant NÃO ficam no schema.sql.
+--     Elas espelham a visibilidade do treino-pai (que depende de `criado_por`,
+--     coluna da migration 066) — não são expressáveis no baseline sem reverter a
+--     regra fina ao re-executar o schema.sql. São 100% das migrations 011/068
+--     (SELECT via subquery no RLS de treinos; INSERT/UPDATE/DELETE por autoria).
+--     Só limpamos aqui eventuais policies legadas, sem recriar nenhuma de tenant.
 drop policy if exists "leitura_publica_exercicios_treino" on public.exercicios_treino;
 drop policy if exists "escrita_service_exercicios_treino" on public.exercicios_treino;
-
-drop policy if exists "tenant_select_exercicios_treino" on public.exercicios_treino;
-create policy "tenant_select_exercicios_treino" on public.exercicios_treino
-  for select to authenticated using (
-    treino_id in (select id from public.treinos where academia_id = public.academia_id_atual())
-  );
-
-drop policy if exists "tenant_insert_exercicios_treino" on public.exercicios_treino;
-create policy "tenant_insert_exercicios_treino" on public.exercicios_treino
-  for insert to authenticated with check (
-    treino_id in (select id from public.treinos where academia_id = public.academia_id_atual())
-  );
-
-drop policy if exists "tenant_update_exercicios_treino" on public.exercicios_treino;
-create policy "tenant_update_exercicios_treino" on public.exercicios_treino
-  for update to authenticated
-  using (treino_id in (select id from public.treinos where academia_id = public.academia_id_atual()))
-  with check (treino_id in (select id from public.treinos where academia_id = public.academia_id_atual()));
-
-drop policy if exists "tenant_delete_exercicios_treino" on public.exercicios_treino;
-create policy "tenant_delete_exercicios_treino" on public.exercicios_treino
-  for delete to authenticated using (
-    treino_id in (select id from public.treinos where academia_id = public.academia_id_atual())
-  );
 
 -- 6.5 service_role sempre tem acesso total (usado pelo script de provisionamento
 -- e por rotinas administrativas server-side).

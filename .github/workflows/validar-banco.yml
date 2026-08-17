@@ -182,13 +182,12 @@ jobs:
 
       - name: Teste de isolamento multi-tenant
         run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/ci/20_teste_rls_multitenant.sql
-        # Obs.: o 21_teste_treinos_rls_rpc roda só no job "ordem-canônica" (o
-        # estado real de produção: schema + migrations em ordem). Aqui, com o
-        # schema.sql RE-executado por último, a policy de treinos volta à versão
-        # base permissiva (as colunas de visibilidade da 068/076/077 nem existem
-        # no baseline) — então as asserções de visibilidade fina de treinos não
-        # se aplicam. As invariantes CRÍTICAS que precisam sobreviver ao re-run
-        # (10_assertivas + isolamento multi-tenant) continuam cobertas acima.
+
+      - name: Integração RLS/RPC do módulo Treinos (sobrevive ao re-run do schema)
+        # Roda AQUI de propósito: o schema.sql foi hardenizado para não recriar as
+        # policies de treinos/exercicios_treino (são 100% das migrations), então
+        # a visibilidade fina sobrevive ao re-run do schema. Este job é a prova.
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/ci/21_teste_treinos_rls_rpc.sql
 
   # ---------------------------------------------------------------------------
   # Testes de domínio em TypeScript que já existem no projeto e nunca rodaram
