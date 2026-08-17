@@ -7,12 +7,18 @@ import ThemeToggle from "@/components/ui/ThemeToggle";
 export default function RecuperarSenhaPage({
   searchParams,
 }: {
-  searchParams: { erro?: string };
+  searchParams: { erro?: string; aviso?: string };
 }) {
-  // /auth/recuperar manda para cá com ?erro=expirado quando o link do e-mail
-  // já foi usado ou passou da validade. Sem este aviso, a pessoa voltaria para
-  // o formulário sem entender por que não caiu na tela de nova senha.
-  const linkExpirado = searchParams.erro === "expirado";
+  // Quando o link do e-mail falha, quem manda para cá (/auth/recuperar ou o
+  // GateRecuperacaoSenha) explica o motivo em `?aviso=` — link expirado, já
+  // usado, ou aberto em outro navegador. `?erro=expirado` é o formato antigo,
+  // mantido para não quebrar links já em circulação. Sem esse aviso a pessoa
+  // voltaria ao formulário sem entender por que não viu a tela de nova senha.
+  const aviso =
+    searchParams.aviso?.trim() ||
+    (searchParams.erro === "expirado"
+      ? "O link anterior expirou ou já foi usado. Solicite um novo abaixo."
+      : "");
 
   return (
     <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-ink-950 bg-grid-fade px-4">
@@ -33,12 +39,10 @@ export default function RecuperarSenhaPage({
             Informe o e-mail da conta e enviaremos um link para você criar uma nova senha.
           </p>
 
-          {linkExpirado && (
+          {aviso && (
             <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-200">
               <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
-              <span>
-                O link anterior expirou ou já foi usado. Solicite um novo abaixo.
-              </span>
+              <span>{aviso}</span>
             </div>
           )}
 

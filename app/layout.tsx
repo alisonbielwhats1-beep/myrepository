@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegister from "./ServiceWorkerRegister";
+import GateRecuperacaoSenha from "@/components/auth/GateRecuperacaoSenha";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -79,6 +80,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-dvh bg-ink-950 font-sans antialiased">
         <ServiceWorkerRegister />
+        {/* Rede de segurança do link de "Esqueci minha senha": reconhece o
+            retorno de recuperação em qualquer página e leva para a tela de nova
+            senha, mesmo que o Supabase caia no Site URL (a home). */}
+        <GateRecuperacaoSenha />
         {children}
       </body>
     </html>

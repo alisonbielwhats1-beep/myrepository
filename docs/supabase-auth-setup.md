@@ -8,6 +8,16 @@ itens dependem de configuração e não podem ser feitos por migration.
 > inicial em vez da tela de nova senha, porque o **Site URL** estava em
 > `http://localhost:3000` e a allow-list não cobria o destino. Esta lista existe
 > para isso não se repetir.
+>
+> **Atualização de 17/08/2026 — o app não depende mais desta configuração.**
+> O problema voltou a acontecer, então a correção deixou de ser só de painel: o
+> `GateRecuperacaoSenha` (montado no layout raiz) reconhece o retorno de
+> recuperação em **qualquer** página — inclusive na home, quando o Supabase
+> ignora o `redirect_to` e cai no Site URL — e leva o usuário para a tela de
+> nova senha por conta própria. A configuração abaixo continua sendo o caminho
+> ideal (um redirecionamento a menos, e a URL nunca exibe o token), mas se ela
+> divergir o fluxo **continua funcionando**. Ver `lib/recuperacao-senha.ts` e
+> `tests/recuperacao-senha.test.mjs`.
 
 O projeto **não tem autocadastro**: as contas (dono e equipe) são criadas de
 dentro do painel, já com o e-mail confirmado. Portanto **não é preciso**
@@ -43,7 +53,33 @@ http://localhost:3000/auth/recuperar?*
 **Como testar:** clique em "Esqueci minha senha", peça o link, abra o e-mail. O
 link deve conter `.../auth/recuperar?code=...`. Ao clicar, você cai na tela
 **"Criar nova senha"** já autenticado. Link velho/reusado leva a
-`/recuperar-senha?erro=expirado`, que mostra o aviso e o formulário de novo.
+`/recuperar-senha?aviso=...`, que mostra o motivo e o formulário de novo.
+
+Se o link cair na **home** (allow-list divergente), o app se recupera sozinho:
+o gate detecta o token na URL, estabelece a sessão e redireciona para
+`/redefinir-senha`. Você percebe pelo redirecionamento extra — vale corrigir a
+allow-list, mas o cliente não fica travado.
+
+### Opcional: link que funciona em outro celular/navegador
+
+O fluxo padrão (PKCE, `?code=`) exige abrir o link **no mesmo navegador** em que
+a recuperação foi pedida, porque o verificador fica guardado ali. É comum pedir
+no computador e abrir o e-mail no celular — nesse caso o app mostra o aviso
+"abra no mesmo navegador… ou peça um novo".
+
+Para permitir qualquer dispositivo, troque o template de e-mail
+(Authentication → Emails → Reset password) para usar o token no lugar da
+`ConfirmationURL`:
+
+```html
+<a href="{{ .SiteURL }}/auth/recuperar?token_hash={{ .TokenHash }}&type=recovery">
+  Redefinir senha
+</a>
+```
+
+O código já aceita esse formato (`token_hash` + `type=recovery`, via
+`verifyOtp`), tanto na rota `/auth/recuperar` quanto no gate. Aproveite para
+traduzir o e-mail — o template padrão do Supabase é em inglês.
 
 ## 2. Variáveis de ambiente (Vercel e `.env.local`)
 

@@ -1,17 +1,62 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormState, useFormStatus } from "react-dom";
-import { AlertCircle, CheckCircle2, Loader2, Save } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Loader2, Save } from "lucide-react";
 import { redefinirSenhaAction, EstadoReset } from "@/lib/actions/auth";
+import { createClient } from "@/lib/supabase/client";
+import { PAGINA_PEDIR_LINK } from "@/lib/recuperacao-senha";
 import CampoSenha from "@/components/ui/CampoSenha";
 
 const INICIAL: EstadoReset = {};
 
+/** Enquanto o link é validado, "verificando"; sem sessão de recuperação, "sem_sessao". */
+type EstadoSessao = "verificando" | "pronto" | "sem_sessao";
+
 export default function RedefinirSenhaForm() {
   const [estado, formAction] = useFormState(redefinirSenhaAction, INICIAL);
   const router = useRouter();
+  const [sessao, setSessao] = useState<EstadoSessao>("verificando");
+
+  /**
+   * Confirma que existe sessão de recuperação ANTES de mostrar o formulário.
+   * Sem isso, um link expirado abria a tela normalmente e só falhava depois de
+   * a pessoa digitar a senha duas vezes — parecia bug do app, não link velho.
+   *
+   * No fluxo com token no fragmento a sessão nasce no cliente, e o
+   * GateRecuperacaoSenha pode ainda estar trocando o token quando este
+   * componente monta. Por isso ouvimos o `onAuthStateChange` e só concluímos
+   * "sem sessão" depois de uma folga curta.
+   */
+  useEffect(() => {
+    const supabase = createClient();
+    let encerrado = false;
+
+    const { data } = supabase.auth.onAuthStateChange((_evento, s) => {
+      if (!encerrado && s) setSessao("pronto");
+    });
+
+    let prazo: ReturnType<typeof setTimeout>;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (encerrado) return;
+      if (session) {
+        setSessao("pronto");
+        return;
+      }
+      // Dá tempo de o gate concluir a troca do token antes de acusar falha.
+      prazo = setTimeout(() => {
+        if (!encerrado) setSessao((s) => (s === "verificando" ? "sem_sessao" : s));
+      }, 3000);
+    });
+
+    return () => {
+      encerrado = true;
+      clearTimeout(prazo);
+      data.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (estado.ok) {
@@ -32,6 +77,31 @@ export default function RedefinirSenhaForm() {
             </p>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (sessao === "verificando") {
+    return (
+      <p className="mt-6 flex items-center gap-2 text-sm text-slate-400">
+        <Loader2 className="h-4 w-4 animate-spin" /> Validando seu link...
+      </p>
+    );
+  }
+
+  if (sessao === "sem_sessao") {
+    return (
+      <div className="mt-6 space-y-4">
+        <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
+          <span>
+            Este link de recuperação expirou, já foi usado, ou foi aberto em
+            outro navegador. Peça um novo — leva menos de um minuto.
+          </span>
+        </div>
+        <Link href={PAGINA_PEDIR_LINK} className="btn-volt w-full">
+          Pedir novo link
+        </Link>
       </div>
     );
   }

@@ -51,3 +51,4 @@ next-env.d.ts
 /.test-build-import-treinos
 /.test-build-fuso
 .vercel
+/.test-build-recuperacao
