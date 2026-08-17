@@ -568,7 +568,7 @@ function LinhaTreino({
   const restantes = nomesExercicios.length - preview.length;
 
   return (
-    <div className="group flex flex-col gap-3 p-4 transition hover:bg-ink-800/60 sm:flex-row sm:items-center sm:gap-4">
+    <div className="group flex flex-col flex-wrap gap-3 p-4 transition hover:bg-ink-800/60 sm:flex-row sm:items-center sm:gap-4">
       {/* Bloco clicável: abre/fecha os exercícios */}
       <button
         type="button"
