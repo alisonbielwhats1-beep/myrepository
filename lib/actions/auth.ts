@@ -144,7 +144,7 @@ export async function solicitarResetSenha(
   }
 
   const supabase = createClient();
-  await supabase.auth.resetPasswordForEmail(email, {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
     // Rota DEDICADA e SEM query string. O fluxo antigo mandava
     // `/auth/callback?next=/redefinir-senha`, e o `?next=...` não batia com a
     // allow-list de Redirect URLs do Supabase — o link caía no Site URL (a
@@ -153,6 +153,21 @@ export async function solicitarResetSenha(
     // resolve. Ver docs/supabase-auth-setup.md.
     redirectTo: `${urlBase()}/auth/recuperar`,
   });
+
+  // O erro NÃO volta para a tela: os motivos reais de falha aqui (limite de
+  // envio atingido, SMTP recusando) só acontecem quando o e-mail existe de
+  // fato, então mostrá-los entregaria quais contas existem — justamente o que
+  // a resposta genérica abaixo evita.
+  //
+  // Mas ele também não pode sumir. Antes o retorno era descartado, e um limite
+  // de envio do provedor ficava indistinguível de "entregue": a tela dizia
+  // "enviamos" nas duas situações. Foi assim que quatro pedidos seguidos
+  // renderam dois e-mails sem nenhum registro do que houve com os outros dois.
+  // `erroAmigavel` grava no console do servidor e em `logs_erros`, que alimenta
+  // /admin/atividade — é lá que se enxerga a causa.
+  if (error) {
+    await erroAmigavel(error, "enviar o link de recuperação de senha");
+  }
 
   return { ok: true };
 }
