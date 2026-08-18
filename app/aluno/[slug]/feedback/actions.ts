@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { erroAmigavel } from "@/lib/erros-servidor";
 
 export type EstadoFeedback = { erro?: string; ok?: boolean; savedAt?: number };
 
@@ -44,6 +45,6 @@ export async function enviarFeedbackPublico(
     p_comentario: String(formData.get("comentario") ?? ""),
   });
 
-  if (error) return { erro: `Não foi possível enviar: ${error.message}` };
+  if (error) return { erro: await erroAmigavel(error, "enviar seu feedback") };
   return { ok: true, savedAt: Date.now() };
 }

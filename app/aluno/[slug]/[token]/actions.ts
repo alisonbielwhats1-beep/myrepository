@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getFichaAlunoPublica } from "@/lib/data";
+import { erroAmigavel } from "@/lib/erros-servidor";
 
 export type EstadoFeedback = { erro?: string; ok?: boolean; savedAt?: number };
 
@@ -59,7 +60,7 @@ export async function enviarFeedback(
     p_comentario: String(formData.get("comentario") ?? ""),
   });
 
-  if (error) return { erro: `Não foi possível enviar: ${error.message}` };
+  if (error) return { erro: await erroAmigavel(error, "enviar seu feedback") };
   return { ok: true, savedAt: Date.now() };
 }
 
@@ -104,7 +105,7 @@ export async function abrirAtendimento(
     p_assunto: assunto,
     p_mensagem: mensagem,
   });
-  if (error) return { erro: `Não foi possível abrir a solicitação: ${error.message}` };
+  if (error) return { erro: await erroAmigavel(error, "abrir a solicitação") };
 
   revalidatePath(`/aluno/${slug}/${token}/atendimento`);
   return { ok: true, savedAt: Date.now() };
@@ -142,7 +143,7 @@ export async function responderAtendimentoAluno(
     p_atendimento_id: atendimentoId,
     p_mensagem: mensagem,
   });
-  if (error) return { erro: `Não foi possível enviar: ${error.message}` };
+  if (error) return { erro: await erroAmigavel(error, "enviar sua resposta") };
 
   revalidatePath(`/aluno/${slug}/${token}/atendimento`);
   return { ok: true, savedAt: Date.now() };
