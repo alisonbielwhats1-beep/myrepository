@@ -26,6 +26,14 @@ on:
   pull_request:
   workflow_dispatch: {}
 
+# Job-level `if:` não pode referenciar `secrets.*` diretamente (GitHub Actions
+# recusa o workflow inteiro nesse caso — é assim que a autoativação do job
+# e2e-autenticado, logo abaixo, quebrou o parse em todo evento `push` até essa
+# correção). O padrão documentado é indireto: variável de ambiente no nível do
+# workflow, e o `if:` do job lê essa variável, nunca o secret em si.
+env:
+  E2E_DEMO_PASSWORD_DEFINIDA: ${{ secrets.E2E_DEMO_PASSWORD != '' }}
+
 # Um push novo no mesmo branch cancela a execução anterior, que já ficou
 # obsoleta — evita fila de runs concorrentes no mesmo código.
 concurrency:
@@ -138,7 +146,7 @@ jobs:
   e2e-autenticado:
     name: E2E autenticado (Playwright · Chromium · tenant demo)
     runs-on: ubuntu-latest
-    if: ${{ secrets.E2E_DEMO_PASSWORD != '' }}
+    if: ${{ env.E2E_DEMO_PASSWORD_DEFINIDA == 'true' }}
 
     steps:
       - uses: actions/checkout@v4
