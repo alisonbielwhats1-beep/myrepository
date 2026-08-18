@@ -180,6 +180,12 @@ jobs:
           CI: true
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # Fictícia, mesmo padrão dos outros dois jobs: nenhum fluxo testado
+          # aqui (login + navegação read-only) chama a Admin API, mas o
+          # servidor Next.js recusa subir sem essa variável existir (guard em
+          # lib/supabase/server.ts) -- faltou aqui e derrubou o webServer
+          # inteiro em produção (build+start), travando o login.
+          SUPABASE_SERVICE_ROLE_KEY: chave-ficticia-de-ci
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           E2E_DEMO_EMAIL: demo@gestacad.com.br
           E2E_DEMO_PASSWORD: ${{ secrets.E2E_DEMO_PASSWORD }}
