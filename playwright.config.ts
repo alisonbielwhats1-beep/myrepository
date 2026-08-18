@@ -46,6 +46,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  // Login único do tenant demo (quando E2E_DEMO_PASSWORD/DEMO_SENHA existir);
+  // sem credencial, é um no-op — não afeta os testes públicos.
+  globalSetup: "./e2e/auth.setup.ts",
 
   use: {
     baseURL: "http://localhost:3000",

@@ -1,65 +1,52 @@
 import { test, expect, type Page } from "@playwright/test";
-import path from "node:path";
+import { existsSync } from "node:fs";
+import { authFile } from "./auth.setup";
 
 /**
  * Fase 3: fluxo autenticado — login → painel → treinos → "Gerenciar acesso"
  * → modal. Só o tenant de demonstração (is_demo=true), só leitura/navegação:
  * nenhum dado é criado, editado ou excluído.
  *
- * Requer E2E_DEMO_PASSWORD no ambiente — a senha do usuário
- * demo@gestacad.com.br. No CI vem do GitHub Secret de mesmo nome; localmente
- * pode vir de .env.local (ou de DEMO_SENHA, mesma variável que
- * scripts/criar-demo.mjs já usa, como alternativa). NÃO faz parte do
- * `npm run test:e2e` (que o CI roda nos testes públicos); use
- * `npm run test:e2e:auth`.
+ * O login em si acontece uma vez em e2e/auth.setup.ts (globalSetup do
+ * Playwright), que grava a sessão em e2e/.auth/demo.json; aqui só reusamos
+ * via storageState. Requer E2E_DEMO_PASSWORD no ambiente — a senha do
+ * usuário demo@gestacad.com.br. No CI vem do GitHub Secret de mesmo nome;
+ * localmente pode vir de .env.local (ou de DEMO_SENHA, mesma variável que
+ * scripts/criar-demo.mjs já usa). NÃO faz parte do `npm run test:e2e` (que o
+ * CI roda nos testes públicos); use `npm run test:e2e:auth`.
  */
 
-const authFile = path.join(__dirname, ".auth", "demo.json");
-// Tenant de demo, não é credencial sensível — já é literal público em
-// scripts/criar-demo.mjs. Pode ser sobrescrito por E2E_DEMO_EMAIL se algum
-// dia o tenant de teste mudar.
-const DEMO_EMAIL = process.env.E2E_DEMO_EMAIL ?? "demo@gestacad.com.br";
 const SLUG_DEMO = "demonstracao";
 
-// Confirmado por leitura direta do banco (somente select) antes de escrever
-// este teste: dos 25 treinos do tenant demo, nenhum é "plataforma" (todos são
-// origem_tipo "academia"/"instrutor"), então "Gerenciar acesso" aparece para
-// qualquer um deles com o papel "dono". Este treino específico já está com o
-// link público ATIVO no seed — por isso o teste consegue validar QR/link sem
-// precisar ativar nada (ficando só leitura/navegação, sem escrever no banco).
-const TREINO_COM_LINK_ATIVO = "Treino A – Peito e Tríceps";
-
-test.beforeAll(async ({ browser }) => {
-  const senha = process.env.E2E_DEMO_PASSWORD ?? process.env.DEMO_SENHA;
-  if (!senha) {
+test.beforeAll(() => {
+  if (!existsSync(authFile)) {
     throw new Error(
-      "E2E_DEMO_PASSWORD não está definida. No CI vem do GitHub Secret de " +
-        "mesmo nome; localmente, defina E2E_DEMO_PASSWORD (ou DEMO_SENHA) " +
-        "com a senha de demo@gestacad.com.br para rodar os testes autenticados."
+      "Sessão do tenant demo não encontrada (e2e/.auth/demo.json). " +
+        "E2E_DEMO_PASSWORD (ou DEMO_SENHA) não está definida no ambiente — " +
+        "no CI vem do GitHub Secret; localmente, defina com a senha de " +
+        "demo@gestacad.com.br para rodar os testes autenticados."
     );
   }
-
-  const page = await browser.newPage();
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill(DEMO_EMAIL);
-  await page.getByLabel("Senha").fill(senha);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL(/\/painel\//, { timeout: 15_000 });
-  await page.context().storageState({ path: authFile });
-  await page.close();
 });
 
-/** Abre a lista de treinos e o modal "Gerenciar acesso" do treino-alvo. */
+/**
+ * Abre a lista de treinos e o modal "Gerenciar acesso" de um treino que já
+ * tem o link público ativo. Não mira um nome específico de treino: os dados
+ * do tenant demo mudam com o tempo (seed foi de 25 para 29 treinos entre o
+ * diagnóstico e a implementação deste teste), então a busca é pelo selo
+ * "Link ativo" — o mesmo sinal visual de `publico: true` — o que deixa o
+ * teste resiliente a essas mudanças sem precisar clicar em nada que escreva
+ * no banco.
+ */
 async function abrirModalGerenciarAcesso(page: Page) {
   await page.goto(`/painel/${SLUG_DEMO}/treinos`);
   await expect(page).toHaveURL(new RegExp(`/painel/${SLUG_DEMO}/treinos`));
 
-  // Escopo ao card do treino específico: menor <div> que contém o nome do
-  // treino E um botão "Mais ações" — evita depender de classes CSS ou de
-  // posição na lista.
+  // Escopo ao card do treino: menor <div> que contém o selo "Link ativo" E
+  // um botão "Mais ações" — evita depender de classes CSS.
   const card = page
     .locator("div")
-    .filter({ hasText: TREINO_COM_LINK_ATIVO })
+    .filter({ hasText: "Link ativo" })
     .filter({ has: page.getByTitle("Mais ações") })
     .last();
 
