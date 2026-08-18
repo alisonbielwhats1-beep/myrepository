@@ -28,7 +28,10 @@ test.describe("Financeiro — acesso do dono (autenticado)", () => {
 
     await expect(page.getByText("Receita recebida", { exact: true })).toBeVisible();
     await expect(page.getByText("Despesa paga", { exact: true })).toBeVisible();
-    await expect(page.getByText("Resultado", { exact: true })).toBeVisible();
+    // "Resultado" também é o nome da série no gráfico logo abaixo
+    // (<span class="recharts-legend-item-text">) — .first() pega o StatTile,
+    // que vem antes no DOM.
+    await expect(page.getByText("Resultado", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Saldo registrado", { exact: true })).toBeVisible();
   });
 
