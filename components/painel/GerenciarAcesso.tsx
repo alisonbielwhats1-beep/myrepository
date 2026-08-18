@@ -451,7 +451,7 @@ function Dialog({
                   includeMargin={false}
                 />
               </div>
-              <div className="flex w-full flex-col gap-2">
+              <div className="flex w-full min-w-0 flex-col gap-2">
                 <div className="truncate rounded-lg border border-ink-600 bg-ink-800 px-3 py-2 text-xs text-slate-400">
                   {url}
                 </div>
