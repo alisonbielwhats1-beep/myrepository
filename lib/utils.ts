@@ -157,6 +157,19 @@ export function dataSaoPaulo(instante: string | Date): string {
 }
 
 /**
+ * Instante UTC (ISO) da meia-noite de uma data-calendário YYYY-MM-DD em
+ * America/Sao_Paulo. Fuso fixo (Brasil não observa horário de verão desde
+ * 2019): a conversão é sempre um deslocamento constante de -03:00. Use esta
+ * função (nunca `${data}T00:00:00Z`) para transformar uma data-calendário de
+ * SP em limite de consulta contra uma coluna `timestamptz` — ver o bug que
+ * isto corrige em `getContagemAlunosCriadosEntre`/`getEvolucaoAlunosContagem`
+ * (lib/data.ts).
+ */
+export function inicioDiaSaoPauloUTC(dataISO: string): string {
+  return new Date(`${dataISO.slice(0, 10)}T00:00:00-03:00`).toISOString();
+}
+
+/**
  * Componentes de "hoje" no fuso da academia — substituem `new Date().getDate()`,
  * `.getMonth()` e `.getFullYear()`, que leem o fuso do processo (UTC no
  * servidor). No último dia do mês, entre 21h e meia-noite em São Paulo, o UTC
