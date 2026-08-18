@@ -228,7 +228,7 @@ export default function Home() {
                   Quero conhecer o GestAcad
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </a>
-                <a href="#o-produto" className="btn-ghost !py-3 text-base">
+                <a href="#painel" className="btn-ghost !py-3 text-base">
                   Ver o sistema
                   <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </a>

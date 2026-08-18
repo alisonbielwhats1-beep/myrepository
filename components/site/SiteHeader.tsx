@@ -7,7 +7,7 @@ import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
-  { href: "#o-produto", label: "O produto" },
+  { href: "#painel", label: "O produto" },
   { href: "#funcionalidades", label: "Funcionalidades" },
   { href: "#aplicativo", label: "App do aluno" },
   { href: "#como-funciona", label: "Como funciona" },
