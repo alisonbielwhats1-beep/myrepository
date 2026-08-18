@@ -3,7 +3,7 @@
 // banco garante que só os dados da academia do admin autenticado voltam.
 
 import { createClient } from "./supabase/server";
-import { hojeSaoPaulo } from "./utils";
+import { hojeSaoPaulo, somarDiasISO, inicioDiaSaoPauloUTC } from "./utils";
 import { tokenTemFormatoValido } from "./aluno-classificacao";
 import { calcularRange, construirFiltroBuscaAlunos } from "./paginacao";
 import {
@@ -129,7 +129,10 @@ export async function getAlunosPaginado(
 
   let query = supabase
     .from("alunos")
-    .select("*", { count: "exact" })
+    .select(
+      "id, academia_id, nome, telefone, foto_perfil_url, status_matricula, plano_id, matricula_codigo, dia_vencimento, condicoes_medicas, token_acesso_publico, criado_em",
+      { count: "exact" }
+    )
     .eq("academia_id", academiaId);
 
   if (filtro.status) query = query.eq("status_matricula", filtro.status);
@@ -220,10 +223,11 @@ export async function getContagemAlunos(
 }
 
 /**
- * Quantos alunos foram criados em [desde, ate] (datas ISO, comparadas como o
- * prefixo de data de `criado_em` em UTC — mesma comparação que
- * `criado_em.slice(0,10) >= desde && <= ate` fazia em memória). Só o count,
- * sem trazer os alunos.
+ * Quantos alunos foram criados em [desde, ate] (datas-calendário de São
+ * Paulo, YYYY-MM-DD). Compara `criado_em` (timestamptz) contra os instantes
+ * UTC correspondentes à meia-noite de SP em cada ponta — nunca contra
+ * `${data}T00:00:00Z`, que é a meia-noite em UTC, não em SP (ver
+ * `inicioDiaSaoPauloUTC`). Só o count, sem trazer os alunos.
  */
 export async function getContagemAlunosCriadosEntre(
   academiaId: string,
@@ -231,14 +235,13 @@ export async function getContagemAlunosCriadosEntre(
   ate: string
 ): Promise<number> {
   const supabase = createClient();
-  const diaSeguinte = new Date(`${ate}T00:00:00Z`);
-  diaSeguinte.setUTCDate(diaSeguinte.getUTCDate() + 1);
+  const diaSeguinte = somarDiasISO(ate, 1);
   const { count, error } = await supabase
     .from("alunos")
     .select("id", { count: "exact", head: true })
     .eq("academia_id", academiaId)
-    .gte("criado_em", `${desde}T00:00:00.000Z`)
-    .lt("criado_em", diaSeguinte.toISOString().slice(0, 10) + "T00:00:00.000Z");
+    .gte("criado_em", inicioDiaSaoPauloUTC(desde))
+    .lt("criado_em", inicioDiaSaoPauloUTC(diaSeguinte));
   if (error) throw new Error(`Falha ao contar alunos: ${error.message}`);
   return count ?? 0;
 }
@@ -252,7 +255,9 @@ export async function getContagemAlunosCriadosEntre(
  * Cada `corte` é um limite EXCLUSIVO (YYYY-MM-DD): "alunos criados antes
  * disto". Quem chama passa o primeiro dia do mês seguinte, o que evita
  * construir datas inexistentes como 31 de fevereiro — que o Postgres recusa
- * (ao contrário da comparação de string em memória que existia antes).
+ * (ao contrário da comparação de string em memória que existia antes). O
+ * corte é comparado contra a meia-noite de SP (`inicioDiaSaoPauloUTC`), não
+ * contra `${corte}T00:00:00Z` — que é meia-noite em UTC, não em SP.
  */
 export async function getEvolucaoAlunosContagem(
   academiaId: string,
@@ -265,7 +270,7 @@ export async function getEvolucaoAlunosContagem(
         .from("alunos")
         .select("id", { count: "exact", head: true })
         .eq("academia_id", academiaId)
-        .lt("criado_em", `${corte}T00:00:00.000Z`)
+        .lt("criado_em", inicioDiaSaoPauloUTC(corte))
     )
   );
   for (const r of resultados) {

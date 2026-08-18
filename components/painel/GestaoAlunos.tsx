@@ -60,6 +60,7 @@ import type { ModeloTreinoResumo } from "@/components/painel/UsarModeloTreino";
 import {
   atualizarAluno,
   atualizarTreino,
+  buscarAlunoParaEdicao,
   criarAluno,
   criarTreino,
   excluirAluno,
@@ -134,6 +135,20 @@ export default function GestaoAlunos({
   );
   const [mostrarNovoAluno, setMostrarNovoAluno] = useState(totalAlunos === 0);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  // Dados completos (CPF, e-mail, contato de emergência etc.) do aluno em
+  // edição — buscados sob demanda ao clicar em Editar, porque a listagem
+  // paginada não traz mais esses campos em massa (ver getAlunosPaginado).
+  // O `id` é comparado no render (não só a presença do valor) para não
+  // mostrar dados de um aluno errado se o usuário trocar de edição antes da
+  // busca anterior responder.
+  const [alunoEmEdicao, setAlunoEmEdicao] = useState<Aluno | null>(null);
+  const [erroEdicao, setErroEdicao] = useState<string | null>(null);
+  const [carregandoEdicao, iniciarEdicao] = useTransition();
+  // Alvo da busca em andamento, fora do ciclo de render: se o usuário trocar
+  // de aluno antes da resposta anterior chegar, essa ref já aponta pro novo
+  // id, e a resposta antiga (fora de ordem) é descartada em vez de
+  // sobrescrever o estado do aluno certo.
+  const editandoIdRef = useRef<string | null>(null);
   // Id do aluno cadastrado agora, só para destacar o envio do acesso logo
   // depois do cadastro. Comparado com a seleção atual, então trocar de aluno
   // já desfaz o destaque sem precisar limpar nada.
@@ -194,6 +209,33 @@ export default function GestaoAlunos({
   function selecionarEScrollFinanceiro(alunoId: string) {
     setSelecionadoId(alunoId);
     setTimeout(() => financialRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  }
+
+  /** Dispara a busca dos dados completos de um aluno para edição (clique em
+   *  "Editar" ou "Tentar novamente" após um erro). */
+  function buscarParaEdicao(alunoId: string) {
+    editandoIdRef.current = alunoId;
+    setEditandoId(alunoId);
+    setAlunoEmEdicao(null);
+    setErroEdicao(null);
+    iniciarEdicao(async () => {
+      const resultado = await buscarAlunoParaEdicao(slug, alunoId);
+      // Resposta de uma busca anterior, já abandonada — descarta em vez de
+      // sobrescrever o aluno que está em edição agora.
+      if (editandoIdRef.current !== alunoId) return;
+      if (resultado.erro) {
+        setErroEdicao(resultado.erro);
+        return;
+      }
+      setAlunoEmEdicao(resultado.aluno);
+    });
+  }
+
+  function cancelarEdicao() {
+    editandoIdRef.current = null;
+    setEditandoId(null);
+    setAlunoEmEdicao(null);
+    setErroEdicao(null);
   }
 
   // Pré-computa total em aberto por aluno para exibir na lista.
@@ -334,18 +376,59 @@ export default function GestaoAlunos({
               {alunos.map((a) =>
                 editandoId === a.id ? (
                   <li key={a.id} className="p-4">
-                    <FormularioAluno
-                      slug={slug}
-                      planos={planos}
-                      alunoExistente={a}
-                      onCancelar={() => setEditandoId(null)}
-                      onSalvo={(id) => {
-                        setEditandoId(null);
-                        // Seleciona o aluno recém-editado para que o alerta de
-                        // condições médicas (e a ficha) reflita o que foi salvo.
-                        if (id) setSelecionadoId(id);
-                      }}
-                    />
+                    {alunoEmEdicao?.id === a.id ? (
+                      <FormularioAluno
+                        slug={slug}
+                        planos={planos}
+                        alunoExistente={alunoEmEdicao}
+                        onCancelar={cancelarEdicao}
+                        onSalvo={(id) => {
+                          editandoIdRef.current = null;
+                          setEditandoId(null);
+                          setAlunoEmEdicao(null);
+                          // Seleciona o aluno recém-editado para que o alerta de
+                          // condições médicas (e a ficha) reflita o que foi salvo.
+                          if (id) setSelecionadoId(id);
+                        }}
+                      />
+                    ) : erroEdicao ? (
+                      <div className="surface flex items-center justify-between gap-3 rounded-2xl p-4">
+                        <p className="text-sm text-red-400">{erroEdicao}</p>
+                        <div className="flex flex-none items-center gap-3 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => buscarParaEdicao(a.id)}
+                            className="text-volt-300 underline underline-offset-2"
+                          >
+                            Tentar novamente
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelarEdicao}
+                            className="text-slate-400 underline underline-offset-2"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="surface flex items-center gap-3 rounded-2xl p-4"
+                        aria-busy={carregandoEdicao}
+                      >
+                        <Loader2 className="h-4 w-4 flex-none animate-spin text-slate-500" />
+                        <p className="text-sm text-slate-400">
+                          Carregando os dados do aluno…
+                        </p>
+                        <button
+                          type="button"
+                          onClick={cancelarEdicao}
+                          className="ml-auto flex-none text-xs text-slate-400 underline underline-offset-2"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    )}
                   </li>
                 ) : (
                   <LinhaAluno
@@ -357,7 +440,7 @@ export default function GestaoAlunos({
                     totalAberto={totaisAberto[a.id] ?? 0}
                     onSelecionar={() => setSelecionadoId(a.id)}
                     onVerFinanceiro={() => selecionarEScrollFinanceiro(a.id)}
-                    onEditar={() => setEditandoId(a.id)}
+                    onEditar={() => buscarParaEdicao(a.id)}
                   />
                 )
               )}
