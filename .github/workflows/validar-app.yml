@@ -115,3 +115,60 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  # ===========================================================================
+  # E2E autenticado (Playwright) — fase 3: login → painel → treinos →
+  # "Gerenciar acesso" → modal, só no tenant de DEMONSTRAÇÃO (is_demo=true,
+  # slug "demonstracao"). Só leitura/navegação: nenhum dado é criado, editado
+  # ou excluído. Nunca usa a service_role key.
+  #
+  # AUTOATIVAÇÃO: este job só roda quando o secret E2E_DEMO_PASSWORD existir
+  # (condição no nível do job). Enquanto não existir, ele aparece como
+  # "skipped" — nunca como falha — e some da lista assim que o secret for
+  # cadastrado, sem precisar tocar neste arquivo de novo.
+  #
+  # Secrets necessários (nenhum é a service_role):
+  #   E2E_DEMO_PASSWORD          — senha de demo@gestacad.com.br
+  #   NEXT_PUBLIC_SUPABASE_URL   — mesma URL pública já usada pelo app
+  #   NEXT_PUBLIC_SUPABASE_ANON_KEY — mesma anon key pública já usada pelo app
+  # (as duas últimas não são segredo por natureza — já vão no bundle do
+  # cliente em produção — mas entram como secret aqui só para não expor o
+  # projeto Supabase de referência diretamente no YAML público do repo.)
+  # ===========================================================================
+  e2e-autenticado:
+    name: E2E autenticado (Playwright · Chromium · tenant demo)
+    runs-on: ubuntu-latest
+    if: ${{ secrets.E2E_DEMO_PASSWORD != '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Instalar Chromium (Playwright)
+        run: npx playwright install --with-deps chromium
+
+      - name: Teste E2E autenticado (tenant demo)
+        env:
+          CI: true
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          E2E_DEMO_EMAIL: demo@gestacad.com.br
+          E2E_DEMO_PASSWORD: ${{ secrets.E2E_DEMO_PASSWORD }}
+        run: npm run test:e2e:auth
+
+      - name: Upload do relatório (somente em falha)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-auth
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
