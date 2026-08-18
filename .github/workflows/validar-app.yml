@@ -26,14 +26,6 @@ on:
   pull_request:
   workflow_dispatch: {}
 
-# Job-level `if:` não pode referenciar `secrets.*` diretamente (GitHub Actions
-# recusa o workflow inteiro nesse caso — é assim que a autoativação do job
-# e2e-autenticado, logo abaixo, quebrou o parse em todo evento `push` até essa
-# correção). O padrão documentado é indireto: variável de ambiente no nível do
-# workflow, e o `if:` do job lê essa variável, nunca o secret em si.
-env:
-  E2E_DEMO_PASSWORD_DEFINIDA: ${{ secrets.E2E_DEMO_PASSWORD != '' }}
-
 # Um push novo no mesmo branch cancela a execução anterior, que já ficou
 # obsoleta — evita fila de runs concorrentes no mesmo código.
 concurrency:
@@ -41,6 +33,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Existe só para o job e2e-autenticado (abaixo) saber se deve rodar.
+  #
+  # `if:` de JOB não enxerga `secrets` nem `env` (só github/needs/vars/inputs
+  # — isso quebrou o parse do workflow inteiro em todo push duas vezes até
+  # esta correção, com "Unrecognized named-value"). O único jeito que
+  # funciona: checar o secret dentro de uma STEP, publicar como output, e o
+  # job-alvo ler esse output via `needs`.
+  # ---------------------------------------------------------------------------
+  verificar-secret-demo:
+    name: Verificar se o secret de demo existe
+    runs-on: ubuntu-latest
+    outputs:
+      existe: ${{ steps.check.outputs.existe }}
+    steps:
+      - id: check
+        env:
+          VALOR: ${{ secrets.E2E_DEMO_PASSWORD }}
+        run: echo "existe=${{ env.VALOR != '' }}" >> "$GITHUB_OUTPUT"
+
   testes-e-build:
     name: Testes, typecheck, lint e build
     runs-on: ubuntu-latest
@@ -130,10 +142,11 @@ jobs:
   # slug "demonstracao"). Só leitura/navegação: nenhum dado é criado, editado
   # ou excluído. Nunca usa a service_role key.
   #
-  # AUTOATIVAÇÃO: este job só roda quando o secret E2E_DEMO_PASSWORD existir
-  # (condição no nível do job). Enquanto não existir, ele aparece como
-  # "skipped" — nunca como falha — e some da lista assim que o secret for
-  # cadastrado, sem precisar tocar neste arquivo de novo.
+  # AUTOATIVAÇÃO: este job só roda quando o secret E2E_DEMO_PASSWORD existir —
+  # via needs: verificar-secret-demo, o único jeito que funciona (ver comentário
+  # naquele job). Enquanto o secret não existir, aparece como "skipped" — nunca
+  # como falha — e some da lista assim que for cadastrado, sem tocar neste
+  # arquivo de novo.
   #
   # Secrets necessários (nenhum é a service_role):
   #   E2E_DEMO_PASSWORD          — senha de demo@gestacad.com.br
@@ -145,8 +158,9 @@ jobs:
   # ===========================================================================
   e2e-autenticado:
     name: E2E autenticado (Playwright · Chromium · tenant demo)
+    needs: verificar-secret-demo
     runs-on: ubuntu-latest
-    if: ${{ env.E2E_DEMO_PASSWORD_DEFINIDA == 'true' }}
+    if: ${{ needs.verificar-secret-demo.outputs.existe == 'true' }}
 
     steps:
       - uses: actions/checkout@v4
