@@ -66,3 +66,52 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: chave-ficticia-de-ci
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
         run: npm run build
+
+  # ===========================================================================
+  # E2E público (Playwright) — roda em paralelo ao job acima, não depende dele.
+  #
+  # Escopo desta fase: só as páginas públicas (/, /login, /privacidade,
+  # /termos) e os CTAs da landing — os specs de e2e/. Nenhum teste autenticado,
+  # nenhum tenant demo, nenhum Supabase real. As mesmas env fictícias do job
+  # de build acima bastam, porque nenhuma dessas rotas consulta o Supabase na
+  # renderização (o login só toca a Auth ao SUBMETER o formulário, e estes
+  # testes não submetem).
+  #
+  # Só Chromium, de propósito: cobre "botão não funciona", "âncora errada",
+  # "overflow" — problemas de estrutura/layout, não de engine de renderização.
+  # ===========================================================================
+  e2e-publico:
+    name: E2E público (Playwright · Chromium)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Instalar Chromium (Playwright)
+        run: npx playwright install --with-deps chromium
+
+      - name: Testes E2E públicos
+        env:
+          CI: true
+          NEXT_PUBLIC_SUPABASE_URL: https://exemplo.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: chave-ficticia-de-ci
+          SUPABASE_SERVICE_ROLE_KEY: chave-ficticia-de-ci
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+        run: npm run test:e2e
+
+      - name: Upload do relatório (somente em falha)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
