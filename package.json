@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "test:retencao": "tsc lib/utils.ts lib/types.ts --outDir .test-build --module esnext --target es2020 --moduleResolution node --skipLibCheck && node tests/retencao.test.mjs",
     "test:financeiro": "tsc lib/financeiro.ts lib/dinheiro.ts lib/utils.ts lib/types.ts --outDir .test-build-fin --module commonjs --target es2020 --moduleResolution node --skipLibCheck && node tests/financeiro.test.cjs",
     "test:cobrancas": "tsc lib/cobrancas.ts --outDir .test-build-cob --module commonjs --target es2020 --moduleResolution node --skipLibCheck && node tests/cobrancas.test.cjs",
@@ -49,6 +51,7 @@
     "recharts": "^2.12.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/node": "^20.16.5",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",

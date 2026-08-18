@@ -53,3 +53,9 @@ next-env.d.ts
 /.test-build-periodo
 .vercel
 /.test-build-recuperacao
+
+# playwright (e2e)
+/test-results/
+/playwright-report/
+/blob-report/
+/e2e/.auth/
