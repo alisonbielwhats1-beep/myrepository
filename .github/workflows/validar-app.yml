@@ -33,6 +33,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Existe só para o job e2e-autenticado (abaixo) saber se deve rodar.
+  #
+  # `if:` de JOB não enxerga `secrets` nem `env` (só github/needs/vars/inputs
+  # — isso quebrou o parse do workflow inteiro em todo push duas vezes até
+  # esta correção, com "Unrecognized named-value"). O único jeito que
+  # funciona: checar o secret dentro de uma STEP, publicar como output, e o
+  # job-alvo ler esse output via `needs`.
+  # ---------------------------------------------------------------------------
+  verificar-secret-demo:
+    name: Verificar se o secret de demo existe
+    runs-on: ubuntu-latest
+    outputs:
+      existe: ${{ steps.check.outputs.existe }}
+    steps:
+      - id: check
+        env:
+          VALOR: ${{ secrets.E2E_DEMO_PASSWORD }}
+        run: echo "existe=${{ env.VALOR != '' }}" >> "$GITHUB_OUTPUT"
+
   testes-e-build:
     name: Testes, typecheck, lint e build
     runs-on: ubuntu-latest
@@ -111,6 +131,71 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # ===========================================================================
+  # E2E autenticado (Playwright) — fase 3: login → painel → treinos →
+  # "Gerenciar acesso" → modal, só no tenant de DEMONSTRAÇÃO (is_demo=true,
+  # slug "demonstracao"). Só leitura/navegação: nenhum dado é criado, editado
+  # ou excluído. Nunca usa a service_role key.
+  #
+  # AUTOATIVAÇÃO: este job só roda quando o secret E2E_DEMO_PASSWORD existir —
+  # via needs: verificar-secret-demo, o único jeito que funciona (ver comentário
+  # naquele job). Enquanto o secret não existir, aparece como "skipped" — nunca
+  # como falha — e some da lista assim que for cadastrado, sem tocar neste
+  # arquivo de novo.
+  #
+  # Secrets necessários (nenhum é a service_role):
+  #   E2E_DEMO_PASSWORD          — senha de demo@gestacad.com.br
+  #   NEXT_PUBLIC_SUPABASE_URL   — mesma URL pública já usada pelo app
+  #   NEXT_PUBLIC_SUPABASE_ANON_KEY — mesma anon key pública já usada pelo app
+  # (as duas últimas não são segredo por natureza — já vão no bundle do
+  # cliente em produção — mas entram como secret aqui só para não expor o
+  # projeto Supabase de referência diretamente no YAML público do repo.)
+  # ===========================================================================
+  e2e-autenticado:
+    name: E2E autenticado (Playwright · Chromium · tenant demo)
+    needs: verificar-secret-demo
+    runs-on: ubuntu-latest
+    if: ${{ needs.verificar-secret-demo.outputs.existe == 'true' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Instalar Chromium (Playwright)
+        run: npx playwright install --with-deps chromium
+
+      - name: Teste E2E autenticado (tenant demo)
+        env:
+          CI: true
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # Fictícia, mesmo padrão dos outros dois jobs: nenhum fluxo testado
+          # aqui (login + navegação read-only) chama a Admin API, mas o
+          # servidor Next.js recusa subir sem essa variável existir (guard em
+          # lib/supabase/server.ts) -- faltou aqui e derrubou o webServer
+          # inteiro em produção (build+start), travando o login.
+          SUPABASE_SERVICE_ROLE_KEY: chave-ficticia-de-ci
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          E2E_DEMO_EMAIL: demo@gestacad.com.br
+          E2E_DEMO_PASSWORD: ${{ secrets.E2E_DEMO_PASSWORD }}
+        run: npm run test:e2e:auth
+
+      - name: Upload do relatório (somente em falha)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-auth
           path: |
             playwright-report/
             test-results/
