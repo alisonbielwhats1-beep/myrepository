@@ -129,7 +129,10 @@ export async function getAlunosPaginado(
 
   let query = supabase
     .from("alunos")
-    .select("*", { count: "exact" })
+    .select(
+      "id, academia_id, nome, telefone, foto_perfil_url, status_matricula, plano_id, matricula_codigo, dia_vencimento, condicoes_medicas, token_acesso_publico, criado_em",
+      { count: "exact" }
+    )
     .eq("academia_id", academiaId);
 
   if (filtro.status) query = query.eq("status_matricula", filtro.status);

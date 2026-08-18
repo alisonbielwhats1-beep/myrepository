@@ -5,7 +5,8 @@ import type { EstadoAcao } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { StatusMatricula } from "@/lib/types";
+import { getAluno } from "@/lib/data";
+import { Aluno, StatusMatricula } from "@/lib/types";
 import { hojeSaoPaulo } from "@/lib/utils";
 import { normalizarCpf, validarUrl } from "@/lib/validacoes";
 import {
@@ -1139,4 +1140,27 @@ export async function removerFotoAlunoAdmin(
   revalidatePath(`/painel/${slug}/alunos`);
   revalidatePath(`/painel/${slug}/recepcao`);
   return { ok: true };
+}
+
+/**
+ * Busca um aluno completo (todos os campos) para preencher o formulário de
+ * edição sob demanda. A listagem paginada (getAlunosPaginado) não traz mais
+ * CPF, e-mail e contato de emergência em massa — esses campos só chegam ao
+ * cliente quando o usuário abre a edição de um aluno específico.
+ *
+ * Devolve `{ erro }` em vez de lançar exceção — mesmo padrão das demais
+ * actions deste arquivo — para o cliente poder sair do estado de
+ * carregamento e mostrar uma mensagem em vez de ficar preso no spinner.
+ */
+export async function buscarAlunoParaEdicao(
+  slug: string,
+  alunoId: string
+): Promise<{ aluno: Aluno | null; erro?: string }> {
+  const sessao = await requireSecao(slug, "alunos");
+  try {
+    const aluno = await getAluno(sessao.academia.id, alunoId);
+    return { aluno };
+  } catch (error) {
+    return { aluno: null, erro: await erroAmigavel(error as Error, "carregar os dados do aluno") };
+  }
 }
