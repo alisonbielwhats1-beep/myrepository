@@ -64,23 +64,31 @@ async function lerSenha() {
     process.stdin.setRawMode(true);
     process.stdin.setEncoding('utf8');
     process.stdin.resume();
-    function handler(char) {
-      const code = char.charCodeAt(0);
-      if (char === '\r' || char === '\n' || code === 4) {
-        process.stdin.setRawMode(false);
-        process.stdin.pause();
-        process.stdin.off('data', handler);
-        process.stdout.write('\n');
-        if (chars.length < 8) reject(new Error('A senha deve ter pelo menos 8 caracteres.'));
-        else resolve(chars.join(''));
-      } else if (code === 3) {
-        process.stdin.setRawMode(false);
-        process.stdout.write('\n');
-        reject(new Error('Cancelado (Ctrl+C).'));
-      } else if (code === 127 || code === 8) {
-        if (chars.length > 0) chars.pop();
-      } else {
-        chars.push(char);
+    // Um evento 'data' pode trazer VÁRIOS caracteres de uma vez (colar, ou o
+    // terminal do Windows entregando a linha em bloco). Por isso iteramos char
+    // a char — tratar o bloco inteiro como um "caractere" corrompia a senha
+    // (ex.: incluía o \r do Enter no fim).
+    function handler(data) {
+      for (const char of data) {
+        const code = char.charCodeAt(0);
+        if (char === '\r' || char === '\n' || code === 4) {
+          process.stdin.setRawMode(false);
+          process.stdin.pause();
+          process.stdin.off('data', handler);
+          process.stdout.write('\n');
+          if (chars.length < 8) reject(new Error('A senha deve ter pelo menos 8 caracteres.'));
+          else resolve(chars.join(''));
+          return;
+        } else if (code === 3) {
+          process.stdin.setRawMode(false);
+          process.stdout.write('\n');
+          reject(new Error('Cancelado (Ctrl+C).'));
+          return;
+        } else if (code === 127 || code === 8) {
+          if (chars.length > 0) chars.pop();
+        } else {
+          chars.push(char);
+        }
       }
     }
     process.stdin.on('data', handler);
