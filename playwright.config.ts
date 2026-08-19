@@ -1,4 +1,33 @@
 import { defineConfig, devices } from "@playwright/test";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+
+/**
+ * Carrega .env.local no processo de teste (o Node do Playwright não lê esse
+ * arquivo sozinho — só o `next dev`/`next start` que ele sobe fazem isso).
+ * Mesma técnica manual já usada em scripts/criar-demo.mjs, sem adicionar
+ * dependência nova. Não faz nada em CI (lá as env já vêm do workflow).
+ */
+function carregarEnvLocal() {
+  const caminho = path.join(__dirname, ".env.local");
+  if (!existsSync(caminho)) return;
+  for (const linha of readFileSync(caminho, "utf8").split("\n")) {
+    const l = linha.trim();
+    if (!l || l.startsWith("#")) continue;
+    const eq = l.indexOf("=");
+    if (eq === -1) continue;
+    const chave = l.slice(0, eq).trim();
+    let valor = l.slice(eq + 1).trim();
+    if (
+      (valor.startsWith('"') && valor.endsWith('"')) ||
+      (valor.startsWith("'") && valor.endsWith("'"))
+    ) {
+      valor = valor.slice(1, -1);
+    }
+    if (!(chave in process.env)) process.env[chave] = valor;
+  }
+}
+if (!process.env.CI) carregarEnvLocal();
 
 /**
  * E2E/UI só para páginas públicas. Sem auth, sem Supabase real, sem
@@ -17,6 +46,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  // Login único do tenant demo (quando E2E_DEMO_PASSWORD/DEMO_SENHA existir);
+  // sem credencial, é um no-op — não afeta os testes públicos.
+  globalSetup: "./e2e/auth.setup.ts",
 
   use: {
     baseURL: "http://localhost:3000",
