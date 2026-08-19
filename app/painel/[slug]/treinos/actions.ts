@@ -215,6 +215,92 @@ export async function atribuirTreinoBiblioteca(
   return { ok: true, savedAt: Date.now(), id: String(data) };
 }
 
+/** Resultado da atribuição em lote (vários modelos → um aluno). */
+export type ResultadoAtribuirLote = {
+  criados: number;
+  ignorados: number;
+  falhas: { nome: string; motivo: string }[];
+  nomes: string[];
+  savedAt: number;
+};
+
+/**
+ * Atribui VÁRIOS modelos de treino a um aluno numa única ação (pedido do
+ * cliente: marcar o ABC e "subir de uma vez"). A cópia em lote é atômica por
+ * item e as checagens de tenant/papel/aluno acontecem na RPC 087 — aqui só
+ * validamos a entrada, disparamos UMA notificação consolidada e revalidamos.
+ */
+export async function atribuirModelosTreino(
+  slug: string,
+  alunoId: string,
+  modeloIds: string[]
+): Promise<{ erro: string } | ResultadoAtribuirLote> {
+  const sessao = await requireSecao(slug, "treinos");
+  if (!podeGerenciarTreinos(sessao.papel)) {
+    return { erro: "Seu perfil não pode atribuir treinos." };
+  }
+  if (!FORMATO_UUID.test(alunoId)) {
+    return { erro: "Selecione um aluno válido." };
+  }
+
+  // Dedup + só UUIDs válidos; teto de 20 espelha o da RPC (defesa em profundidade).
+  const ids = Array.from(
+    new Set((modeloIds ?? []).filter((id) => FORMATO_UUID.test(id)))
+  ).slice(0, 20);
+  if (ids.length === 0) {
+    return { erro: "Selecione pelo menos um treino." };
+  }
+
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("atribuir_modelos_treino", {
+    p_aluno_id: alunoId,
+    p_treino_modelo_ids: ids,
+  });
+
+  if (error || !data) {
+    return { erro: await erroAmigavel(error, "atribuir os treinos ao aluno") };
+  }
+
+  const resultado = data as {
+    criados?: { treino_id: string; nome: string }[];
+    ignorados?: { nome: string }[];
+    falhas?: { nome: string; motivo: string }[];
+  };
+  const criados = resultado.criados ?? [];
+  const ignorados = resultado.ignorados ?? [];
+  const falhas = resultado.falhas ?? [];
+
+  // Um único aviso consolidado ao aluno — nunca um por treino. Secundário: se
+  // falhar, a atribuição já valeu (não derruba o fluxo).
+  if (criados.length > 0) {
+    await supabase.from("notificacoes_aluno").insert({
+      academia_id: sessao.academia.id,
+      aluno_id: alunoId,
+      tipo: "treino",
+      titulo:
+        criados.length === 1
+          ? "Novo treino liberado 🎉"
+          : `${criados.length} novos treinos liberados 🎉`,
+      mensagem:
+        criados.length === 1
+          ? `${sessao.nome} preparou o treino "${criados[0].nome}" para você. Toque para ver os exercícios com a demonstração.`
+          : `${sessao.nome} preparou ${criados.length} treinos novos para você. Toque para ver os exercícios com a demonstração.`,
+      link: "treinos",
+    });
+
+    revalidatePath(`/painel/${slug}/treinos`);
+    revalidatePath(`/painel/${slug}/alunos`);
+  }
+
+  return {
+    criados: criados.length,
+    ignorados: ignorados.length,
+    falhas: falhas.map((f) => ({ nome: f.nome, motivo: f.motivo })),
+    nomes: criados.map((c) => c.nome),
+    savedAt: Date.now(),
+  };
+}
+
 /**
  * Define/edita os dias da semana de uma ficha JÁ atribuída (item 7), sem
  * re-atribuir. A academia e o papel são resolvidos dentro da RPC
