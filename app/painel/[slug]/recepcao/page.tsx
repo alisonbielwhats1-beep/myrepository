@@ -35,7 +35,7 @@ export default async function RecepcaoPage({
 
   const pagina = Math.max(1, Number(searchParams.pagina) || 1);
   const resultadoValido: StatusLiberacao[] = ["liberado", "alerta", "negado", "pendente"];
-  const origemValida: OrigemAcesso[] = ["Direto", "Gympass", "TotalPass"];
+  const origemValida: OrigemAcesso[] = ["Direto", "Gympass", "TotalPass", "Catraca"];
   const resultado = resultadoValido.includes(searchParams.resultado as StatusLiberacao)
     ? (searchParams.resultado as StatusLiberacao)
     : undefined;

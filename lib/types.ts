@@ -11,7 +11,7 @@ export type StatusFinanceiro =
   | "a_vencer"
   | "pendente"
   | "inadimplente";
-export type OrigemAcesso = "Direto" | "Gympass" | "TotalPass" | "qr";
+export type OrigemAcesso = "Direto" | "Gympass" | "TotalPass" | "Catraca" | "qr";
 export type StatusLiberacao = "liberado" | "negado" | "pendente" | "alerta";
 
 /** Como a academia trata o acesso de aluno com mensalidade vencida (Fase 5). */

@@ -23,7 +23,7 @@ const RESULTADOS: { value: StatusLiberacao; label: string }[] = [
   { value: "alerta", label: "Alerta" },
   { value: "negado", label: "Negado" },
 ];
-const ORIGENS: OrigemAcesso[] = ["Direto", "Gympass", "TotalPass"];
+const ORIGENS: OrigemAcesso[] = ["Direto", "Gympass", "TotalPass", "Catraca"];
 
 /**
  * Botão "Cancelar acesso" de uma linha do Histórico. Nunca exclui o

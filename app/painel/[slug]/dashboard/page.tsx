@@ -69,6 +69,7 @@ export default async function RelatoriosPage({
     Direto: 0,
     Gympass: 0,
     TotalPass: 0,
+    Catraca: 0,
     qr: 0,
   };
   for (const a of acessos) contagemOrigem[a.origem] += 1;

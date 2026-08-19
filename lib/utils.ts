@@ -114,6 +114,7 @@ export const CORES_ORIGEM: Record<OrigemAcesso, string> = {
   Direto: "#adff42",
   Gympass: "#3ee6ff",
   TotalPass: "#f81cc0",
+  Catraca: "#7c9cff",
   qr: "#f5c451",
 };
 

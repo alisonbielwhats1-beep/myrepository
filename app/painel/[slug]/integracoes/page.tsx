@@ -23,7 +23,7 @@ export default async function IntegracoesPage({
     supabase
       .from("academias")
       .select(
-        "gympass_webhook_secret, totalpass_webhook_secret, gympass_status, totalpass_status"
+        "gympass_webhook_secret, totalpass_webhook_secret, catraca_webhook_secret, gympass_status, totalpass_status"
       )
       .eq("id", sessao.academia.id)
       .maybeSingle(),
@@ -40,8 +40,8 @@ export default async function IntegracoesPage({
       <div>
         <h1 className="text-2xl font-bold text-white">Integrações</h1>
         <p className="text-sm text-slate-400">
-          Conecte o Gympass e o TotalPass para registrar check-ins automaticamente no seu
-          controle de acessos.
+          Conecte o Gympass, o TotalPass e a catraca física para registrar check-ins
+          automaticamente no seu controle de acessos.
         </p>
       </div>
 
@@ -55,6 +55,7 @@ export default async function IntegracoesPage({
         totalpassStatus={(data?.totalpass_status as StatusIntegracao) ?? "nao_configurada"}
         totalpassValorRepasse={repasseTotalpass?.valor_por_checkin ?? null}
         totalpassRepasseAtivo={repasseTotalpass?.ativo ?? false}
+        catracaSecretMascarado={mascarar(data?.catraca_webhook_secret)}
         isDemo={sessao.academia.is_demo}
       />
     </div>

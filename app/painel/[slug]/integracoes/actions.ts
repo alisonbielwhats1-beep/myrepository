@@ -48,6 +48,39 @@ export async function rotarSecretIntegracao(
   return { ok: true, savedAt: Date.now() };
 }
 
+/** Gera um novo segredo para o webhook da catraca física (Henry / Control iD).
+ *  A catraca é da própria academia — não é plataforma parceira com repasse —,
+ *  por isso tem ação própria e não passa por status/repasse. Registra auditoria
+ *  (usuário, academia, data/hora) — nunca o valor do segredo. */
+export async function rotarSecretCatraca(slug: string): Promise<EstadoAcao> {
+  const sessao = await requireSecao(slug, "integracoes");
+
+  if (sessao.academia.is_demo) {
+    return { erro: "Ação indisponível no ambiente de demonstração." };
+  }
+
+  const supabase = createClient();
+  const novoSecret = randomUUID();
+
+  const { error } = await supabase
+    .from("academias")
+    .update({ catraca_webhook_secret: novoSecret })
+    .eq("id", sessao.academia.id);
+
+  if (error) return { erro: await erroAmigavel(error, "gerar uma nova chave") };
+
+  await supabase.from("log_integracoes").insert({
+    academia_id: sessao.academia.id,
+    usuario_id: sessao.userId,
+    plataforma: "catraca",
+    acao: "rotacao_secret",
+  });
+
+  revalidatePath(`/painel/${slug}/integracoes`);
+  revalidatePath(`/painel/${slug}/configuracoes`);
+  return { ok: true, savedAt: Date.now() };
+}
+
 /** Atualiza o status de integração de uma plataforma.
  *  Registra auditoria com status anterior e novo — nunca o valor do segredo. */
 export async function atualizarStatusIntegracao(
