@@ -25,11 +25,13 @@
   --slate-600: 71 85 105;
   --scroll-track: 11 13 20;
   --scroll-thumb: 36 40 56;
-  /* Acento lima-neon (padrão escuro) */
-  --volt-200: 201 255 133;
-  --volt-300: 173 255 66;
-  --volt-400: 147 243 18;
-  --volt-500: 122 214 0;
+  /* Acento verde (padrão escuro) — calibrado para ser discreto, não lima-neon.
+     Menos chamativo em todo o app (aluno e painel), preservando a identidade
+     verde da marca. */
+  --volt-200: 186 212 148;
+  --volt-300: 138 182 84;
+  --volt-400: 120 160 72;
+  --volt-500: 100 136 56;
 }
 
 :root[data-theme="light"] {
@@ -55,30 +57,11 @@
   --volt-500: 22 163 74; /* tints (/10, /30) e bordas */
 }
 
-/* Segue o aparelho quando o usuário não escolheu tema manualmente. */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) {
-    color-scheme: light;
-    --ink-950: 244 246 249;
-    --ink-900: 237 240 245;
-    --ink-800: 255 255 255;
-    --ink-700: 236 239 244;
-    --ink-600: 216 221 230;
-    --ink-500: 194 201 214;
-    --fg-strong: 15 20 30;
-    --slate-200: 30 41 59;
-    --slate-300: 51 65 85;
-    --slate-400: 71 85 105;
-    --slate-500: 100 116 139;
-    --slate-600: 148 163 184;
-    --scroll-track: 237 240 245;
-    --scroll-thumb: 203 213 225;
-    --volt-200: 17 102 52;
-    --volt-300: 21 128 61;
-    --volt-400: 19 114 58;
-    --volt-500: 22 163 74;
-  }
-}
+/* O tema preferencial do GestAcad é o ESCURO: sem escolha manual do usuário
+   (data-theme ausente), o app começa escuro mesmo que o aparelho prefira claro.
+   O tema claro só entra quando o usuário o seleciona (data-theme="light", via
+   o botão de alternar). Por isso NÃO há mais um override por
+   prefers-color-scheme aqui — antes ele forçava claro em aparelhos claros. */
 
 html,
 body {
@@ -86,6 +69,7 @@ body {
   color: rgb(var(--slate-200));
   -webkit-font-smoothing: antialiased;
 }
+
 
 /* Rolagem suave para a navegação por âncora da landing page (#funcionalidades,
    #planos, ...). Só quando o sistema não pede movimento reduzido. */

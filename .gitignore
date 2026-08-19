@@ -48,6 +48,7 @@ next-env.d.ts
 /.test-build-senha
 /.test-build-intelligence
 /.test-build-treinos
+/.test-build-dias
 /.test-build-import-treinos
 /.test-build-fuso
 /.test-build-periodo
@@ -59,3 +60,6 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /e2e/.auth/
+
+# supabase CLI (estado/temp local)
+/supabase/.temp/

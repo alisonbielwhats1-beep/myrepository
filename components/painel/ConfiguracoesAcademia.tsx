@@ -7,6 +7,7 @@ import {
   Globe,
   HeartPulse,
   MessageCircle,
+  Share2,
   ShieldAlert,
 } from "lucide-react";
 import {
@@ -135,6 +136,50 @@ export default function ConfiguracoesAcademia({
         <p className="-mt-1 text-xs text-slate-500">
           A meta aparece no Dashboard como barra de progresso (recebido no mês vs. meta).
         </p>
+
+        <div className="border-t border-ink-700 pt-4">
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <Share2 className="h-3.5 w-3.5 text-magenta-400" /> Redes sociais
+          </p>
+          <p className="mt-1.5 text-xs text-slate-500">
+            Aparecem no bloco da academia dentro da <b>Comunidade</b> do app do aluno.
+            Aceita @usuário ou link completo. Deixe em branco para não exibir.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <Field label="Instagram">
+              <input
+                name="instagram"
+                defaultValue={academia.instagram ?? ""}
+                placeholder="@suaacademia"
+                className="inp"
+              />
+            </Field>
+            <Field label="Site">
+              <input
+                name="site"
+                defaultValue={academia.site ?? ""}
+                placeholder="https://suaacademia.com.br"
+                className="inp"
+              />
+            </Field>
+            <Field label="Facebook">
+              <input
+                name="facebook"
+                defaultValue={academia.facebook ?? ""}
+                placeholder="@suaacademia ou link"
+                className="inp"
+              />
+            </Field>
+            <Field label="TikTok">
+              <input
+                name="tiktok"
+                defaultValue={academia.tiktok ?? ""}
+                placeholder="@suaacademia"
+                className="inp"
+              />
+            </Field>
+          </div>
+        </div>
 
         <div className="border-t border-ink-700 pt-4">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">

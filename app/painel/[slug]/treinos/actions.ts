@@ -23,6 +23,7 @@ import {
 } from "@/lib/midia-exercicios";
 import { createClient } from "@/lib/supabase/server";
 import { erroAmigavel } from "@/lib/erros-servidor";
+import { normalizarDias } from "@/lib/dias-semana";
 
 const FORMATO_UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -168,6 +169,12 @@ export async function atribuirTreinoBiblioteca(
     return { erro: "O nome do treino deve ter no máximo 120 caracteres." };
   }
 
+  // Dias da semana escolhidos (item 7). Opcional: vazio = ficha sem dia (só em
+  // "Todos"). Normaliza para 1..7 sem confiar no cliente.
+  const dias = normalizarDias(
+    formData.getAll("dias").map((d) => Number(d))
+  );
+
   const supabase = createClient();
   const { data, error } = await supabase.rpc("atribuir_modelo_treino", {
     p_treino_modelo_id: treinoModeloId,
@@ -179,6 +186,15 @@ export async function atribuirTreinoBiblioteca(
     return {
       erro: await erroAmigavel(error, "atribuir o treino ao aluno"),
     };
+  }
+
+  // Define os dias da ficha recém-criada (id em `data`). Falha aqui não desfaz
+  // a atribuição — a ficha existe e o instrutor pode ajustar os dias na lista.
+  if (dias.length > 0) {
+    await supabase.rpc("definir_dias_treino", {
+      p_treino_id: String(data),
+      p_dias: dias,
+    });
   }
 
   // Notifica o aluno no app dele. Secundário: se falhar, a atribuição já valeu
@@ -197,6 +213,41 @@ export async function atribuirTreinoBiblioteca(
   revalidatePath(`/painel/${slug}/treinos`);
   revalidatePath(`/painel/${slug}/alunos`);
   return { ok: true, savedAt: Date.now(), id: String(data) };
+}
+
+/**
+ * Define/edita os dias da semana de uma ficha JÁ atribuída (item 7), sem
+ * re-atribuir. A academia e o papel são resolvidos dentro da RPC
+ * `definir_dias_treino` (sessão), que só altera fichas de aluno do próprio
+ * tenant. Devolve os dias normalizados para a interface refletir.
+ */
+export async function definirDiasTreino(
+  slug: string,
+  treinoId: string,
+  dias: number[]
+): Promise<{ erro: string } | { dias: number[] }> {
+  const sessao = await requireSecao(slug, "treinos");
+  if (!podeGerenciarTreinos(sessao.papel)) {
+    return { erro: "Seu perfil não pode alterar treinos." };
+  }
+  if (!FORMATO_UUID.test(treinoId)) {
+    return { erro: "Treino inválido." };
+  }
+
+  const normalizados = normalizarDias(dias);
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("definir_dias_treino", {
+    p_treino_id: treinoId,
+    p_dias: normalizados,
+  });
+
+  if (error || !data) {
+    return { erro: await erroAmigavel(error, "salvar os dias do treino") };
+  }
+
+  revalidatePath(`/painel/${slug}/treinos`);
+  revalidatePath(`/painel/${slug}/alunos`);
+  return { dias: normalizados };
 }
 
 /**

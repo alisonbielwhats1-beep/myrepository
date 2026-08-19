@@ -29,6 +29,8 @@ const RECURSOS: Record<PlanoSaas, string[]> = {
     // propósito. Transformar atendimento em item pago é decisão comercial,
     // não técnica — se um dia for, basta tirar daqui.
     "atendimento",
+    // Comunidade faz parte do app do aluno (como Treinos) — todos os planos.
+    "comunidade",
   ],
   profissional: [
     "dashboard",
@@ -43,6 +45,7 @@ const RECURSOS: Record<PlanoSaas, string[]> = {
     "loja",
     "feedback",
     "atendimento",
+    "comunidade",
     "relatorios",
     "integracoes",
   ],
@@ -59,6 +62,7 @@ const RECURSOS: Record<PlanoSaas, string[]> = {
     "loja",
     "feedback",
     "atendimento",
+    "comunidade",
     "relatorios",
     "integracoes",
   ],

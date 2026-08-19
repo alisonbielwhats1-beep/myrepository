@@ -67,8 +67,12 @@ export const viewport: Viewport = {
   // então painel, login e área do aluno continuam abrindo do mesmo jeito.
 };
 
-// Aplica o tema salvo ANTES da primeira pintura (evita "piscar" de tema).
-const NO_FLASH_SCRIPT = `(function(){try{var t=localStorage.getItem('gestacad-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`;
+// Aplica o tema ANTES da primeira pintura (evita "piscar" de tema). O
+// preferencial do app é o ESCURO: sem escolha salva, começa em 'dark' — nunca
+// segue a preferência clara do aparelho. Só fica claro quando o usuário
+// escolheu 'light' explicitamente. data-theme sempre carimbado, então o CSS
+// nunca cai no caso "sem tema".
+const NO_FLASH_SCRIPT = `(function(){try{var t=localStorage.getItem('gestacad-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
 
 export default function RootLayout({
   children,

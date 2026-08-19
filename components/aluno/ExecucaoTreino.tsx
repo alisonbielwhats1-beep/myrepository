@@ -3,82 +3,25 @@
 import { useState, useTransition } from "react";
 import { CheckCircle2, Clock3, PlayCircle, RotateCcw, Target } from "lucide-react";
 import { FichaTreinoPublico, ProgressoExercicio, SessaoTreino } from "@/lib/types";
-import { cn } from "@/lib/utils";
 import CreditoVideosExercicios from "./CreditoVideosExercicios";
 import ExercicioCard from "./ExercicioCard";
 
-type EstadoSessao = { erro?: string; sessao?: SessaoTreino };
-type EstadoProgresso = { erro?: string; progresso?: ProgressoExercicio[] };
-
-type Acoes = {
-  iniciar: (treinoId: string) => Promise<EstadoSessao>;
+export type AcoesExecucao = {
+  iniciar: (treinoId: string) => Promise<{ erro?: string; sessao?: SessaoTreino }>;
   salvarProgresso: (
     sessaoId: string,
     progresso: ProgressoExercicio[]
-  ) => Promise<EstadoProgresso>;
-  finalizar: (sessaoId: string) => Promise<EstadoSessao>;
+  ) => Promise<{ erro?: string; progresso?: ProgressoExercicio[] }>;
+  finalizar: (sessaoId: string) => Promise<{ erro?: string; sessao?: SessaoTreino }>;
 };
 
-export default function TreinoViewer({
-  treinos,
-  sessoesAtivas,
-  recordes,
-  ...acoes
-}: {
-  treinos: FichaTreinoPublico[];
-  sessoesAtivas: SessaoTreino[];
-  /** Recorde de carga (kg) por exercicio_id. Vazio antes da migration 059. */
-  recordes: Record<string, number>;
-} & Acoes) {
-  const [ativo, setAtivo] = useState(0);
-
-  if (treinos.length === 0) {
-    return (
-      <div className="surface rounded-2xl p-8 text-center text-slate-400">
-        Nenhum treino atribuído ainda. Fale com a recepção da sua academia.
-      </div>
-    );
-  }
-
-  const treino = treinos[ativo];
-  const sessaoAtiva = sessoesAtivas.find((s) => s.treino_id === treino.id) ?? null;
-
-  return (
-    <div className="space-y-5">
-      {/* Seletor de fichas (Treino A / B / C) */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {treinos.map((t, i) => (
-          <button
-            key={t.id}
-            onClick={() => setAtivo(i)}
-            className={cn(
-              "whitespace-nowrap rounded-xl px-4 py-2 text-sm font-semibold transition",
-              i === ativo
-                ? "bg-volt-300 text-ink-950 shadow-glow"
-                : "border border-ink-600 bg-ink-800 text-slate-300 hover:bg-ink-700"
-            )}
-          >
-            {t.nome_treino.split(" - ")[0] || t.nome_treino}
-          </button>
-        ))}
-      </div>
-
-      {/* `key={treino.id}` força um remount completo ao trocar de ficha — sem
-          isso, o estado de sessão de um treino podia vazar para outro (mesma
-          classe de bug já corrigida no acesso do aluno: estado local
-          copiado de props precisa de key quando o id muda). */}
-      <ExecucaoTreino
-        key={treino.id}
-        treino={treino}
-        sessaoInicial={sessaoAtiva}
-        recordes={recordes}
-        {...acoes}
-      />
-    </div>
-  );
-}
-
-function ExecucaoTreino({
+/**
+ * Execução de UMA ficha de treino pelo aluno — iniciar/retomar, marcar
+ * exercícios (progresso otimista), finalizar e ver o resumo. Extraído do antigo
+ * TreinoViewer para ser reusado pela nova tela de Treinos por dia. A lógica de
+ * persistência (sessoes_treino, migration 045) é idêntica à anterior.
+ */
+export default function ExecucaoTreino({
   treino,
   sessaoInicial,
   recordes,
@@ -89,7 +32,7 @@ function ExecucaoTreino({
   treino: FichaTreinoPublico;
   sessaoInicial: SessaoTreino | null;
   recordes: Record<string, number>;
-} & Acoes) {
+} & AcoesExecucao) {
   const [sessao, setSessao] = useState<SessaoTreino | null>(sessaoInicial);
   const [resumo, setResumo] = useState<SessaoTreino | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -129,15 +72,9 @@ function ExecucaoTreino({
     ];
 
     // Otimista: a interface reflete a alteração na hora; o servidor confirma
-    // (ou reporta erro) em seguida, sem travar a tela a cada toque.
-    //
-    // Em caso de erro, NÃO voltamos para um snapshot anterior: se outra
-    // alteração mais recente já tiver sido salva com sucesso enquanto esta
-    // estava em voo, reverter para o snapshot capturado aqui apagaria essa
-    // mudança mais nova. Como cada chamada sempre envia o array de progresso
-    // INTEIRO (não um diff), a próxima gravação bem-sucedida já reconcilia
-    // tudo — mantemos o estado otimista e só avisamos que algo pode não ter
-    // persistido.
+    // (ou reporta erro) em seguida. Em caso de erro não revertemos para um
+    // snapshot anterior — cada gravação envia o array INTEIRO, então a próxima
+    // bem-sucedida reconcilia tudo.
     setSessao({ ...sessao, progresso: novoProgresso });
     setSalvando(true);
     startTransition(async () => {

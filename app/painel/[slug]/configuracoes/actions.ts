@@ -58,6 +58,17 @@ export async function atualizarAcademia(
   const diasSumido = inteiro("dias_sumido_sem_acesso", 14);
   const toleranciaNovo = inteiro("tolerancia_novo_aluno_dias", 7);
 
+  // Redes sociais: só texto simples (@usuário ou URL), com teto de tamanho.
+  // A normalização para href seguro acontece na exibição (app do aluno).
+  const rede = (campo: string) => {
+    const v = String(formData.get(campo) ?? "").trim();
+    return v ? v.slice(0, 300) : null;
+  };
+  const instagram = rede("instagram");
+  const site = rede("site");
+  const facebook = rede("facebook");
+  const tiktok = rede("tiktok");
+
   if (!(diasAtencao < diasRisco && diasRisco < diasSumido)) {
     return {
       erro:
@@ -76,6 +87,10 @@ export async function atualizarAcademia(
       // ser exatamente o nome registrado da academia.
       telefone: normalizarTelefone(formData.get("telefone") as string),
       whatsapp: String(formData.get("whatsapp") ?? "").trim() || null,
+      instagram,
+      site,
+      facebook,
+      tiktok,
       logo_url: validarUrl(String(formData.get("logo_url") ?? "")),
       cor_primaria: String(formData.get("cor_primaria") ?? "").trim() || "#adff42",
       meta_faturamento_mensal: meta,

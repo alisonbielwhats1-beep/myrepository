@@ -2,23 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Dumbbell, QrCode, User, Wallet } from "lucide-react";
+import { Dumbbell, Home, QrCode, User, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Navegação inferior priorizada para o piloto (Bloco 2): Acesso, Treinos,
- * Mensalidades e Perfil — as 4 funções que o documento de fluxo do aluno
- * considera essenciais. Loja e Feedback continuam funcionando nas mesmas
- * rotas de sempre (nenhum link publicado quebra); só saíram da barra fixa e
- * passaram a ficar acessíveis a partir do Perfil.
+ * Navegação inferior do app do aluno — 5 itens, prioridade visual em Treino e
+ * Comunidade (as duas primeiras funções que engajam o aluno no dia a dia). O
+ * QR de acesso deixou de ser a home e virou uma aba própria ("Acesso"), fora
+ * do foco principal enquanto a catraca não está pronta. Mensalidades, Loja,
+ * Feedback e Frequência continuam acessíveis pela Home e pelo Perfil (nenhum
+ * link publicado quebra), só saíram da barra fixa.
  */
 export default function AlunoTabBar({ base }: { base: string }) {
   const pathname = usePathname();
 
   const tabs = [
-    { href: base, label: "Acesso", icon: QrCode, exact: true },
+    { href: base, label: "Início", icon: Home, exact: true },
     { href: `${base}/treinos`, label: "Treinos", icon: Dumbbell, exact: false },
-    { href: `${base}/mensalidades`, label: "Mensalidades", icon: Wallet, exact: false },
+    { href: `${base}/comunidade`, label: "Comunidade", icon: Users, exact: false },
+    { href: `${base}/acesso`, label: "Acesso", icon: QrCode, exact: false },
     { href: `${base}/perfil`, label: "Perfil", icon: User, exact: false },
   ];
 
@@ -33,8 +35,9 @@ export default function AlunoTabBar({ base }: { base: string }) {
             <Link
               key={t.href}
               href={t.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-medium transition",
+                "flex flex-1 flex-col items-center gap-1 rounded-xl px-0.5 py-2 text-[10px] font-medium transition",
                 active
                   ? "bg-volt-300/15 text-volt-300"
                   : "text-slate-400 hover:text-slate-200"

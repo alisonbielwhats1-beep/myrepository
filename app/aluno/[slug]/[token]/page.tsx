@@ -8,61 +8,51 @@ import {
   Dumbbell,
   Flame,
   HelpCircle,
-  MessageCircle,
+  QrCode,
   Trophy,
   User,
+  Users,
   Wallet,
   XCircle,
 } from "lucide-react";
 import AvatarAluno from "@/components/aluno/AvatarAluno";
 import AvisosAluno from "@/components/aluno/AvisosAluno";
-import QRCodeCard from "@/components/aluno/QRCodeCard";
 import {
   requireFichaAluno,
   sequenciaSemanalTreino,
-  ultimoAcessoEfetivo,
 } from "@/lib/aluno-publico";
 import {
-  getAcademiaPublica,
+  getFeedComunidade,
   getFrequenciaAlunoPublico,
   getMensalidadesAlunoPublico,
   getNotificacoesAluno,
   getPoliticaAcessoAlunoPublico,
   getRecordesAluno,
-  getTokenQrAlunoPublico,
 } from "@/lib/data";
 import {
   badgeStatusAcesso,
   badgeStatusFinanceiro,
-  badgeStatusMatricula,
   calcularStatusFinanceiro,
   cn,
+  dataSaoPaulo,
   decidirAcesso,
   formatBRL,
-  formatDataHora,
   hojeSaoPaulo,
 } from "@/lib/utils";
+import { diaSemanaHojeSaoPaulo, normalizarDias } from "@/lib/dias-semana";
 import type { ResultadoAcesso, StatusFinanceiro } from "@/lib/types";
 
 const ROTULO_FINANCEIRO: Record<StatusFinanceiro, string> = {
   em_dia: "Em dia",
   a_vencer: "A vencer",
   pendente: "Vence hoje",
-  inadimplente: "Mensalidade em atraso",
+  inadimplente: "Em atraso",
 };
 
 const ROTULO_ACESSO: Record<ResultadoAcesso, string> = {
   liberado: "Liberado",
-  alerta: "Liberado com alerta",
+  alerta: "Com alerta",
   bloqueado: "Bloqueado",
-};
-
-// Textos exatos pedidos para a Home do aluno — curtos, respeitosos e sem
-// nenhum valor financeiro, CPF, telefone ou regra interna da academia.
-const MENSAGEM_ACESSO: Record<ResultadoAcesso, string> = {
-  liberado: "Seu acesso está liberado.",
-  alerta: "Seu acesso está liberado, mas existe uma pendência que precisa de atenção.",
-  bloqueado: "Não foi possível liberar seu acesso. Procure a recepção para verificar sua situação.",
 };
 
 const ICONE_ACESSO: Record<ResultadoAcesso, typeof CheckCircle2> = {
@@ -71,12 +61,14 @@ const ICONE_ACESSO: Record<ResultadoAcesso, typeof CheckCircle2> = {
   bloqueado: XCircle,
 };
 
-// Quando a política da academia não pôde ser confirmada (erro do Supabase,
-// RPC ausente, valor fora do enum conhecido) — nunca tratamos isso como
-// "liberar". Um estado honesto e distinto dos três resultados reais.
-const MENSAGEM_ACESSO_INDISPONIVEL =
-  "Não foi possível confirmar sua situação de acesso. Procure a recepção.";
 const BADGE_ACESSO_INDISPONIVEL = "bg-ink-600 text-slate-300 border-ink-500";
+
+/** "Treino A - Peito e Tríceps" → { titulo, grupos }. */
+function separarNome(nome: string): { titulo: string; grupos: string | null } {
+  const partes = nome.split(/\s+[-–—]\s+/);
+  if (partes.length < 2) return { titulo: nome.trim(), grupos: null };
+  return { titulo: partes[0].trim(), grupos: partes.slice(1).join(" · ").trim() };
+}
 
 export default async function AlunoHome({
   params,
@@ -86,71 +78,54 @@ export default async function AlunoHome({
   const ficha = await requireFichaAluno(params.slug, params.token);
   const { aluno, academia, treinos } = ficha;
 
-  const [
-    mensalidades,
-    acessos,
-    tokenQrAcesso,
-    politicaAcesso,
-    academiaPublica,
-    recordes,
-    avisos,
-  ] = await Promise.all([
-    getMensalidadesAlunoPublico(params.token, params.slug),
-    getFrequenciaAlunoPublico(params.token, params.slug),
-    getTokenQrAlunoPublico(params.token, params.slug),
-    getPoliticaAcessoAlunoPublico(params.token, params.slug),
-    getAcademiaPublica(params.slug),
-    getRecordesAluno(params.token, params.slug),
-    getNotificacoesAluno(params.token, params.slug),
-  ]);
+  const [mensalidades, acessos, politicaAcesso, recordes, avisos, feed] =
+    await Promise.all([
+      getMensalidadesAlunoPublico(params.token, params.slug),
+      getFrequenciaAlunoPublico(params.token, params.slug),
+      getPoliticaAcessoAlunoPublico(params.token, params.slug),
+      getRecordesAluno(params.token, params.slug),
+      getNotificacoesAluno(params.token, params.slug),
+      getFeedComunidade(params.token, params.slug, 3),
+    ]);
 
+  const base = `/aluno/${params.slug}/${params.token}`;
   const primeiroNome = aluno.nome.split(" ")[0];
   const statusFinanceiro = calcularStatusFinanceiro(mensalidades);
   const hoje = hojeSaoPaulo();
-  const proximaMensalidade = mensalidades
-    .filter((m) => m.status === "pendente")
-    .sort((a, b) => (a.data < b.data ? -1 : 1))[0];
-  const ultimoAcesso = ultimoAcessoEfetivo(acessos);
   const seq = sequenciaSemanalTreino(acessos);
 
-  // Top recordes de carga para a Home. A RPC devolve exercicio_id -> kg; os
-  // nomes vêm da própria ficha (treinos já carregados). Some sozinho se ainda
-  // não há recorde ou a migration 059 não foi aplicada (recordes = {}).
+  // Treino de hoje: primeira ficha (por ordem) cujos dias incluem o dia atual.
+  const diaHoje = diaSemanaHojeSaoPaulo();
+  const treinoHoje = [...treinos]
+    .sort((a, b) => a.ordem - b.ordem)
+    .find((t) => normalizarDias(t.dias_semana).includes(diaHoje));
+
+  // "Treinos este mês" = check-ins (acessos) do mês corrente no fuso da academia.
+  const prefixoMes = hoje.slice(0, 7); // YYYY-MM
+  const treinosNoMes = acessos.filter(
+    (a) => dataSaoPaulo(a.data_hora_entrada).slice(0, 7) === prefixoMes
+  ).length;
+
   const nomePorExercicio = new Map(
     treinos.flatMap((t) => t.exercicios ?? []).map((e) => [e.id, e.nome_exercicio])
   );
-  const recordesTop = Object.entries(recordes)
-    .map(([id, kg]) => ({ id, nome: nomePorExercicio.get(id) ?? null, kg }))
-    .filter((r): r is { id: string; nome: string; kg: number } => r.nome !== null)
-    .sort((a, b) => b.kg - a.kg)
-    .slice(0, 3);
+  const recordeTop = Object.entries(recordes)
+    .map(([id, kg]) => ({ nome: nomePorExercicio.get(id) ?? null, kg }))
+    .filter((r): r is { nome: string; kg: number } => r.nome !== null)
+    .sort((a, b) => b.kg - a.kg)[0];
 
-  // Mesma regra oficial da recepção (decidirAcesso) — nenhuma lógica de
-  // acesso paralela. Só falta, do lado do aluno, a política da academia
-  // (mensalidades e status_matricula já vêm da própria ficha).
-  //
-  // Se a política não pôde ser confirmada (RPC falhou, retorno inesperado),
-  // `politicaAcesso` chega null e NÃO calculamos decidirAcesso com um valor
-  // padrão — isso poderia mostrar "Liberado" para quem na verdade estaria
-  // bloqueado. `statusAcesso` fica null e a interface mostra um estado
-  // honesto de indisponibilidade, nunca um resultado inventado.
+  const proximaMensalidade = mensalidades
+    .filter((m) => m.status === "pendente")
+    .sort((a, b) => (a.data < b.data ? -1 : 1))[0];
+
   const statusAcesso = politicaAcesso
     ? decidirAcesso(aluno.status_matricula, politicaAcesso, mensalidades)
     : null;
   const IconeAcesso = statusAcesso ? ICONE_ACESSO[statusAcesso.resultado] : HelpCircle;
 
-  const whatsappDigits = academiaPublica?.whatsapp?.replace(/\D/g, "");
-  const linkWhatsapp = whatsappDigits
-    ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(
-        `Olá! Sou aluno da ${academia.nome_fantasia} e preciso falar sobre minha situação.`
-      )}`
-    : null;
-
-  const base = `/aluno/${params.slug}/${params.token}`;
-
   return (
     <div className="space-y-6">
-      {/* Cabeçalho / saudação */}
+      {/* Saudação */}
       <header className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm text-slate-400">{academia.nome_fantasia}</p>
@@ -161,129 +136,173 @@ export default async function AlunoHome({
         <AvatarAluno nome={aluno.nome} fotoUrl={aluno.foto_perfil_url} size={48} />
       </header>
 
-      {/* Avisos in-app (ex.: treino novo atribuído) — migration 074 */}
+      {/* Avisos in-app (ex.: treino novo atribuído) */}
       <AvisosAluno slug={params.slug} token={params.token} notificacoes={avisos} />
 
-      {/* QR de acesso */}
-      <QRCodeCard
-        academiaSlug={params.slug}
-        tokenQrAcesso={tokenQrAcesso}
-        matriculaCodigo={aluno.matricula_codigo}
-      />
-
-      {/* Sequência de treinos — motivação calculada da própria frequência
-          (sem query nova; `acessos` já veio no Promise.all acima). */}
-      <div className="surface flex items-center gap-4 rounded-2xl p-4">
-        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-volt-300/15 text-volt-300">
-          <Flame className="h-6 w-6" />
-        </span>
-        <div className="min-w-0 flex-1">
-          {seq.semanasSeguidas > 0 ? (
-            <>
-              <p className="font-bold text-white">
-                {seq.semanasSeguidas}{" "}
-                {seq.semanasSeguidas === 1 ? "semana" : "semanas"} seguidas 🔥
-              </p>
-              <p className="text-sm text-slate-400">
-                {seq.treinosSemana > 0
-                  ? `${seq.treinosSemana} ${
-                      seq.treinosSemana === 1 ? "treino" : "treinos"
-                    } essa semana. Continue assim!`
-                  : "Treine essa semana pra manter a sequência."}
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="font-bold text-white">Comece sua sequência 💪</p>
-              <p className="text-sm text-slate-400">
-                Faça seu primeiro treino da semana.
-              </p>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Seus recordes — top 3 cargas do histórico (migration 059). Some
-          sozinho quando ainda não há recorde ou a RPC não foi aplicada. */}
-      {recordesTop.length > 0 && (
-        <div className="surface rounded-2xl p-4">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-amber-400" />
-            <h2 className="font-semibold text-white">Seus recordes</h2>
-          </div>
-          <ul className="mt-3 space-y-2">
-            {recordesTop.map((r) => (
-              <li
-                key={r.id}
-                className="flex items-center justify-between gap-3 text-sm"
-              >
-                <span className="truncate text-slate-300">{r.nome}</span>
-                <span className="flex-none font-bold tabular-nums text-amber-300">
-                  {r.kg} kg
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Resumo da matrícula e situação financeira */}
-      <div className="surface space-y-3 rounded-2xl p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="label-muted">Plano atual</p>
-            <p className="font-semibold text-white">
-              {aluno.plano_nome ?? "Sem plano definido"}
-            </p>
-          </div>
-          <span className={cn("chip", badgeStatusMatricula(aluno.status_matricula))}>
-            Matrícula {aluno.status_matricula}
+      {/* TREINO DE HOJE — herói da home */}
+      <Link
+        href={`${base}/treinos`}
+        className={cn(
+          "surface block rounded-2xl p-5 transition active:scale-[0.99]",
+          treinoHoje
+            ? "border-volt-400/50 bg-volt-500/[0.06] shadow-glow hover:border-volt-400"
+            : "hover:border-ink-500"
+        )}
+      >
+        <div className="flex items-center justify-between">
+          <p className="label-muted">Treino de hoje</p>
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-volt-300/15 text-volt-300">
+            <Dumbbell className="h-5 w-5" />
           </span>
         </div>
+        {treinoHoje ? (
+          <>
+            <h2 className="mt-2 text-xl font-bold text-white">
+              {separarNome(treinoHoje.nome_treino).grupos ??
+                separarNome(treinoHoje.nome_treino).titulo}
+            </h2>
+            <p className="mt-0.5 text-sm text-slate-400">
+              {separarNome(treinoHoje.nome_treino).grupos
+                ? separarNome(treinoHoje.nome_treino).titulo + " · "
+                : ""}
+              {treinoHoje.exercicios?.length ?? 0} exercícios
+            </p>
+            <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-volt-300">
+              Ver treino <ChevronRight className="h-4 w-4" />
+            </span>
+          </>
+        ) : (
+          <>
+            <h2 className="mt-2 text-lg font-bold text-white">
+              {treinos.length > 0
+                ? "Sem treino programado para hoje"
+                : "Nenhum treino atribuído"}
+            </h2>
+            <p className="mt-0.5 text-sm text-slate-400">
+              {treinos.length > 0
+                ? "Aproveite para descansar ou ver os outros dias."
+                : "Fale com a recepção da sua academia."}
+            </p>
+            <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-300">
+              Ver meus treinos <ChevronRight className="h-4 w-4" />
+            </span>
+          </>
+        )}
+      </Link>
 
-        <div className="flex items-center justify-between gap-2 border-t border-ink-600/60 pt-3">
+      {/* SEU PROGRESSO */}
+      <section className="surface rounded-2xl p-4">
+        <p className="label-muted">Seu progresso</p>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div className="rounded-xl bg-ink-900/50 p-3">
+            <p className="flex items-center gap-1.5 text-xs text-slate-400">
+              <CalendarDays className="h-3.5 w-3.5 text-volt-300" /> Este mês
+            </p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-white">
+              {treinosNoMes}
+              <span className="ml-1 text-sm font-medium text-slate-400">
+                {treinosNoMes === 1 ? "treino" : "treinos"}
+              </span>
+            </p>
+          </div>
+          <div className="rounded-xl bg-ink-900/50 p-3">
+            <p className="flex items-center gap-1.5 text-xs text-slate-400">
+              <Flame className="h-3.5 w-3.5 text-volt-300" /> Sequência
+            </p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-white">
+              {seq.semanasSeguidas}
+              <span className="ml-1 text-sm font-medium text-slate-400">
+                {seq.semanasSeguidas === 1 ? "semana" : "semanas"}
+              </span>
+            </p>
+          </div>
+        </div>
+        {recordeTop && (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-ink-900/50 p-3">
+            <span className="flex items-center gap-2 text-sm text-slate-300">
+              <Trophy className="h-4 w-4 text-amber-400" /> Recorde: {recordeTop.nome}
+            </span>
+            <span className="flex-none font-bold tabular-nums text-amber-300">
+              {recordeTop.kg} kg
+            </span>
+          </div>
+        )}
+      </section>
+
+      {/* COMUNIDADE — prévia */}
+      <Link
+        href={`${base}/comunidade`}
+        className="surface block rounded-2xl p-4 transition hover:border-ink-500"
+      >
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-2 font-semibold text-white">
+            <Users className="h-4 w-4 text-volt-300" /> Comunidade
+          </p>
+          <ChevronRight className="h-5 w-5 text-slate-500" />
+        </div>
+        {feed.length > 0 ? (
+          <div className="mt-3 flex items-center gap-3">
+            <div className="flex -space-x-2">
+              {feed.slice(0, 3).map((p) => (
+                <AvatarAluno
+                  key={p.id}
+                  nome={p.autor.nome}
+                  fotoUrl={p.autor.foto_url}
+                  size={32}
+                  className="ring-2 ring-ink-800"
+                />
+              ))}
+            </div>
+            <p className="min-w-0 flex-1 truncate text-sm text-slate-400">
+              {feed[0].autor.nome.split(" ")[0]}
+              {feed.length > 1 ? " e outros publicaram" : " publicou"} recentemente
+            </p>
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-slate-400">
+            Veja e compartilhe conquistas com a galera da academia.
+          </p>
+        )}
+      </Link>
+
+      {/* Situação (financeiro + acesso) — informações importantes, condensadas */}
+      <section className="surface space-y-3 rounded-2xl p-4">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm text-slate-300">
-            <Wallet className="h-4 w-4 text-volt-300" />
-            Situação financeira
+            <Wallet className="h-4 w-4 text-volt-300" /> Situação financeira
           </div>
           <span className={cn("chip", badgeStatusFinanceiro(statusFinanceiro))}>
             {ROTULO_FINANCEIRO[statusFinanceiro]}
           </span>
         </div>
 
-        {/* Status de acesso — mesma regra da recepção (decidirAcesso),
-            separado do cadastral e do financeiro acima. Nunca mostra valor
-            vencido, quantidade de mensalidades ou motivo detalhado. */}
         <div className="flex items-center justify-between gap-2 border-t border-ink-600/60 pt-3">
           <div className="flex items-center gap-2 text-sm text-slate-300">
-            <IconeAcesso className="h-4 w-4 text-volt-300" />
-            Situação de acesso
+            <IconeAcesso className="h-4 w-4 text-volt-300" /> Situação de acesso
           </div>
           <span
             className={cn(
               "chip",
-              statusAcesso ? badgeStatusAcesso(statusAcesso.resultado) : BADGE_ACESSO_INDISPONIVEL
+              statusAcesso
+                ? badgeStatusAcesso(statusAcesso.resultado)
+                : BADGE_ACESSO_INDISPONIVEL
             )}
           >
             {statusAcesso ? ROTULO_ACESSO[statusAcesso.resultado] : "Indisponível"}
           </span>
         </div>
-        <p className="text-xs text-slate-400">
-          {statusAcesso ? MENSAGEM_ACESSO[statusAcesso.resultado] : MENSAGEM_ACESSO_INDISPONIVEL}
-        </p>
 
         {proximaMensalidade && (
           <div className="flex items-center justify-between gap-2 border-t border-ink-600/60 pt-3 text-sm">
             <div className="flex items-center gap-2 text-slate-300">
-              <CalendarClock className="h-4 w-4 text-cyanx-400" />
-              Próxima mensalidade
+              <CalendarClock className="h-4 w-4 text-cyanx-400" /> Próxima mensalidade
             </div>
             <div className="text-right">
               <p className="font-semibold text-white">
                 {formatBRL(proximaMensalidade.valor)}
               </p>
               <p className="text-xs text-slate-500">
-                vence em{" "}
+                vence{" "}
                 {new Date(proximaMensalidade.data + "T00:00:00").toLocaleDateString(
                   "pt-BR",
                   { day: "2-digit", month: "2-digit" }
@@ -295,98 +314,43 @@ export default async function AlunoHome({
             </div>
           </div>
         )}
-      </div>
 
-      {/* Treino atual / próximo */}
-      <Link
-        href={`${base}/treinos`}
-        className="surface flex items-center justify-between rounded-2xl p-4 transition hover:border-ink-500"
-      >
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-ink-700 text-volt-300">
-            <Dumbbell className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="font-semibold text-white">
-              {treinos.length > 0 ? "Seu treino" : "Nenhum treino atribuído"}
-            </p>
-            <p className="text-sm text-slate-400">
-              {treinos[0]?.nome_treino ?? "Fale com a recepção da sua academia"}
-            </p>
-          </div>
-        </div>
-        <ChevronRight className="h-5 w-5 shrink-0 text-slate-500" />
-      </Link>
+        <Link
+          href={`${base}/mensalidades`}
+          className="flex items-center justify-between border-t border-ink-600/60 pt-3 text-sm text-slate-400 transition hover:text-slate-200"
+        >
+          Ver mensalidades <ChevronRight className="h-4 w-4" />
+        </Link>
+      </section>
 
-      {/* Último acesso */}
-      <div className="surface flex items-center justify-between rounded-2xl p-4">
-        <div className="flex items-center gap-2 text-sm text-slate-300">
-          <CalendarDays className="h-4 w-4 text-volt-300" />
-          Último acesso
-        </div>
-        <p className="text-sm font-medium text-white">
-          {ultimoAcesso ? formatDataHora(ultimoAcesso) : "Nenhum acesso registrado"}
-        </p>
-      </div>
-
-      {/* Ações principais */}
-      <div className="grid grid-cols-2 gap-3">
-        <AcaoRapida href={`${base}/treinos`} icon={Dumbbell} label="Ver meu treino" />
-        <AcaoRapida href={`${base}/mensalidades`} icon={Wallet} label="Ver mensalidades" />
-        <AcaoRapida href={`${base}/frequencia`} icon={CalendarDays} label="Ver frequência" />
-        <AcaoRapida href={`${base}/perfil`} icon={User} label="Meu perfil" />
-        {linkWhatsapp && (
-          <AcaoRapida
-            href={linkWhatsapp}
-            icon={MessageCircle}
-            label="Falar com a academia"
-            externo
-            className="col-span-2"
-          />
-        )}
+      {/* Atalhos pequenos, incluindo o acesso (item 9: no máximo um atalho discreto) */}
+      <div className="grid grid-cols-3 gap-3">
+        <AtalhoPequeno href={`${base}/frequencia`} icon={CalendarDays} label="Frequência" />
+        <AtalhoPequeno href={`${base}/acesso`} icon={QrCode} label="Acesso" />
+        <AtalhoPequeno href={`${base}/perfil`} icon={User} label="Perfil" />
       </div>
     </div>
   );
 }
 
-function AcaoRapida({
+function AtalhoPequeno({
   href,
   icon: Icon,
   label,
-  externo,
-  className,
 }: {
   href: string;
   icon: typeof Dumbbell;
   label: string;
-  /** true = link externo (ex.: wa.me) — abre em nova aba, sem navegação interna do Next. */
-  externo?: boolean;
-  className?: string;
 }) {
-  const classeBase = cn(
-    "surface flex flex-col items-start gap-2 rounded-2xl p-4 transition active:scale-[0.98] hover:border-ink-500",
-    className
-  );
-  const conteudo = (
-    <>
-      <span className="grid h-9 w-9 place-items-center rounded-xl bg-volt-300/15 text-volt-300">
-        <Icon className="h-5 w-5" />
-      </span>
-      <span className="text-sm font-semibold text-white">{label}</span>
-    </>
-  );
-
-  if (externo) {
-    return (
-      <a href={href} target="_blank" rel="noreferrer" className={classeBase}>
-        {conteudo}
-      </a>
-    );
-  }
-
   return (
-    <Link href={href} className={classeBase}>
-      {conteudo}
+    <Link
+      href={href}
+      className="surface flex flex-col items-center gap-1.5 rounded-2xl p-3 text-center transition active:scale-[0.98] hover:border-ink-500"
+    >
+      <span className="grid h-9 w-9 place-items-center rounded-xl bg-ink-700 text-slate-300">
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="text-xs font-medium text-slate-300">{label}</span>
     </Link>
   );
 }

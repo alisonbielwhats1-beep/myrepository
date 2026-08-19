@@ -104,3 +104,68 @@ export async function prepararFotoParaEnvio(
     return { erro: "Não foi possível processar essa imagem. Tente outra foto." };
   }
 }
+
+// --- Imagem da Comunidade -----------------------------------------------------
+// Diferente do avatar (quadrado 512px), a publicação preserva a proporção da
+// foto e permite mais resolução — mas ainda comprime no navegador para caber no
+// corpo de 1 MB de uma Server Action e no teto do bucket `comunidade`.
+const LADO_MAXIMO_COMUNIDADE_PX = 1080;
+const ALVO_BYTES_COMUNIDADE = 700 * 1024; // 700 KB — meta de compressão
+const LIMITE_REJEICAO_COMUNIDADE_BYTES = 950 * 1024; // 950 KB — teto antes do envio
+
+async function redimensionarEComprimir(file: File): Promise<Blob> {
+  const bitmap = await carregarBitmap(file);
+  const maiorLado = Math.max(bitmap.width, bitmap.height);
+  const escala = maiorLado > LADO_MAXIMO_COMUNIDADE_PX ? LADO_MAXIMO_COMUNIDADE_PX / maiorLado : 1;
+  const largura = Math.max(1, Math.round(bitmap.width * escala));
+  const altura = Math.max(1, Math.round(bitmap.height * escala));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = largura;
+  canvas.height = altura;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas indisponível neste navegador.");
+  ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height, 0, 0, largura, altura);
+  bitmap.close?.();
+
+  let qualidade = QUALIDADE_INICIAL;
+  let blob = await codificarJpeg(canvas, qualidade);
+  if (!blob) throw new Error("Falha ao processar a imagem.");
+
+  while (blob.size > ALVO_BYTES_COMUNIDADE && qualidade > QUALIDADE_MINIMA) {
+    qualidade = Math.max(QUALIDADE_MINIMA, qualidade - 0.1);
+    const tentativa = await codificarJpeg(canvas, qualidade);
+    if (!tentativa) break;
+    blob = tentativa;
+    if (qualidade <= QUALIDADE_MINIMA) break;
+  }
+
+  if (blob.size > LIMITE_REJEICAO_COMUNIDADE_BYTES) {
+    throw new ImagemGrandeDemaisError();
+  }
+  return blob;
+}
+
+/**
+ * Valida, redimensiona (mantendo a proporção, máx. 1080px no maior lado) e
+ * comprime a imagem de uma publicação da comunidade. Devolve o blob pronto +
+ * uma URL de preview local (quem chama revoga com `URL.revokeObjectURL`).
+ */
+export async function prepararImagemComunidade(
+  file: File
+): Promise<{ blob: Blob; previewUrl: string } | { erro: string }> {
+  const erro = erroDoArquivo(file);
+  if (erro) return { erro };
+  try {
+    const blob = await redimensionarEComprimir(file);
+    return { blob, previewUrl: URL.createObjectURL(blob) };
+  } catch (e) {
+    if (e instanceof ImagemGrandeDemaisError) {
+      return {
+        erro:
+          "Mesmo comprimida, essa imagem ficou acima de 950 KB. Tente uma foto mais simples ou com menos detalhe.",
+      };
+    }
+    return { erro: "Não foi possível processar essa imagem. Tente outra foto." };
+  }
+}

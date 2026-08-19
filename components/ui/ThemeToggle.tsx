@@ -1,37 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Escolha = "system" | "light" | "dark";
+type Escolha = "light" | "dark";
 const CHAVE = "gestacad-theme";
 
 function aplicar(escolha: Escolha) {
-  const el = document.documentElement;
-  if (escolha === "system") {
-    el.removeAttribute("data-theme");
-    localStorage.removeItem(CHAVE);
-  } else {
-    el.setAttribute("data-theme", escolha);
-    localStorage.setItem(CHAVE, escolha);
-  }
+  // O preferencial do app é o escuro; a escolha do usuário é sempre carimbada
+  // em data-theme e persistida. Não há mais opção "Sistema": o app nunca segue
+  // a preferência clara do aparelho — começa escuro e só fica claro por escolha.
+  document.documentElement.setAttribute("data-theme", escolha);
+  localStorage.setItem(CHAVE, escolha);
 }
 
-/** Alternador de tema: Sistema / Claro / Escuro. */
+/** Alternador de tema: Escuro (preferencial) / Claro. */
 export default function ThemeToggle({ className }: { className?: string }) {
-  const [escolha, setEscolha] = useState<Escolha>("system");
+  const [escolha, setEscolha] = useState<Escolha>("dark");
 
   useEffect(() => {
     const salvo = localStorage.getItem(CHAVE);
-    if (salvo === "light" || salvo === "dark") setEscolha(salvo);
-    else setEscolha("system");
+    setEscolha(salvo === "light" ? "light" : "dark");
   }, []);
 
   const opcoes: { valor: Escolha; label: string; icon: typeof Sun }[] = [
-    { valor: "system", label: "Sistema", icon: Monitor },
-    { valor: "light", label: "Claro", icon: Sun },
     { valor: "dark", label: "Escuro", icon: Moon },
+    { valor: "light", label: "Claro", icon: Sun },
   ];
 
   return (

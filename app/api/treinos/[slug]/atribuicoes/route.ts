@@ -35,7 +35,7 @@ export async function GET(
   const supabase = createClient();
   const { data, error } = await supabase
     .from("treinos")
-    .select("id, nome_treino, atribuido_em, aluno:alunos!inner(id, nome)")
+    .select("id, nome_treino, atribuido_em, dias_semana, aluno:alunos!inner(id, nome)")
     .eq("academia_id", sessao.academia.id)
     .eq("modelo_origem_id", modeloId)
     .not("aluno_id", "is", null)
@@ -50,11 +50,15 @@ export async function GET(
 
   const atribuicoes = (data ?? []).map((t) => {
     const aluno = t.aluno as unknown as { id: string; nome: string } | null;
+    const dias = Array.isArray(t.dias_semana)
+      ? (t.dias_semana as unknown[]).map((d) => Number(d)).filter((d) => d >= 1 && d <= 7)
+      : [];
     return {
       treinoId: t.id,
       alunoId: aluno?.id ?? "",
       alunoNome: aluno?.nome ?? "Aluno",
       atribuidoEm: t.atribuido_em as string | null,
+      diasSemana: dias,
     };
   });
 

@@ -7,6 +7,7 @@ import {
   Check,
   Clock,
   Loader2,
+  Pencil,
   Search,
   Trash2,
   UserPlus,
@@ -15,8 +16,12 @@ import {
 } from "lucide-react";
 import type { Treino } from "@/lib/types";
 import { formatDataDeInstante } from "@/lib/utils";
+import type { DiaSemana } from "@/lib/dias-semana";
+import { resumoDias } from "@/lib/dias-semana";
+import SeletorDiasTreino from "./SeletorDiasTreino";
 import {
   atribuirTreinoBiblioteca,
+  definirDiasTreino,
   removerAtribuicaoTreino,
 } from "@/app/painel/[slug]/treinos/actions";
 
@@ -31,6 +36,7 @@ type Atribuicao = {
   alunoId: string;
   alunoNome: string;
   atribuidoEm: string | null;
+  diasSemana: number[];
 };
 
 export default function AtribuirTreino({
@@ -103,6 +109,7 @@ function DialogAtribuir({
   const [busca, setBusca] = useState("");
   const [alunos, setAlunos] = useState<AlunoOpcao[]>([]);
   const [alunoId, setAlunoId] = useState("");
+  const [dias, setDias] = useState<DiaSemana[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erroBusca, setErroBusca] = useState("");
 
@@ -144,6 +151,7 @@ function DialogAtribuir({
       );
       setAlunoId("");
       setBusca("");
+      setDias([]);
       carregarAtribuicoes();
       const t = window.setTimeout(() => setSucesso(null), 6000);
       return () => window.clearTimeout(t);
@@ -265,35 +273,20 @@ function DialogAtribuir({
               </p>
             ) : (
               atribuicoes.map((a) => (
-                <div
+                <LinhaAtribuicao
                   key={a.treinoId}
-                  className="flex items-center gap-2 rounded-xl border border-ink-600 bg-ink-900/50 px-3 py-2"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-white">
-                      {a.alunoNome}
-                    </p>
-                    {a.atribuidoEm && (
-                      <p className="flex items-center gap-1 text-[11px] text-slate-500">
-                        <Clock className="h-3 w-3" /> {formatarData(a.atribuidoEm)}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => remover(a)}
-                    disabled={removendo === a.treinoId}
-                    className="flex items-center gap-1 rounded-lg border border-ink-600 px-2 py-1 text-xs text-slate-400 transition hover:border-red-500/40 hover:text-red-300 disabled:opacity-60"
-                    title="Remover este treino da ficha do aluno"
-                  >
-                    {removendo === a.treinoId ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
-                    Remover
-                  </button>
-                </div>
+                  slug={slug}
+                  atribuicao={a}
+                  removendo={removendo === a.treinoId}
+                  onRemover={() => remover(a)}
+                  onDiasAlterados={(novos) =>
+                    setAtribuicoes((prev) =>
+                      prev.map((x) =>
+                        x.treinoId === a.treinoId ? { ...x, diasSemana: novos } : x
+                      )
+                    )
+                  }
+                />
               ))
             )}
           </div>
@@ -317,6 +310,16 @@ function DialogAtribuir({
               required
             />
           </label>
+
+          <div>
+            <span className="mb-1.5 block text-xs font-medium text-slate-400">
+              Dias do treino{" "}
+              <span className="font-normal text-slate-500">
+                (opcional — deixe vazio para aparecer em “Todos”)
+              </span>
+            </span>
+            <SeletorDiasTreino name="dias" value={dias} onChange={setDias} />
+          </div>
 
           <div>
             <label htmlFor="buscar-aluno-treino" className="label-muted">
@@ -396,6 +399,116 @@ function DialogAtribuir({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Uma linha de "Já atribuído a": nome, data, resumo dos dias e um editor de
+ * dias inline (salva via `definirDiasTreino` sem re-atribuir a ficha).
+ */
+function LinhaAtribuicao({
+  slug,
+  atribuicao,
+  removendo,
+  onRemover,
+  onDiasAlterados,
+}: {
+  slug: string;
+  atribuicao: Atribuicao;
+  removendo: boolean;
+  onRemover: () => void;
+  onDiasAlterados: (dias: number[]) => void;
+}) {
+  const [editando, setEditando] = useState(false);
+  const [dias, setDias] = useState<DiaSemana[]>(atribuicao.diasSemana as DiaSemana[]);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function salvar() {
+    setSalvando(true);
+    setErro(null);
+    const r = await definirDiasTreino(slug, atribuicao.treinoId, dias);
+    setSalvando(false);
+    if ("erro" in r) {
+      setErro(r.erro);
+      return;
+    }
+    onDiasAlterados(r.dias);
+    setEditando(false);
+  }
+
+  return (
+    <div className="rounded-xl border border-ink-600 bg-ink-900/50 px-3 py-2">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-white">
+            {atribuicao.alunoNome}
+          </p>
+          <p className="flex flex-wrap items-center gap-x-2 text-[11px] text-slate-500">
+            {atribuicao.atribuidoEm && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" /> {formatarData(atribuicao.atribuidoEm)}
+              </span>
+            )}
+            <span>· {resumoDias(atribuicao.diasSemana)}</span>
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setDias(atribuicao.diasSemana as DiaSemana[]);
+            setEditando((v) => !v);
+          }}
+          className="flex items-center gap-1 rounded-lg border border-ink-600 px-2 py-1 text-xs text-slate-400 transition hover:border-ink-500 hover:text-slate-200"
+          title="Editar dias"
+        >
+          <Pencil className="h-3.5 w-3.5" /> Dias
+        </button>
+        <button
+          type="button"
+          onClick={onRemover}
+          disabled={removendo}
+          className="flex items-center gap-1 rounded-lg border border-ink-600 px-2 py-1 text-xs text-slate-400 transition hover:border-red-500/40 hover:text-red-300 disabled:opacity-60"
+          title="Remover este treino da ficha do aluno"
+        >
+          {removendo ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Trash2 className="h-3.5 w-3.5" />
+          )}
+          Remover
+        </button>
+      </div>
+
+      {editando && (
+        <div className="mt-3 border-t border-ink-700 pt-3">
+          <SeletorDiasTreino value={dias} onChange={setDias} disabled={salvando} />
+          {erro && <p className="mt-2 text-xs text-red-300">{erro}</p>}
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={salvar}
+              disabled={salvando}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-volt-300 px-3 py-1.5 text-xs font-semibold text-ink-950 transition disabled:opacity-60"
+            >
+              {salvando ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Check className="h-3.5 w-3.5" />
+              )}
+              Salvar dias
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditando(false)}
+              className="text-xs text-slate-400 hover:text-slate-200"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

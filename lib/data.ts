@@ -33,6 +33,8 @@ import {
   PlanoPublico,
   PoliticaInadimplencia,
   POLITICAS_INADIMPLENCIA,
+  PostComunidade,
+  PostModeracao,
   Produto,
   ProdutoPublico,
   ProgressoAluno,
@@ -1190,6 +1192,53 @@ export async function getNotificacoesAluno(
   });
   if (error) return [];
   return (data as NotificacaoAluno[]) ?? [];
+}
+
+/**
+ * Feed da comunidade da própria academia do aluno (migration 085), resolvido
+ * por token pessoal + slug — nunca aluno_id/academia_id. A RPC já isola por
+ * academia e só devolve nome/foto/legenda/imagem, jamais dado de cadastro.
+ * Nunca lança: se a migration ainda não foi aplicada ou o token é inválido,
+ * devolve [] em vez de derrubar a aba.
+ */
+export async function getFeedComunidade(
+  token: string,
+  slug: string,
+  limite = 20,
+  antes: string | null = null
+): Promise<PostComunidade[]> {
+  if (!tokenTemFormatoValido(token)) return [];
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("obter_feed_comunidade", {
+      p_token: token,
+      p_slug: slug,
+      p_limite: limite,
+      p_antes: antes,
+    });
+    if (error) return [];
+    return (data as PostComunidade[]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Publicações da comunidade para a moderação do painel (migration 085), via
+ * RPC `listar_posts_moderacao` resolvida pela SESSÃO (academia_id_atual) —
+ * papel dono/gerente. Denunciadas primeiro. Nunca de outra academia.
+ */
+export async function getPostsModeracao(
+  apenasDenunciados = false,
+  limite = 30
+): Promise<PostModeracao[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("listar_posts_moderacao", {
+    p_limite: limite,
+    p_apenas_denunciados: apenasDenunciados,
+  });
+  if (error) throw new Error(`Falha ao carregar moderação: ${error.message}`);
+  return (data as PostModeracao[]) ?? [];
 }
 
 /** Produtos da loja da academia (admin) — ordenados por destaque e ordem. */

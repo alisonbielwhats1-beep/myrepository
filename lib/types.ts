@@ -179,6 +179,11 @@ export interface Academia {
   cor_primaria: string | null;
   telefone: string | null;
   whatsapp: string | null;
+  /** Redes sociais da academia (migration 084) — exibidas na Comunidade do app do aluno. Específicas do tenant. */
+  instagram: string | null;
+  site: string | null;
+  facebook: string | null;
+  tiktok: string | null;
   plano_saas: PlanoSaas;
   is_demo: boolean;
   meta_faturamento_mensal: number | null;
@@ -324,6 +329,11 @@ export interface Treino {
   atribuido_por?: string | null;
   atribuido_em?: string | null;
   versao_origem?: number | null;
+  /**
+   * Dias da semana desta ficha (migration 083). ISO: 1=seg … 7=dom. Vazio =
+   * sem dia definido. Só faz sentido em ficha de aluno (aluno_id != null).
+   */
+  dias_semana?: number[];
   criado_em: string;
   atualizado_em: string;
   exercicios?: ExercicioTreino[];
@@ -385,6 +395,11 @@ export interface AcademiaPublica {
   logo_url: string | null;
   endereco: string | null;
   whatsapp: string | null;
+  /** Redes sociais (migration 084) — exibidas na Comunidade do app do aluno. */
+  instagram: string | null;
+  site: string | null;
+  facebook: string | null;
+  tiktok: string | null;
 }
 
 /** Retorno da RPC pública obter_planos_publicos (mini-site). */
@@ -851,7 +866,56 @@ export interface FichaTreinoPublico {
   nome_treino: string;
   objetivo: string | null;
   ordem: number;
+  /**
+   * Dias da semana em que a ficha se aplica (migration 083). Convenção ISO:
+   * 1=segunda … 7=domingo. Vazio = sem dia definido (aparece só na aba "Todos"
+   * do seletor de dias). Um treino pode valer para vários dias sem duplicar.
+   */
+  dias_semana: number[];
   exercicios: ExercicioTreino[];
+}
+
+/** Autor exposto na comunidade — só nome e avatar, nunca dado de cadastro. */
+export interface AutorComunidade {
+  nome: string;
+  foto_url: string | null;
+}
+
+/** Comentário de uma publicação da comunidade (migration 085). */
+export interface ComentarioComunidade {
+  id: string;
+  texto: string;
+  criado_em: string;
+  sou_autor: boolean;
+  autor: AutorComunidade;
+}
+
+/** Publicação do feed da comunidade da academia (migration 085). */
+export interface PostComunidade {
+  id: string;
+  legenda: string | null;
+  imagem_url: string | null;
+  criado_em: string;
+  sou_autor: boolean;
+  autor: AutorComunidade;
+  total_curtidas: number;
+  curtido_por_mim: boolean;
+  total_comentarios: number;
+  comentarios: ComentarioComunidade[];
+}
+
+/** Publicação vista pela moderação do painel (migration 085) — inclui denúncias e status. */
+export interface PostModeracao {
+  id: string;
+  legenda: string | null;
+  imagem_url: string | null;
+  criado_em: string;
+  removido_em: string | null;
+  removido_por: "autor" | "moderacao" | null;
+  autor: AutorComunidade;
+  total_denuncias: number;
+  total_curtidas: number;
+  total_comentarios: number;
 }
 
 /** Status de uma sessão de execução de treino pelo aluno (Bloco 1). */

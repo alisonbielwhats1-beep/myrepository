@@ -68,13 +68,15 @@ const config: Config = {
         display: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        glow: "0 0 40px -8px rgba(173, 255, 66, 0.45)",
+        // Glow discreto (não mais halo lima-neon): sombra suave no tom do verde
+        // calmo. Vale para todo o app (aluno e painel).
+        glow: "0 6px 22px -14px rgba(120, 160, 72, 0.35)",
         "glow-magenta": "0 0 40px -8px rgba(248, 28, 192, 0.45)",
         card: "0 20px 60px -25px rgba(0, 0, 0, 0.85)",
       },
       backgroundImage: {
         "grid-fade":
-          "radial-gradient(circle at 50% 0%, rgba(173,255,66,0.08), transparent 60%)",
+          "radial-gradient(circle at 50% 0%, rgba(120,160,72,0.06), transparent 60%)",
       },
       borderRadius: {
         xl: "0.9rem",

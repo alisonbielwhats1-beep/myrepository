@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Users,
+  Users2,
   UserRound,
   X,
 } from "lucide-react";
@@ -68,6 +69,7 @@ export default function Sidebar({
     { href: `${base}/retencao`, label: "Retenção", icon: HeartPulse, secao: "retencao", recurso: "retencao" },
     { href: `${base}/feedback`, label: "Feedback", icon: MessageSquare, secao: "feedback", recurso: "feedback" },
     { href: `${base}/atendimento`, label: "Atendimento", icon: MessagesSquare, secao: "atendimento", recurso: "atendimento" },
+    { href: `${base}/comunidade`, label: "Comunidade", icon: Users2, secao: "comunidade", recurso: "comunidade" },
     { href: `${base}/dashboard`, label: "Relatórios / BI", icon: BarChart3, secao: "relatorios", recurso: "relatorios" },
     { href: `${base}/equipe`, label: "Equipe", icon: ShieldCheck, secao: "equipe", recurso: "equipe" },
     { href: `${base}/integracoes`, label: "Integrações", icon: Plug, secao: "integracoes", recurso: "integracoes" },
