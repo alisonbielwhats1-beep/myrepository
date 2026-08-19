@@ -29,19 +29,6 @@ export default async function ComunidadePage({
     foto_url: ficha.aluno.foto_perfil_url,
   };
 
-  // Ações vinculadas a (slug, token) — o servidor resolve o aluno pelo token,
-  // nunca por id do cliente.
-  const curtir = (postId: string, curtir: boolean) =>
-    alternarCurtida(params.slug, params.token, postId, curtir);
-  const comentar = (postId: string, texto: string) =>
-    comentarPost(params.slug, params.token, postId, texto);
-  const removerPost = (postId: string) =>
-    excluirPost(params.slug, params.token, postId);
-  const removerComentario = (comentarioId: string) =>
-    excluirComentario(params.slug, params.token, comentarioId);
-  const denunciar = (postId: string, motivo: string) =>
-    denunciarPost(params.slug, params.token, postId, motivo);
-
   return (
     <div className="space-y-6">
       <header>
@@ -57,11 +44,15 @@ export default async function ComunidadePage({
         postsIniciais={posts}
         criar={criarPost.bind(null, params.slug, params.token)}
         acoes={{
-          curtir,
-          comentar,
-          excluirPost: removerPost,
-          excluirComentario: removerComentario,
-          denunciar,
+          // .bind gera uma *bound server action* — que PODE ser passada a um
+          // Client Component. Uma função comum embrulhando a action não pode
+          // (Next: "Functions cannot be passed directly to Client Components").
+          // O servidor sempre resolve o aluno por token+slug, nunca por id do cliente.
+          curtir: alternarCurtida.bind(null, params.slug, params.token),
+          comentar: comentarPost.bind(null, params.slug, params.token),
+          excluirPost: excluirPost.bind(null, params.slug, params.token),
+          excluirComentario: excluirComentario.bind(null, params.slug, params.token),
+          denunciar: denunciarPost.bind(null, params.slug, params.token),
         }}
       />
     </div>
