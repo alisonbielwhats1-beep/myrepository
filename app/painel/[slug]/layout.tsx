@@ -47,7 +47,16 @@ export default async function PainelLayout({
         papel={sessao.papel}
         planoSaas={sessao.academia.plano_saas}
       />
-      <main className="min-w-0 flex-1 px-4 py-6 lg:px-8">
+      {/* `overflow-x-clip`: trava de segurança contra rolagem horizontal no
+          celular. Se qualquer tela do painel tiver um elemento que ultrapasse a
+          largura (um gráfico, um número longo, uma tabela), ele é recortado no
+          eixo X em vez de empurrar a página inteira de lado — era isso que
+          deixava o painel do dono "descalibrado" no mobile. Usamos `clip` (e
+          não `hidden`) de propósito: `clip` não cria um contêiner de rolagem,
+          então não força `overflow-y: auto` nem quebra o `position: sticky` da
+          barra superior do menu. Tabelas largas continuam com sua própria
+          rolagem lateral interna (`overflow-x-auto`), que não é afetada. */}
+      <main className="min-w-0 flex-1 overflow-x-clip px-4 py-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-4">
           <div className="no-print flex items-center justify-end gap-2">
             {sessao.papel === "dono" && (

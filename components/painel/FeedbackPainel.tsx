@@ -76,8 +76,9 @@ export default function FeedbackPainel({
 
   return (
     <div className="space-y-5">
-      {/* Resumo */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Resumo — 3 colunas fixas espremiam os cards em telas estreitas; em
+          celular pequeno viram 1 coluna e a partir de 400px voltam a 3. */}
+      <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-3 sm:gap-4">
         <div className="surface rounded-2xl p-4">
           <p className="label-muted">Média</p>
           <p className="mt-1 flex items-center gap-1 text-2xl font-bold text-volt-300">
