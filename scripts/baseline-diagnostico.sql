@@ -11,11 +11,16 @@
 --   3) O inventário bate com o conjunto local de migrations?
 -- =============================================================================
 
--- 1) Histórico de migrations -------------------------------------------------
-select 'schema_migrations' as verificacao,
-       count(*)            as linhas
-from   supabase_migrations.schema_migrations;
--- (Se a tabela não existir, o próprio erro já confirma o achado do briefing.)
+-- 1) Histórico de migrations (seguro se a tabela NÃO existir) ----------------
+--    Usa to_regclass, que devolve NULL em vez de erro quando a relação não
+--    existe — assim o bloco 1 nunca aborta os blocos 2..5 no SQL Editor.
+select
+  to_regclass('supabase_migrations.schema_migrations') is not null as historico_existe,
+  case
+    when to_regclass('supabase_migrations.schema_migrations') is null
+      then 'AUSENTE — o projeto nunca usou o sistema de migrations do Supabase CLI (schema aplicado manualmente).'
+    else 'Existe. Rode a parte: select count(*) from supabase_migrations.schema_migrations;'
+  end as observacao;
 
 -- 2) Hardenings críticos presentes? ------------------------------------------
 --    Cada linha deve retornar `presente = true`. Um `false` = delta prioritário
