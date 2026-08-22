@@ -8,9 +8,14 @@ import {
 } from "lucide-react";
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import StatTile from "@/components/painel/StatTile";
+import BotaoReativacaoWhats from "@/components/painel/BotaoReativacaoWhats";
 import UpgradeGuard from "@/components/ui/UpgradeGuard";
 import { requireSecao } from "@/lib/auth";
-import { getAlunosAniversariantes, getRetencaoAlunos } from "@/lib/data";
+import {
+  getAlunosAniversariantes,
+  getRetencaoAlunos,
+  getTelefonesDosAlunos,
+} from "@/lib/data";
 import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
 import {
   ROTULOS_RETENCAO as ROTULOS,
@@ -99,6 +104,14 @@ export default async function RetencaoPage({
     );
 
   const totalSumidos = classificados.filter((r) => r.classificacao === "sumido").length;
+
+  // Telefones só dos alunos em risco (a RPC de retenção não devolve telefone),
+  // para o botão de reativação por WhatsApp direto nesta lista — a próxima ação
+  // acontece aqui, sem o gestor ter de procurar o aluno em outra tela.
+  const telefones = await getTelefonesDosAlunos(
+    sessao.academia.id,
+    emRisco.map((a) => a.aluno_id)
+  );
 
   // Aniversariantes do mês — já filtrados pela RPC (mês é o mesmo `mesAtual`
   // usado acima para a busca).
@@ -226,17 +239,29 @@ export default async function RetencaoPage({
                 key={a.aluno_id}
                 className="flex items-center justify-between gap-3 py-2.5"
               >
-                <Link
-                  href={`/painel/${params.slug}/alunos`}
-                  className="truncate text-sm font-medium text-white hover:text-volt-300"
-                >
-                  {a.nome}
-                </Link>
-                <span className="flex flex-none items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  {/* Deep-link para ESTE aluno (busca por nome), não para a
+                      lista genérica — o gestor cai direto no aluno certo. */}
+                  <Link
+                    href={`/painel/${params.slug}/alunos?q=${encodeURIComponent(a.nome)}`}
+                    className="block truncate text-sm font-medium text-white hover:text-volt-300"
+                  >
+                    {a.nome}
+                  </Link>
                   <span className="text-xs text-slate-500">{a.explicacao}</span>
+                </div>
+                <span className="flex flex-none items-center gap-2">
                   <span className={cn("chip text-[10px]", badgeRetencao(a.classificacao))}>
                     {ROTULOS[a.classificacao]}
                   </span>
+                  <BotaoReativacaoWhats
+                    nome={a.nome}
+                    telefone={telefones.get(a.aluno_id)}
+                    academia={sessao.academia.nome_fantasia}
+                    diasSemAcesso={a.diasSemAcesso ?? null}
+                    compacto
+                    isDemo={sessao.academia.is_demo}
+                  />
                 </span>
               </li>
             ))}
