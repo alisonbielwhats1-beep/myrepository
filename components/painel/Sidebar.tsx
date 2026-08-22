@@ -51,33 +51,50 @@ export default function Sidebar({
   const [aberto, setAberto] = useState(false);
   const base = `/painel/${slug}`;
 
+  // Grupos do menu: organiza os itens em seções nomeadas para reduzir a
+  // "parede" de 15 links. Não remove nem esconde nada por papel além do que
+  // podeAcessar já filtra — só agrupa. Ordem dos grupos = ordem de exibição.
+  type Grupo = "operacao" | "relacionamento" | "financeiro" | "gestao";
+  const GRUPOS: { id: Grupo; label: string }[] = [
+    { id: "operacao", label: "Operação" },
+    { id: "relacionamento", label: "Relacionamento" },
+    { id: "financeiro", label: "Financeiro" },
+    { id: "gestao", label: "Gestão" },
+  ];
+
   const todos: {
     href: string;
     label: string;
     icon: typeof LayoutDashboard;
     secao: Secao;
     recurso: string;
+    grupo: Grupo;
     exact?: boolean;
   }[] = [
-    { href: base, label: "Dashboard", icon: LayoutDashboard, secao: "dashboard", recurso: "dashboard", exact: true },
-    { href: `${base}/recepcao`, label: "Recepção / Catraca", icon: ScanLine, secao: "recepcao", recurso: "recepcao" },
-    { href: `${base}/alunos`, label: "Alunos", icon: Users, secao: "alunos", recurso: "alunos" },
-    { href: `${base}/treinos`, label: "Treinos", icon: Dumbbell, secao: "treinos", recurso: "treinos" },
-    { href: `${base}/funcionarios`, label: "Funcionários", icon: UserRound, secao: "funcionarios", recurso: "funcionarios" },
-    { href: `${base}/loja`, label: "Loja", icon: ShoppingBag, secao: "loja", recurso: "loja" },
-    { href: `${base}/financeiro`, label: "Financeiro", icon: DollarSign, secao: "financeiro", recurso: "financeiro" },
-    { href: `${base}/retencao`, label: "Retenção", icon: HeartPulse, secao: "retencao", recurso: "retencao" },
-    { href: `${base}/feedback`, label: "Feedback", icon: MessageSquare, secao: "feedback", recurso: "feedback" },
-    { href: `${base}/atendimento`, label: "Atendimento", icon: MessagesSquare, secao: "atendimento", recurso: "atendimento" },
-    { href: `${base}/comunidade`, label: "Comunidade", icon: Users2, secao: "comunidade", recurso: "comunidade" },
-    { href: `${base}/dashboard`, label: "Relatórios / BI", icon: BarChart3, secao: "relatorios", recurso: "relatorios" },
-    { href: `${base}/equipe`, label: "Equipe", icon: ShieldCheck, secao: "equipe", recurso: "equipe" },
-    { href: `${base}/integracoes`, label: "Integrações", icon: Plug, secao: "integracoes", recurso: "integracoes" },
-    { href: `${base}/configuracoes`, label: "Configurações", icon: Settings, secao: "configuracoes", recurso: "configuracoes" },
+    { href: base, label: "Dashboard", icon: LayoutDashboard, secao: "dashboard", recurso: "dashboard", grupo: "operacao", exact: true },
+    { href: `${base}/recepcao`, label: "Recepção / Catraca", icon: ScanLine, secao: "recepcao", recurso: "recepcao", grupo: "operacao" },
+    { href: `${base}/alunos`, label: "Alunos", icon: Users, secao: "alunos", recurso: "alunos", grupo: "operacao" },
+    { href: `${base}/treinos`, label: "Treinos", icon: Dumbbell, secao: "treinos", recurso: "treinos", grupo: "operacao" },
+    { href: `${base}/retencao`, label: "Retenção", icon: HeartPulse, secao: "retencao", recurso: "retencao", grupo: "relacionamento" },
+    { href: `${base}/feedback`, label: "Feedback", icon: MessageSquare, secao: "feedback", recurso: "feedback", grupo: "relacionamento" },
+    { href: `${base}/atendimento`, label: "Atendimento", icon: MessagesSquare, secao: "atendimento", recurso: "atendimento", grupo: "relacionamento" },
+    { href: `${base}/comunidade`, label: "Comunidade", icon: Users2, secao: "comunidade", recurso: "comunidade", grupo: "relacionamento" },
+    { href: `${base}/financeiro`, label: "Financeiro", icon: DollarSign, secao: "financeiro", recurso: "financeiro", grupo: "financeiro" },
+    { href: `${base}/loja`, label: "Loja", icon: ShoppingBag, secao: "loja", recurso: "loja", grupo: "financeiro" },
+    { href: `${base}/funcionarios`, label: "Funcionários", icon: UserRound, secao: "funcionarios", recurso: "funcionarios", grupo: "gestao" },
+    { href: `${base}/dashboard`, label: "Relatórios / BI", icon: BarChart3, secao: "relatorios", recurso: "relatorios", grupo: "gestao" },
+    { href: `${base}/equipe`, label: "Equipe", icon: ShieldCheck, secao: "equipe", recurso: "equipe", grupo: "gestao" },
+    { href: `${base}/integracoes`, label: "Integrações", icon: Plug, secao: "integracoes", recurso: "integracoes", grupo: "gestao" },
+    { href: `${base}/configuracoes`, label: "Configurações", icon: Settings, secao: "configuracoes", recurso: "configuracoes", grupo: "gestao" },
   ];
 
   // Filter by role first, then show all remaining items (locked ones included for PLG).
   const itens = todos.filter((i) => podeAcessar(papel, i.secao));
+  // Só renderiza um grupo se ele tiver ao menos um item visível para o papel.
+  const gruposVisiveis = GRUPOS.map((g) => ({
+    ...g,
+    itens: itens.filter((i) => i.grupo === g.id),
+  })).filter((g) => g.itens.length > 0);
 
   const conteudo = (
     <div className="flex h-full flex-col">
@@ -108,40 +125,49 @@ export default function Sidebar({
         </span>
       </div>
 
-      <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 pb-2">
-        {itens.map((item) => {
-          const bloqueado = !planoPodeAcessar(planoSaas, item.recurso);
-          const ativo = !bloqueado && (item.exact
-            ? pathname === item.href
-            : pathname.startsWith(item.href));
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setAberto(false)}
-              aria-current={ativo ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
-                ativo
-                  ? "bg-volt-300 text-ink-950 shadow-glow"
-                  : bloqueado
-                  ? "text-slate-600 hover:bg-ink-700/40 hover:text-slate-500"
-                  : "text-slate-300 hover:bg-ink-700/70 hover:text-white"
-              )}
-            >
-              <item.icon
-                className={cn("h-4 w-4 flex-none", bloqueado && "opacity-50")}
-                strokeWidth={ativo ? 2.5 : 2}
-              />
-              <span className={cn("flex-1", bloqueado && "opacity-60")}>
-                {item.label}
-              </span>
-              {bloqueado && (
-                <Lock className="h-3 w-3 flex-none text-slate-600" />
-              )}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto px-3 pb-2">
+        {gruposVisiveis.map((grupo) => (
+          <div key={grupo.id} className="mb-3">
+            <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+              {grupo.label}
+            </p>
+            <div className="space-y-0.5">
+              {grupo.itens.map((item) => {
+                const bloqueado = !planoPodeAcessar(planoSaas, item.recurso);
+                const ativo = !bloqueado && (item.exact
+                  ? pathname === item.href
+                  : pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setAberto(false)}
+                    aria-current={ativo ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
+                      ativo
+                        ? "bg-volt-300 text-ink-950 shadow-glow"
+                        : bloqueado
+                        ? "text-slate-600 hover:bg-ink-700/40 hover:text-slate-500"
+                        : "text-slate-300 hover:bg-ink-700/70 hover:text-white"
+                    )}
+                  >
+                    <item.icon
+                      className={cn("h-4 w-4 flex-none", bloqueado && "opacity-50")}
+                      strokeWidth={ativo ? 2.5 : 2}
+                    />
+                    <span className={cn("flex-1", bloqueado && "opacity-60")}>
+                      {item.label}
+                    </span>
+                    {bloqueado && (
+                      <Lock className="h-3 w-3 flex-none text-slate-600" />
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       <div className="space-y-3 border-t border-ink-700 p-3">

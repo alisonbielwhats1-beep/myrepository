@@ -58,7 +58,12 @@ export default function AlertasPainel({
             {inadimplentes.slice(0, 8).map((a) => (
               <li key={a.alunoId} className="flex items-center justify-between gap-2 py-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-white">{a.nome}</p>
+                  <Link
+                    href={`/painel/${slug}/alunos?q=${encodeURIComponent(a.nome)}`}
+                    className="block truncate text-sm font-medium text-white hover:text-volt-300"
+                  >
+                    {a.nome}
+                  </Link>
                   <p className="text-xs text-magenta-400">
                     {a.diasAtraso} {a.diasAtraso === 1 ? "dia" : "dias"} de atraso
                   </p>
@@ -116,7 +121,12 @@ export default function AlertasPainel({
                     empilhados à esquerda, ação à direita. Mantém a explicação
                     (dias sem acesso) visível, agora sem disputar a linha. */}
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-white">{a.nome}</p>
+                  <Link
+                    href={`/painel/${slug}/alunos?q=${encodeURIComponent(a.nome)}`}
+                    className="block truncate text-sm font-medium text-white hover:text-volt-300"
+                  >
+                    {a.nome}
+                  </Link>
                   <p className="text-xs text-amber-400">{a.explicacao}</p>
                 </div>
                 <div className="flex-none">
