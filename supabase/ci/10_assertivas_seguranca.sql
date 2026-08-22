@@ -199,9 +199,10 @@ begin
      -- são o bug funcional (policy esquecida) que A6 procura — o próprio teste
      -- multi-tenant (20_teste_rls, T6) confirma logs_erros invisível de propósito.
      and c.relname not in (
-       'logs_erros',             -- log cruzado; ninguém lê pela API (T6)
-       'sessoes_treino',         -- acesso só via iniciar/salvar/finalizar_sessao_treino (045)
-       'backup_padronizacao_060' -- backup interno da migration 060
+       'logs_erros',              -- log cruzado; ninguém lê pela API (T6)
+       'sessoes_treino',          -- acesso só via iniciar/salvar/finalizar_sessao_treino (045)
+       'backup_padronizacao_060', -- backup interno da migration 060
+       'comunidade_curtidas'      -- deny-all intencional: acesso só via RPCs da comunidade (085)
      )
      and not exists (
        select 1 from pg_policies p
@@ -239,6 +240,40 @@ begin
       E'[A7] DINHEIRO EM PONTO FLUTUANTE: %\n'
       '  Use numeric(10,2). float arredonda errado em soma de dinheiro.',
       v_colunas;
+  end if;
+end
+$$;
+
+-- -----------------------------------------------------------------------------
+-- A8 (auditoria 2026-08-22) — gerar_folha_do_mes tem de checar papel 'dono'.
+--
+-- A folha lança DESPESAS (dominio financeiro, restrito a 'dono' em
+-- lib/permissoes.ts). A funcao esta `grant execute ... to authenticated` desde
+-- a migration 002, entao sem uma checagem de papel dentro do corpo qualquer
+-- membro autenticado (gerente pela tela de Funcionarios, ou recepcao/instrutor
+-- via REST direto) lanca a folha da academia. A migration 088 adicionou
+-- `v_papel <> 'dono' -> RAISE`; esta assertiva impede a regressao (mesma
+-- classe da migration 082 / achado da 10_assertivas original).
+-- -----------------------------------------------------------------------------
+do $$
+declare
+  v_fonte text;
+begin
+  select pg_get_functiondef(p.oid) into v_fonte
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'gerar_folha_do_mes'
+   limit 1;
+
+  if v_fonte is not null
+     and position('papel_do_usuario_atual' in v_fonte) = 0
+  then
+    raise exception
+      E'[A8] BYPASS DE PAPEL: gerar_folha_do_mes() nao verifica o papel do chamador.\n'
+      '  A folha lanca despesas (financeiro = exclusivo do dono), mas a funcao\n'
+      '  esta concedida a authenticated. Sem a checagem, gerente/recepcao/instrutor\n'
+      '  lancam a folha (pela tela de Funcionarios ou via REST direto).\n'
+      '  A migration 088 adiciona: if v_papel <> ''dono'' then raise. Nao remova.';
   end if;
 end
 $$;
