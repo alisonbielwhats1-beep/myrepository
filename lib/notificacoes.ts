@@ -13,7 +13,8 @@ export type CategoriaNotificacao =
   | "acesso"
   | "retencao"
   | "estoque"
-  | "sistema";
+  | "sistema"
+  | "comunidade";
 
 export type TipoNotificacao =
   | "mensalidade_vencendo"
@@ -21,11 +22,12 @@ export type TipoNotificacao =
   | "plano_vencimento"
   | "aluno_ausente"
   | "aniversario"
-  | "estoque_baixo";
+  | "estoque_baixo"
+  | "comunidade_denuncia";
 
 export type PrioridadeNotificacao = "alta" | "media" | "baixa";
 
-export type EntidadeNotificacao = "aluno" | "mensalidade" | "produto";
+export type EntidadeNotificacao = "aluno" | "mensalidade" | "produto" | "post";
 
 export interface Notificacao {
   id: string;

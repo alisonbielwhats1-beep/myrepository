@@ -32,6 +32,13 @@ export default async function RelatoriosPage({
 }) {
   const sessao = await requireSecao(params.slug, "relatorios");
 
+  // Financeiro (faturamento) é exclusivo do dono — a mesma regra de
+  // lib/permissoes.ts que restringe a seção "financeiro". A seção de
+  // Relatórios/BI é acessível ao gerente (acessos, horários, alunos), mas o
+  // gerente NÃO enxerga dinheiro. Gating no fetch (defesa em profundidade) e no
+  // render, para não trazer receita nenhuma à requisição de quem não é dono.
+  const podeVerDinheiro = sessao.papel === "dono";
+
   if (!planoPodeAcessar(sessao.academia.plano_saas, "relatorios")) {
     return (
       <UpgradeGuard
@@ -61,7 +68,9 @@ export default async function RelatoriosPage({
       new Date().toISOString()
     ),
     getContagemAlunos(sessao.academia.id),
-    getReceitas(sessao.academia.id, seteDiasAtras),
+    podeVerDinheiro
+      ? getReceitas(sessao.academia.id, seteDiasAtras)
+      : Promise.resolve([] as Awaited<ReturnType<typeof getReceitas>>),
   ]);
 
   // ---- Acessos por origem (Gympass vs. Direto vs. TotalPass) ----
@@ -158,13 +167,15 @@ export default async function RelatoriosPage({
           hint={acessos.length ? `${horaPico.acessos} acessos` : "sem dados ainda"}
           accent="cyan"
         />
-        <StatTile
-          icon={DollarSign}
-          label="Faturamento (7 dias)"
-          value={formatBRL(faturamentoTotal7d)}
-          hint="receitas pagas"
-          accent="magenta"
-        />
+        {podeVerDinheiro && (
+          <StatTile
+            icon={DollarSign}
+            label="Faturamento (7 dias)"
+            value={formatBRL(faturamentoTotal7d)}
+            hint="receitas pagas"
+            accent="magenta"
+          />
+        )}
         <StatTile
           icon={Users}
           label="Alunos ativos"
@@ -209,19 +220,21 @@ export default async function RelatoriosPage({
         </div>
       </div>
 
-      {/* Receitas pagas dia a dia */}
-      <div className="surface rounded-2xl p-5">
-        <div className="flex items-center gap-2">
-          <DollarSign className="h-4 w-4 text-magenta-400" />
-          <h2 className="font-semibold text-white">
-            Receitas pagas (7 dias)
-          </h2>
+      {/* Receitas pagas dia a dia — só o dono vê dinheiro no BI. */}
+      {podeVerDinheiro && (
+        <div className="surface rounded-2xl p-5">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-magenta-400" />
+            <h2 className="font-semibold text-white">
+              Receitas pagas (7 dias)
+            </h2>
+          </div>
+          <p className="mb-2 text-xs text-slate-500">
+            Mensalidades, matrículas e produtos já pagos, dia a dia
+          </p>
+          <GraficoFaturamento dados={dadosFaturamento} />
         </div>
-        <p className="mb-2 text-xs text-slate-500">
-          Mensalidades, matrículas e produtos já pagos, dia a dia
-        </p>
-        <GraficoFaturamento dados={dadosFaturamento} />
-      </div>
+      )}
     </div>
   );
 }

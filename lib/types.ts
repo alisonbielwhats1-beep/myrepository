@@ -911,7 +911,7 @@ export interface PostModeracao {
   imagem_url: string | null;
   criado_em: string;
   removido_em: string | null;
-  removido_por: "autor" | "moderacao" | null;
+  removido_por: "autor" | "moderacao" | "auto" | null;
   autor: AutorComunidade;
   total_denuncias: number;
   total_curtidas: number;

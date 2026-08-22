@@ -224,6 +224,47 @@ export async function getContagemAlunos(
   return { total: totalRes.count ?? 0, ativos: ativosRes.count ?? 0 };
 }
 
+export interface ProgressoOnboarding {
+  temPlano: boolean;
+  temAluno: boolean;
+  temTreino: boolean;
+}
+
+/**
+ * Progresso de "primeiros passos" de uma academia — só os três essenciais que
+ * toda academia realmente faz (plano, aluno, treino), para o checklist do
+ * Dashboard. Deliberadamente sem passos opcionais (comunidade, equipe): uma
+ * academia que opera sozinha nunca os completaria e o card nunca sumiria.
+ *
+ * Três counts `head`/`exact` em paralelo — não transfere nenhuma linha. Modelos
+ * de treino da plataforma têm academia_id null, então `eq(academia_id)` já os
+ * exclui: só conta treino criado pela própria academia.
+ */
+export async function getProgressoOnboarding(
+  academiaId: string
+): Promise<ProgressoOnboarding> {
+  const supabase = createClient();
+  const [planos, alunos, treinos] = await Promise.all([
+    supabase
+      .from("planos")
+      .select("id", { count: "exact", head: true })
+      .eq("academia_id", academiaId),
+    supabase
+      .from("alunos")
+      .select("id", { count: "exact", head: true })
+      .eq("academia_id", academiaId),
+    supabase
+      .from("treinos")
+      .select("id", { count: "exact", head: true })
+      .eq("academia_id", academiaId),
+  ]);
+  return {
+    temPlano: (planos.count ?? 0) > 0,
+    temAluno: (alunos.count ?? 0) > 0,
+    temTreino: (treinos.count ?? 0) > 0,
+  };
+}
+
 /**
  * Quantos alunos foram criados em [desde, ate] (datas-calendário de São
  * Paulo, YYYY-MM-DD). Compara `criado_em` (timestamptz) contra os instantes

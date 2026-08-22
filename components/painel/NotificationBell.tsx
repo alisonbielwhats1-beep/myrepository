@@ -9,6 +9,7 @@ import {
   Check,
   CheckCheck,
   Clock,
+  Flag,
   MessageCircle,
   MessageSquare,
   PackageX,
@@ -43,6 +44,7 @@ const SECAO_DA_CATEGORIA: Record<CategoriaNotificacao, Secao | null> = {
   retencao: "retencao",
   estoque: "loja",
   sistema: null,
+  comunidade: "comunidade",
 };
 
 const ICONE_POR_TIPO: Record<TipoNotificacao, typeof Bell> = {
@@ -52,6 +54,7 @@ const ICONE_POR_TIPO: Record<TipoNotificacao, typeof Bell> = {
   aluno_ausente: UserX,
   aniversario: Cake,
   estoque_baixo: PackageX,
+  comunidade_denuncia: Flag,
 };
 
 const COR_POR_PRIORIDADE: Record<Notificacao["prioridade"], string> = {
@@ -66,6 +69,7 @@ const LABEL_CATEGORIA: Record<CategoriaNotificacao, string> = {
   retencao: "Retenção",
   estoque: "Estoque",
   sistema: "Sistema",
+  comunidade: "Comunidade",
 };
 
 /** Para onde o link "abrir" da notificação leva — reaproveita telas já existentes, sem página nova. */
@@ -80,6 +84,10 @@ function hrefDaNotificacao(slug: string, n: Notificacao): string | null {
   }
   if (n.entidade === "produto") {
     return `/painel/${slug}/loja`;
+  }
+  if (n.categoria === "comunidade") {
+    // Denúncia de post → tela de Moderação da comunidade.
+    return `/painel/${slug}/comunidade`;
   }
   return null;
 }

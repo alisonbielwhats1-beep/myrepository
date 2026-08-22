@@ -34,7 +34,16 @@ function lerCampos(formData: FormData) {
   };
 }
 
-/** Gera a folha do mês atual (ignora erro silenciosamente — é best-effort). */
+/**
+ * Gera a folha do mês atual (ignora erro silenciosamente — é best-effort).
+ *
+ * A RPC `gerar_folha_do_mes` é exclusiva do dono (hardening da migration 088:
+ * folha lança despesas, que são domínio financeiro, restrito a "dono"). Só
+ * chamamos quando o autor é dono; para os demais papéis com acesso à seção
+ * Funcionários (ex.: gerente) o funcionário é criado normalmente e a folha
+ * fica a cargo do dono, pela seção Financeiro — em vez de disparar uma RPC
+ * que o banco recusaria de qualquer forma.
+ */
 async function gerarFolhaMesAtual(
   supabase: ReturnType<typeof createClient>
 ): Promise<void> {
@@ -60,8 +69,10 @@ export async function criarFuncionario(
 
   if (error) return { erro: await erroAmigavel(error, "cadastrar o funcionário") };
 
-  // Salário definido -> já lança a despesa da folha deste mês.
-  if (campos.salario > 0 && campos.dia_pagamento) {
+  // Salário definido -> já lança a despesa da folha deste mês. Só o dono
+  // executa essa escrita financeira (migration 088); para os demais papéis o
+  // cadastro é concluído e a folha fica com o dono, na seção Financeiro.
+  if (sessao.papel === "dono" && campos.salario > 0 && campos.dia_pagamento) {
     await gerarFolhaMesAtual(supabase);
   }
 
@@ -92,7 +103,8 @@ export async function atualizarFuncionario(
 
   if (error) return { erro: await erroAmigavel(error, "atualizar o funcionário") };
 
-  if (campos.salario > 0 && campos.dia_pagamento) {
+  // Ver criarFuncionario: geração de folha é exclusiva do dono (migration 088).
+  if (sessao.papel === "dono" && campos.salario > 0 && campos.dia_pagamento) {
     await gerarFolhaMesAtual(supabase);
   }
 

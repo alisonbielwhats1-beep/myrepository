@@ -707,6 +707,10 @@ set search_path = public
 as $$
 declare
   v_academia   uuid := public.academia_id_atual();
+  -- A folha lança despesas (financeiro = exclusivo do dono). Migration 088
+  -- adicionou esta checagem; refletida aqui para que re-executar schema.sql por
+  -- último (job de CI) não regrida o hardening (assertiva A8).
+  v_papel      text := public.papel_do_usuario_atual();
   v_comp       date := date_trunc('month', p_competencia)::date;
   v_ultimo_dia integer := extract(day from (v_comp + interval '1 month - 1 day'));
   v_criadas    integer := 0;
@@ -715,6 +719,10 @@ declare
 begin
   if v_academia is null then
     raise exception 'Sem academia no contexto do usuário';
+  end if;
+
+  if v_papel <> 'dono' then
+    raise exception 'Apenas o dono da academia pode gerar a folha de pagamento.';
   end if;
 
   for r in
@@ -760,6 +768,10 @@ set search_path = public
 as $$
 declare
   v_academia   uuid := public.academia_id_atual();
+  -- Gerar mensalidades é operação financeira (exclusiva do dono). Migration 082
+  -- adicionou esta checagem; refletida aqui para que re-executar schema.sql não
+  -- regrida o hardening (mesma classe da folha/A8).
+  v_papel      text := public.papel_do_usuario_atual();
   v_comp       date := date_trunc('month', p_competencia)::date;
   v_ultimo_dia integer := extract(day from (v_comp + interval '1 month - 1 day'));
   v_criadas    integer := 0;
@@ -770,6 +782,10 @@ declare
 begin
   if v_academia is null then
     raise exception 'Sem academia no contexto do usuário';
+  end if;
+
+  if v_papel <> 'dono' then
+    raise exception 'Apenas o dono da academia pode gerar mensalidades.';
   end if;
 
   for r in

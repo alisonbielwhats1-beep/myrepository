@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { segredoConfere, tokenBearer } from "@/lib/webhook-auth";
 
 /**
  * Rotina diária de cobranças recorrentes.
@@ -28,9 +29,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ erro: "Não configurado." }, { status: 503 });
   }
 
-  const auth = req.headers.get("authorization") ?? "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (token !== segredo) {
+  const token = tokenBearer(req.headers.get("authorization"));
+  if (!segredoConfere(token, segredo)) {
     return NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
   }
 

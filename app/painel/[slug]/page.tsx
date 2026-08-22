@@ -28,6 +28,7 @@ import AlertasPainel, {
   AlertaInadimplente,
 } from "@/components/painel/AlertasPainel";
 import RepassesEstimadosCard from "@/components/painel/RepassesEstimadosCard";
+import PrimeirosPassos from "@/components/painel/PrimeirosPassos";
 import { requireSessao } from "@/lib/auth";
 import {
   getRetencaoAlunos,
@@ -43,6 +44,7 @@ import {
   getProximosVencimentos,
   getFuncionarios,
   getRepassesParceirosFinanceiro,
+  getProgressoOnboarding,
 } from "@/lib/data";
 import { agruparFinanceiro, calcularCaixaPeriodo, ultimosMeses } from "@/lib/financeiro";
 import { resolverJanelaDashboard } from "@/lib/periodo";
@@ -286,6 +288,13 @@ export default async function DashboardOverviewPage({
     alunos: evolucaoCounts[i] ?? 0,
   }));
 
+  // Checklist "Primeiros passos": só o dono, e só três counts baratos. O card
+  // some sozinho quando plano+aluno+treino estão feitos, então não pesa numa
+  // academia já configurada (ainda assim é uma consulta leve).
+  const progressoOnboarding = verDono
+    ? await getProgressoOnboarding(sessao.academia.id)
+    : null;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -304,6 +313,11 @@ export default async function DashboardOverviewPage({
           />
         )}
       </div>
+
+      {/* Primeiros passos (só o dono; some sozinho quando concluído). */}
+      {progressoOnboarding && (
+        <PrimeirosPassos slug={params.slug} progresso={progressoOnboarding} />
+      )}
 
       {/* KPIs — linha 1 */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
