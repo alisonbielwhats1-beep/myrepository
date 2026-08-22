@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { DecisaoAcesso } from "@/lib/types";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { decidirAcesso, statusLiberacaoDe } from "@/lib/utils";
+import { segredoConfere, tokenBearer } from "@/lib/webhook-auth";
 
 function normalizarCpf(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -40,11 +41,10 @@ export async function POST(
     return NextResponse.json({ erro: "Academia não encontrada." }, { status: 404 });
   }
 
-  // 2. Validar segredo via Bearer token
-  // Rejeita se o secret não estiver configurado (string vazia = inseguro)
-  const authHeader = req.headers.get("authorization") ?? "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  if (!academia.totalpass_webhook_secret || token !== academia.totalpass_webhook_secret) {
+  // 2. Validar segredo via Bearer token, em tempo constante. Fail-closed: sem
+  // secret configurado, nega (segredoConfere trata null/vazio).
+  const token = tokenBearer(req.headers.get("authorization"));
+  if (!segredoConfere(token, academia.totalpass_webhook_secret)) {
     return NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
   }
 
