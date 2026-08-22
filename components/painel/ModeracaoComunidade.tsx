@@ -2,11 +2,21 @@
 
 import Image from "next/image";
 import { useState, useTransition } from "react";
-import { Flag, Heart, Loader2, MessageCircle, Trash2 } from "lucide-react";
+import { Flag, Heart, Loader2, MessageCircle, RotateCcw, Trash2 } from "lucide-react";
 import type { PostModeracao } from "@/lib/types";
 import { cn, formatDataDeInstante } from "@/lib/utils";
 import AvatarAluno from "@/components/aluno/AvatarAluno";
-import { removerPostModeracao } from "@/app/painel/[slug]/comunidade/actions";
+import {
+  removerPostModeracao,
+  restaurarPostModeracao,
+} from "@/app/painel/[slug]/comunidade/actions";
+
+/** Rótulo do badge de "removido" conforme quem tirou o post do ar. */
+function rotuloRemocao(por: PostModeracao["removido_por"]): string {
+  if (por === "autor") return "Removido pelo autor";
+  if (por === "auto") return "Ocultado automaticamente";
+  return "Removido pela moderação";
+}
 
 /**
  * Moderação da comunidade (painel). Lista as publicações da academia
@@ -23,6 +33,7 @@ export default function ModeracaoComunidade({
   const [posts, setPosts] = useState<PostModeracao[]>(postsIniciais);
   const [filtro, setFiltro] = useState<"todos" | "denunciados">("todos");
   const [removendo, setRemovendo] = useState<string | null>(null);
+  const [restaurando, setRestaurando] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   const visiveis =
@@ -38,6 +49,23 @@ export default function ModeracaoComunidade({
           atual.map((p) =>
             p.id === postId
               ? { ...p, removido_em: new Date().toISOString(), removido_por: "moderacao" }
+              : p
+          )
+        );
+      }
+    });
+  }
+
+  function restaurar(postId: string) {
+    setRestaurando(postId);
+    startTransition(async () => {
+      const r = await restaurarPostModeracao(slug, postId);
+      setRestaurando(null);
+      if (!("erro" in r)) {
+        setPosts((atual) =>
+          atual.map((p) =>
+            p.id === postId
+              ? { ...p, removido_em: null, removido_por: null }
               : p
           )
         );
@@ -135,14 +163,21 @@ export default function ModeracaoComunidade({
                       </span>
                     )}
                     {removido && (
-                      <span className="rounded-full border border-ink-500 bg-ink-700 px-2 py-0.5 text-slate-400">
-                        Removido{post.removido_por === "autor" ? " pelo autor" : ""}
+                      <span
+                        className={cn(
+                          "rounded-full border px-2 py-0.5",
+                          post.removido_por === "auto"
+                            ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                            : "border-ink-500 bg-ink-700 text-slate-400"
+                        )}
+                      >
+                        {rotuloRemocao(post.removido_por)}
                       </span>
                     )}
                   </div>
                 </div>
 
-                {!removido && (
+                {!removido ? (
                   <button
                     type="button"
                     onClick={() => remover(post.id)}
@@ -156,6 +191,24 @@ export default function ModeracaoComunidade({
                     )}
                     Remover
                   </button>
+                ) : (
+                  // Só a moderação (manual/auto) pode ser desfeita — a exclusão
+                  // do próprio autor é preservada.
+                  post.removido_por !== "autor" && (
+                    <button
+                      type="button"
+                      onClick={() => restaurar(post.id)}
+                      disabled={restaurando === post.id}
+                      className="flex h-fit flex-none items-center gap-1.5 rounded-lg border border-ink-600 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-volt-500/40 hover:text-volt-300 disabled:opacity-60"
+                    >
+                      {restaurando === post.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      )}
+                      Restaurar
+                    </button>
+                  )
                 )}
               </li>
             );
