@@ -21,6 +21,11 @@
 
 ## Passo 1 — Fotografar o estado real do banco
 
+> **Atalho:** cole `scripts/baseline-diagnostico.sql` no SQL Editor do Supabase.
+> É só-leitura e já responde as três perguntas-chave (histórico vazio?
+> hardenings 082/085/086/088 presentes? inventário e RLS-sem-policy). As
+> consultas abaixo são a versão detalhada, caso queira ir campo a campo.
+
 Rode em produção (somente leitura). O CI já tem a semente disso em
 `supabase/ci/30_inventario_objetos.sql`.
 
