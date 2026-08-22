@@ -117,6 +117,9 @@ jobs:
       - name: Integração RLS/RPC do módulo Treinos
         run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/ci/21_teste_treinos_rls_rpc.sql
 
+      - name: Isolamento e moderação do módulo Comunidade
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/ci/23_teste_comunidade_rls_rpc.sql
+
       - name: Inventário do schema resultante
         run: |
           psql "$PGURL" -c "
@@ -196,3 +199,8 @@ jobs:
         # policies de treinos/exercicios_treino (são 100% das migrations), então
         # a visibilidade fina sobrevive ao re-run do schema. Este job é a prova.
         run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/ci/21_teste_treinos_rls_rpc.sql
+
+      - name: Isolamento e moderação do módulo Comunidade (sobrevive ao re-run do schema)
+        # Comunidade é 100% migrations (085/089/090), sem nada em schema.sql, então
+        # a isolação/moderação também sobrevive ao re-run do baseline.
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/ci/23_teste_comunidade_rls_rpc.sql
