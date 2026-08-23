@@ -7,6 +7,7 @@ import Image from "next/image";
 import {
   AlertCircle,
   ArrowRight,
+  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -67,6 +68,7 @@ import {
   excluirAluno,
   excluirTreino,
 } from "@/app/painel/[slug]/alunos/actions";
+import { definirDiasTreino } from "@/app/painel/[slug]/treinos/actions";
 import { cancelarCobranca, marcarPago } from "@/app/painel/[slug]/financeiro/actions";
 import type { MensalidadeDetalhe } from "@/lib/data";
 import {
@@ -74,6 +76,14 @@ import {
   DIA_VENCIMENTO_MIN,
   DIA_VENCIMENTO_MAX,
 } from "@/lib/vencimento";
+import SeletorDiasTreino from "@/components/painel/SeletorDiasTreino";
+import {
+  DIAS_SEMANA,
+  DiaSemana,
+  normalizarDias,
+  resumoDias,
+  ROTULO_DIA_CURTO,
+} from "@/lib/dias-semana";
 
 const STATUS_OPCOES: { value: StatusMatricula; label: string }[] = [
   { value: "ativa", label: "Ativa" },
@@ -591,16 +601,19 @@ export default function GestaoAlunos({
                 Nenhuma ficha montada ainda.
               </p>
             ) : (
-              <div className="mt-3 space-y-3">
-                {treinosDoAluno.map((t) => (
-                  <CardFichaTreino
-                    key={t.id}
-                    slug={slug}
-                    treino={t}
-                    catalogo={catalogo}
-                  />
-                ))}
-              </div>
+              <>
+                <ResumoSemanalTreinos treinos={treinosDoAluno} />
+                <div className="mt-3 space-y-3">
+                  {treinosDoAluno.map((t) => (
+                    <CardFichaTreino
+                      key={t.id}
+                      slug={slug}
+                      treino={t}
+                      catalogo={catalogo}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -1495,6 +1508,55 @@ function FormularioAluno({
   );
 }
 
+/**
+ * Resumo da semana: em que dia(s) cada ficha do aluno está programada, tudo
+ * num único lugar (antes só dava pra ver isso reabrindo "Atribuir a aluno" lá
+ * na Biblioteca de Treinos — o dono não tinha como olhar a ficha do aluno e já
+ * saber a semana dele). Um chip por par (dia, ficha); fichas sem dia definido
+ * (aparecem em "Tudo" pro aluno, todo dia) ficam num grupo à parte.
+ */
+function ResumoSemanalTreinos({ treinos }: { treinos: Treino[] }) {
+  const porDia = DIAS_SEMANA.map((dia) => ({
+    dia,
+    treinos: treinos.filter((t) => normalizarDias(t.dias_semana).includes(dia)),
+  })).filter((d) => d.treinos.length > 0);
+
+  const semDia = treinos.filter(
+    (t) => normalizarDias(t.dias_semana).length === 0
+  );
+
+  if (porDia.length === 0 && semDia.length === 0) return null;
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-ink-600 bg-ink-900/40 px-3 py-2.5">
+      <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <CalendarDays className="h-3.5 w-3.5" /> Semana
+      </span>
+      {porDia.map(({ dia, treinos: doDia }) => (
+        <span
+          key={dia}
+          className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-ink-600 bg-ink-800 py-1 pl-2 pr-2.5 text-xs"
+        >
+          <b className="flex-none font-bold text-volt-300">
+            {ROTULO_DIA_CURTO[dia]}
+          </b>
+          <span className="truncate text-slate-300">
+            {doDia.map((t) => t.nome_treino).join(", ")}
+          </span>
+        </span>
+      ))}
+      {semDia.length > 0 && (
+        <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-dashed border-ink-600 py-1 pl-2 pr-2.5 text-xs text-slate-500">
+          <span className="flex-none">Sem dia</span>
+          <span className="truncate">
+            {semDia.map((t) => t.nome_treino).join(", ")}
+          </span>
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Formulário de nova ficha de treino
 // ---------------------------------------------------------------------------
@@ -1517,9 +1579,35 @@ function CardFichaTreino({
   catalogo: CatalogoExercicio[];
 }) {
   const [editando, setEditando] = useState(false);
+  const [dias, setDias] = useState<DiaSemana[]>(() =>
+    normalizarDias(treino.dias_semana)
+  );
+  const [editandoDias, setEditandoDias] = useState(false);
+  const [diasSelecionados, setDiasSelecionados] = useState<DiaSemana[]>(dias);
+  const [salvandoDias, setSalvandoDias] = useState(false);
+  const [erroDias, setErroDias] = useState<string | null>(null);
   const exercicios = [...(treino.exercicios ?? [])].sort(
     (a, b) => a.ordem - b.ordem
   );
+
+  function abrirEdicaoDias() {
+    setDiasSelecionados(dias);
+    setErroDias(null);
+    setEditandoDias(true);
+  }
+
+  async function salvarDias() {
+    setSalvandoDias(true);
+    setErroDias(null);
+    const r = await definirDiasTreino(slug, treino.id, diasSelecionados);
+    setSalvandoDias(false);
+    if ("erro" in r) {
+      setErroDias(r.erro);
+      return;
+    }
+    setDias(r.dias as DiaSemana[]);
+    setEditandoDias(false);
+  }
 
   return (
     <div className="rounded-xl border border-ink-600 bg-ink-900/40 p-4">
@@ -1541,6 +1629,23 @@ function CardFichaTreino({
               {treino.objetivo}
             </span>
           )}
+          {/* Dia(s) da ficha — mesmo dado usado no filtro "por dia" do app do
+              aluno (TreinosDia), só que aqui, visível na ficha do aluno, é
+              onde o dono realmente olha quando quer saber a semana dele. */}
+          <button
+            type="button"
+            onClick={abrirEdicaoDias}
+            title="Alterar os dias desta ficha"
+            className={cn(
+              "chip cursor-pointer transition-opacity hover:opacity-80",
+              dias.length > 0
+                ? "border-ink-600 bg-ink-800 text-slate-300"
+                : "border-dashed border-ink-600 bg-transparent text-slate-500"
+            )}
+          >
+            <CalendarDays className="h-3 w-3" />
+            {resumoDias(dias)}
+          </button>
           <button
             type="button"
             onClick={() => setEditando((v) => !v)}
@@ -1556,6 +1661,40 @@ function CardFichaTreino({
           />
         </div>
       </div>
+
+      {editandoDias && (
+        <div className="mt-3 rounded-lg border border-ink-600 bg-ink-800/60 p-3">
+          <SeletorDiasTreino
+            value={diasSelecionados}
+            onChange={setDiasSelecionados}
+            disabled={salvandoDias}
+          />
+          {erroDias && <p className="mt-2 text-xs text-red-400">{erroDias}</p>}
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={salvarDias}
+              disabled={salvandoDias}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-volt-300 px-3 py-1.5 text-xs font-semibold text-ink-950 transition disabled:opacity-60"
+            >
+              {salvandoDias ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Check className="h-3.5 w-3.5" />
+              )}
+              Salvar dias
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditandoDias(false)}
+              disabled={salvandoDias}
+              className="text-xs text-slate-400 hover:text-slate-200"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {editando ? (
         <FormularioEdicaoTreino
