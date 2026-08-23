@@ -218,7 +218,7 @@ export default function HistoricoAcessos({
             <li
               key={a.id}
               className={cn(
-                "flex items-center gap-4 px-5 py-3.5 transition hover:bg-ink-700/30",
+                "flex items-center gap-3 px-4 py-3.5 transition hover:bg-ink-700/30 sm:gap-4 sm:px-5",
                 cancelado && "opacity-60"
               )}
             >
@@ -242,7 +242,7 @@ export default function HistoricoAcessos({
                 <p className="truncate font-medium text-white">
                   {a.aluno?.nome ?? "Visitante"}
                 </p>
-                <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-400">
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
                   <span
                     className="inline-flex items-center gap-1 rounded-full px-2 py-0.5"
                     style={{
@@ -278,8 +278,8 @@ export default function HistoricoAcessos({
                 )}
               </div>
 
-              <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-1.5">
+              <div className="flex flex-none flex-col items-end gap-1">
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
                   {cancelado && (
                     <span className="chip border-ink-500 bg-ink-600/60 text-slate-400">
                       <Ban className="h-3.5 w-3.5" /> Cancelado

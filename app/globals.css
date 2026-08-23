@@ -68,6 +68,13 @@ body {
   background-color: rgb(var(--ink-950));
   color: rgb(var(--slate-200));
   -webkit-font-smoothing: antialiased;
+  /* Rede de segurança global de responsividade: nenhuma tela pode gerar
+     rolagem horizontal na PÁGINA (o sintoma de "tela/botão cortado" no
+     celular). Usamos `clip` (não `hidden`) de propósito: `clip` não cria um
+     contêiner de rolagem e por isso NÃO quebra `position: sticky` (topo da
+     Sidebar) nem os contêineres internos com `overflow-x-auto` (tabelas de
+     financeiro/admin), que continuam rolando por conta própria. */
+  overflow-x: clip;
 }
 
 

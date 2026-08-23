@@ -568,7 +568,7 @@ export default async function DashboardOverviewPage({
       {/* PLG: teaser de recursos bloqueados para plano Básico */}
       {!planoPodeAcessar(sessao.academia.plano_saas, "financeiro") && (
         <div className="surface rounded-2xl border border-volt-500/20 p-5">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-volt-400" />
               <h2 className="font-semibold text-white">Libere mais recursos</h2>

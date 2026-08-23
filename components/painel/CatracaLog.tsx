@@ -42,7 +42,7 @@ export default function CatracaLog({
 
   return (
     <div className="surface rounded-2xl">
-      <div className="flex items-center justify-between border-b border-ink-700 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-700 px-5 py-4">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-volt-400 opacity-75" />
