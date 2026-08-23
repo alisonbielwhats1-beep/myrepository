@@ -139,7 +139,7 @@ export default async function FinanceiroOverviewPage({
                 ? `desde ${new Date(saldo.desde + "T00:00:00").toLocaleDateString("pt-BR")}`
                 : "no GestAcad"
             }
-            accent="cyan"
+            accent="slate"
             ajuda="O que o GestAcad conhece de caixa acumulado. Não é o saldo da sua conta no banco."
           />
         </div>
@@ -197,7 +197,7 @@ export default async function FinanceiroOverviewPage({
             <p
               className={cn(
                 "mt-1 text-xl font-bold tabular-nums sm:text-2xl",
-                projecao.projetado >= 0 ? "text-cyanx-400" : "text-red-400"
+                projecao.projetado >= 0 ? "text-slate-300" : "text-red-400"
               )}
             >
               {formatBRL(projecao.projetado, { compacto: true })}

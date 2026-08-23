@@ -165,7 +165,7 @@ export default async function RelatoriosPage({
           label="Horário de pico"
           value={acessos.length ? horaPico.hora : "—"}
           hint={acessos.length ? `${horaPico.acessos} acessos` : "sem dados ainda"}
-          accent="cyan"
+          accent="slate"
         />
         {podeVerDinheiro && (
           <StatTile

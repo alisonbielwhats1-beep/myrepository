@@ -139,7 +139,7 @@ export default function ConfiguracoesAcademia({
 
         <div className="border-t border-ink-700 pt-4">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            <Share2 className="h-3.5 w-3.5 text-magenta-400" /> Redes sociais
+            <Share2 className="h-3.5 w-3.5 text-slate-400" /> Redes sociais
           </p>
           <p className="mt-1.5 text-xs text-slate-500">
             Aparecem no bloco da academia dentro da <b>Comunidade</b> do app do aluno.
@@ -220,7 +220,7 @@ export default function ConfiguracoesAcademia({
 
         <div className="border-t border-ink-700 pt-4">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            <HeartPulse className="h-3.5 w-3.5 text-magenta-400" /> Retenção — dias sem acesso
+            <HeartPulse className="h-3.5 w-3.5 text-slate-400" /> Retenção — dias sem acesso
           </p>
           <p className="mt-1.5 text-xs text-slate-500">
             Define quando um aluno <b>ativo</b> aparece como atenção, em risco ou

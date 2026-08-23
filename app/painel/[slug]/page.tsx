@@ -326,7 +326,7 @@ export default async function DashboardOverviewPage({
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-ink-700 bg-ink-800/40 px-4 py-3 text-sm">
           <span className="font-medium text-slate-300">Hoje</span>
           {verFinanceiro && venceHojeCount > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-amber-300">
+            <span className="inline-flex items-center gap-1.5 text-slate-400">
               <CalendarClock className="h-3.5 w-3.5" />
               {venceHojeCount} cobrança{venceHojeCount > 1 ? "s" : ""} vence
               {venceHojeCount > 1 ? "m" : ""} hoje
@@ -339,7 +339,7 @@ export default async function DashboardOverviewPage({
             </span>
           )}
           {sumidos.length > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-magenta-400">
+            <span className="inline-flex items-center gap-1.5 text-slate-400">
               <UserX className="h-3.5 w-3.5" />
               {sumidos.length} aluno{sumidos.length > 1 ? "s" : ""} sumido
               {sumidos.length > 1 ? "s" : ""}
@@ -370,7 +370,7 @@ export default async function DashboardOverviewPage({
           label="Novos alunos"
           value={String(novosAlunos)}
           hint={hintPeriodo}
-          accent="cyan"
+          accent="slate"
           delta={{ pct: variacao(novosAlunos, novosAlunosAnt) }}
         />
         <StatTile
@@ -378,7 +378,7 @@ export default async function DashboardOverviewPage({
           label="Alunos sumidos"
           value={String(sumidos.length)}
           hint={`sem acesso há ${configRetencao.diasSumido}+ dias`}
-          accent={sumidos.length > 0 ? "magenta" : "slate"}
+          accent="slate"
         />
         {verFinanceiro && (
           <StatTile
@@ -386,7 +386,7 @@ export default async function DashboardOverviewPage({
             label="Funcionários"
             value={String(funcionariosAtivos)}
             hint={`${funcionarios.length} cadastrados`}
-            accent="cyan"
+            accent="slate"
           />
         )}
       </div>
