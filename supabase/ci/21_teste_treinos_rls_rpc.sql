@@ -267,6 +267,52 @@ begin
 end $$;
 
 -- =============================================================================
+-- T5b — RPC definir_dias_treino: dia é um slot exclusivo por aluno (091).
+--       Atribuir um dia a uma ficha tira esse dia de qualquer outra ficha do
+--       MESMO aluno que já o usava — sem apagar a ficha, só o dia em conflito.
+-- =============================================================================
+do $$
+declare
+  v_i1A uuid := (select valor from _ids where chave='i1A');
+  v_alA uuid := (select valor from _ids where chave='alA');
+  v_tplat uuid := (select valor from _ids where chave='tplat');
+  v_tacad uuid := (select valor from _ids where chave='tacad');
+  v_f1 uuid;
+  v_f2 uuid;
+  v_r jsonb;
+  v_dias smallint[];
+begin
+  raise notice 'T5b — definir_dias_treino: slot exclusivo por dia';
+  perform pg_temp.vira(v_i1A);
+
+  v_f1 := public.atribuir_modelo_treino(v_tplat, v_alA, 'Ficha 1 (teste slot)');
+  v_f2 := public.atribuir_modelo_treino(v_tacad, v_alA, 'Ficha 2 (teste slot)');
+
+  -- Ficha 1 assume segunda (1) e quarta (3).
+  perform public.definir_dias_treino(v_f1, array[1,3]::smallint[]);
+  select dias_semana into v_dias from public.treinos where id = v_f1;
+  perform pg_temp.checarb('ficha 1 fica com seg+qua', v_dias = array[1,3]::smallint[], true);
+
+  -- Ficha 2 assume quarta (3) e sexta (5) — colide na quarta com a ficha 1.
+  v_r := public.definir_dias_treino(v_f2, array[3,5]::smallint[]);
+  select dias_semana into v_dias from public.treinos where id = v_f2;
+  perform pg_temp.checarb('ficha 2 fica com qua+sex', v_dias = array[3,5]::smallint[], true);
+
+  -- A ficha 1 perde SÓ a quarta (a segunda continua dela).
+  select dias_semana into v_dias from public.treinos where id = v_f1;
+  perform pg_temp.checarb('ficha 1 perde a quarta, mantém a segunda', v_dias = array[1]::smallint[], true);
+
+  -- O retorno da RPC relata a realocação, pra app avisar o instrutor.
+  perform pg_temp.checarb(
+    'retorno relata a ficha 1 como realocada',
+    (v_r -> 'realocados') @> jsonb_build_array(jsonb_build_object('id', v_f1)),
+    true
+  );
+
+  reset role;
+end $$;
+
+-- =============================================================================
 -- T6 — obter_ficha_aluno: resolve por token+slug, sem PII, só treinos do tenant.
 --       Inclui o hardening 075 (treino injetado de outro tenant não aparece).
 -- =============================================================================

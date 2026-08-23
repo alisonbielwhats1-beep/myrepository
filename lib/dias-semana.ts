@@ -82,3 +82,23 @@ export function resumoDias(dias: number[]): string {
   if (norm.length === 7) return "Todos os dias";
   return norm.map((d) => ROTULO_DIA_CURTO[d]).join(" · ");
 }
+
+/**
+ * Uma ficha que perdeu dia(s) porque outra ficha do MESMO aluno acabou de
+ * assumi-los — cada dia é um "slot" exclusivo por aluno (migration 091), e é
+ * isso que `definir_dias_treino` devolve em `realocados` para a interface
+ * avisar o instrutor, em vez de a troca acontecer calada.
+ */
+export type FichaRealocada = {
+  id: string;
+  nome_treino: string;
+  dias_perdidos: number[];
+};
+
+/** Frase pronta pro aviso de realocação, ex.: "Treino A perdeu segunda". */
+export function fraseRealocacao(r: FichaRealocada): string {
+  const dias = normalizarDias(r.dias_perdidos)
+    .map((d) => ROTULO_DIA_LONGO[d])
+    .join(" e ");
+  return `"${r.nome_treino}" perdeu ${dias.toLowerCase()} pra esse treino`;
+}
