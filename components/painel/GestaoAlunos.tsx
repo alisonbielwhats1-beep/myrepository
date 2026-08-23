@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   AlertCircle,
+  ArrowLeftRight,
   ArrowRight,
   CalendarDays,
   Check,
@@ -81,9 +82,11 @@ import SeletorDiasTreino from "@/components/painel/SeletorDiasTreino";
 import {
   DIAS_SEMANA,
   DiaSemana,
+  fraseRealocacao,
   normalizarDias,
   resumoDias,
   ROTULO_DIA_CURTO,
+  type FichaRealocada,
 } from "@/lib/dias-semana";
 
 const STATUS_OPCOES: { value: StatusMatricula; label: string }[] = [
@@ -1591,6 +1594,7 @@ function CardFichaTreino({
   const [diasSelecionados, setDiasSelecionados] = useState<DiaSemana[]>(dias);
   const [salvandoDias, setSalvandoDias] = useState(false);
   const [erroDias, setErroDias] = useState<string | null>(null);
+  const [realocados, setRealocados] = useState<FichaRealocada[]>([]);
   const exercicios = [...(treino.exercicios ?? [])].sort(
     (a, b) => a.ordem - b.ordem
   );
@@ -1612,6 +1616,9 @@ function CardFichaTreino({
     }
     setDias(r.dias as DiaSemana[]);
     setEditandoDias(false);
+    // Cada dia é um slot exclusivo por aluno: se essa troca tirou o dia de
+    // outra ficha dele, avisa aqui em vez de acontecer calado.
+    setRealocados(r.realocados);
   }
 
   return (
@@ -1681,6 +1688,13 @@ function CardFichaTreino({
           </button>
         </div>
       </div>
+
+      {realocados.length > 0 && (
+        <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-200">
+          <ArrowLeftRight className="mt-0.5 h-3.5 w-3.5 flex-none" />
+          <span>{realocados.map(fraseRealocacao).join("; ")}.</span>
+        </p>
+      )}
 
       {editandoDias && (
         <div className="mt-3 rounded-lg border border-ink-600 bg-ink-800/60 p-3">

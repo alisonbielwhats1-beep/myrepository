@@ -23,7 +23,7 @@ import {
 } from "@/lib/midia-exercicios";
 import { createClient } from "@/lib/supabase/server";
 import { erroAmigavel } from "@/lib/erros-servidor";
-import { normalizarDias } from "@/lib/dias-semana";
+import { normalizarDias, type FichaRealocada } from "@/lib/dias-semana";
 
 const FORMATO_UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -311,7 +311,9 @@ export async function definirDiasTreino(
   slug: string,
   treinoId: string,
   dias: number[]
-): Promise<{ erro: string } | { dias: number[] }> {
+): Promise<
+  { erro: string } | { dias: number[]; realocados: FichaRealocada[] }
+> {
   const sessao = await requireSecao(slug, "treinos");
   if (!podeGerenciarTreinos(sessao.papel)) {
     return { erro: "Seu perfil não pode alterar treinos." };
@@ -333,7 +335,14 @@ export async function definirDiasTreino(
 
   revalidatePath(`/painel/${slug}/treinos`);
   revalidatePath(`/painel/${slug}/alunos`);
-  return { dias: normalizados };
+  // Cada dia é um slot exclusivo por aluno (migration 091): se outra ficha
+  // dele já usava algum desses dias, ela aparece aqui — a interface avisa em
+  // vez da troca acontecer calada.
+  const resultado = data as { dias_semana?: number[]; realocados?: FichaRealocada[] };
+  return {
+    dias: resultado.dias_semana ?? normalizados,
+    realocados: resultado.realocados ?? [],
+  };
 }
 
 /**

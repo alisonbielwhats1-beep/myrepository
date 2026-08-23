@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useFormState, useFormStatus } from "react-dom";
 import {
+  ArrowLeftRight,
   Check,
   Clock,
   Loader2,
@@ -16,8 +17,8 @@ import {
 } from "lucide-react";
 import type { Treino } from "@/lib/types";
 import { formatDataDeInstante } from "@/lib/utils";
-import type { DiaSemana } from "@/lib/dias-semana";
-import { resumoDias } from "@/lib/dias-semana";
+import type { DiaSemana, FichaRealocada } from "@/lib/dias-semana";
+import { fraseRealocacao, resumoDias } from "@/lib/dias-semana";
 import SeletorDiasTreino from "./SeletorDiasTreino";
 import {
   atribuirTreinoBiblioteca,
@@ -424,6 +425,7 @@ function LinhaAtribuicao({
   const [dias, setDias] = useState<DiaSemana[]>(atribuicao.diasSemana as DiaSemana[]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [realocados, setRealocados] = useState<FichaRealocada[]>([]);
 
   async function salvar() {
     setSalvando(true);
@@ -436,6 +438,9 @@ function LinhaAtribuicao({
     }
     onDiasAlterados(r.dias);
     setEditando(false);
+    // Cada dia é um slot exclusivo por aluno: se essa troca tirou o dia de
+    // outra ficha dele, avisa aqui em vez de acontecer calado.
+    setRealocados(r.realocados);
   }
 
   return (
@@ -480,6 +485,13 @@ function LinhaAtribuicao({
           Remover
         </button>
       </div>
+
+      {realocados.length > 0 && (
+        <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-200">
+          <ArrowLeftRight className="mt-0.5 h-3.5 w-3.5 flex-none" />
+          <span>{realocados.map(fraseRealocacao).join("; ")}.</span>
+        </p>
+      )}
 
       {editando && (
         <div className="mt-3 border-t border-ink-700 pt-3">
