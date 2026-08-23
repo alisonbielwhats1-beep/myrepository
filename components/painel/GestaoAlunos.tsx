@@ -679,7 +679,7 @@ function LinhaAluno({
         tabIndex={0}
         onKeyDown={(e) => e.key === "Enter" && onSelecionar()}
         className={cn(
-          "flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition",
+          "flex w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 text-left transition",
           ativo ? "bg-volt-500/10" : "hover:bg-ink-700/40"
         )}
       >
@@ -716,7 +716,7 @@ function LinhaAluno({
             {aluno.matricula_codigo}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div className="ml-auto flex flex-none flex-col items-end gap-1">
           <span
             className={cn(
               "chip text-[10px]",
@@ -739,41 +739,43 @@ function LinhaAluno({
             </button>
           )}
           {totalAberto > 0 && (
-            <span className="text-[10px] text-red-400 tabular-nums">
+            <span className="text-right text-[10px] text-red-400 tabular-nums">
               {totalAberto.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 })} em aberto
             </span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={copiarLink}
-          title="Copiar link do app do aluno"
-          className="grid h-8 w-8 flex-none place-items-center rounded-lg text-slate-500 transition hover:bg-ink-700 hover:text-volt-300"
-        >
-          {copiado ? (
-            <Check className="h-4 w-4 text-volt-300" />
-          ) : (
-            <QrCode className="h-4 w-4" />
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEditar();
-          }}
-          title="Editar aluno"
-          className="grid h-8 w-8 flex-none place-items-center rounded-lg text-slate-500 transition hover:bg-ink-700 hover:text-white"
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
-        <span onClick={(e) => e.stopPropagation()}>
-          <ConfirmButton
-            action={() => excluirAluno(slug, aluno.id)}
-            confirmText={`Excluir o aluno "${aluno.nome}"? Treinos e histórico serão removidos.`}
-            label="Excluir aluno"
-          />
-        </span>
+        <div className="flex flex-none items-center gap-1">
+          <button
+            type="button"
+            onClick={copiarLink}
+            title="Copiar link do app do aluno"
+            className="grid h-8 w-8 flex-none place-items-center rounded-lg text-slate-500 transition hover:bg-ink-700 hover:text-volt-300"
+          >
+            {copiado ? (
+              <Check className="h-4 w-4 text-volt-300" />
+            ) : (
+              <QrCode className="h-4 w-4" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditar();
+            }}
+            title="Editar aluno"
+            className="grid h-8 w-8 flex-none place-items-center rounded-lg text-slate-500 transition hover:bg-ink-700 hover:text-white"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <span onClick={(e) => e.stopPropagation()}>
+            <ConfirmButton
+              action={() => excluirAluno(slug, aluno.id)}
+              confirmText={`Excluir o aluno "${aluno.nome}"? Treinos e histórico serão removidos.`}
+              label="Excluir aluno"
+            />
+          </span>
+        </div>
       </div>
     </li>
   );
@@ -1453,7 +1455,7 @@ function CardFichaTreino({
 
   return (
     <div className="rounded-xl border border-ink-600 bg-ink-900/40 p-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-medium text-white">{treino.nome_treino}</p>
           {(treino.modelo_origem_id || treino.profissional_nome) && (
