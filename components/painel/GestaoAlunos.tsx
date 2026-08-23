@@ -247,9 +247,9 @@ export default function GestaoAlunos({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,400px)_1fr]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,400px)_1fr]">
       {/* Coluna esquerda: cadastro + lista de alunos */}
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         {mostrarNovoAluno ? (
           <FormularioAluno
             slug={slug}
@@ -478,7 +478,7 @@ export default function GestaoAlunos({
       </div>
 
       {/* Coluna direita: montagem da ficha de treino */}
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         {selecionadoId && !alunoSelecionado && (
           <div className="surface flex items-start gap-3 rounded-2xl p-4">
             <Loader2 className="mt-0.5 h-4 w-4 flex-none animate-spin text-slate-500" />
