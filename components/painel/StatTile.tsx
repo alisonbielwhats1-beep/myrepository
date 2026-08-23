@@ -17,7 +17,7 @@ export default function StatTile({
   label: string;
   value: string;
   hint?: string;
-  accent?: "volt" | "magenta" | "cyan" | "slate" | "amber";
+  accent?: "volt" | "magenta" | "cyan" | "slate" | "amber" | "red";
   /** Explicação curta em ícone de ajuda, ao lado do rótulo. */
   ajuda?: string;
   /** Se informado, o card vira um link clicável para esta rota. */
@@ -32,6 +32,10 @@ export default function StatTile({
     cyan: "text-cyanx-400 bg-cyanx-500/10",
     slate: "text-slate-300 bg-ink-700",
     amber: "text-amber-300 bg-amber-500/10",
+    // Reservado para dinheiro que saiu/está vencido — "estar no vermelho" é a
+    // associação que o usuário já traz; manter esse conceito sempre em
+    // vermelho (nunca magenta) em todo o app.
+    red: "text-red-400 bg-red-500/10",
   } as const;
 
   const conteudo = (

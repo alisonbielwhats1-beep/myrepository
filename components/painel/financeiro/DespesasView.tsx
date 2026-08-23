@@ -72,7 +72,7 @@ export default function DespesasView({
       <div className="grid grid-cols-2 gap-4">
         <div className="surface rounded-2xl p-4">
           <p className="label-muted">Pago no período</p>
-          <p className="mt-1 text-xl font-bold tabular-nums text-magenta-400 [overflow-wrap:anywhere] sm:text-2xl">
+          <p className="mt-1 text-xl font-bold tabular-nums text-red-400 [overflow-wrap:anywhere] sm:text-2xl">
             {formatBRL(totalPago, { compacto: true })}
           </p>
         </div>

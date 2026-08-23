@@ -53,7 +53,7 @@ export default function DREResumo({ dre, periodo }: { dre: DRE; periodo: string 
             <b className="text-white">{formatBRL(dre.totalDespesa)}</b>
           </p>
           <p className="mt-0.5 text-slate-500">
-            <span className="text-magenta-400">{formatBRL(dre.despesaPaga)}</span> já
+            <span className="text-red-400">{formatBRL(dre.despesaPaga)}</span> já
             pagou ·{" "}
             <span className="text-amber-300">{formatBRL(dre.despesaAPagar)}</span>{" "}
             ainda vai pagar
@@ -93,7 +93,7 @@ export default function DREResumo({ dre, periodo }: { dre: DRE; periodo: string 
 
         {/* Despesas por categoria */}
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-magenta-400">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-400">
             Despesas
           </p>
           {dre.despesasPorCategoria.length === 0 ? (
@@ -112,7 +112,7 @@ export default function DREResumo({ dre, periodo }: { dre: DRE; periodo: string 
               ))}
               <li className="flex items-center justify-between gap-2 border-t border-ink-700 pt-1.5 text-sm font-semibold">
                 <span className="text-slate-200">Total</span>
-                <span className="tabular-nums text-magenta-400">
+                <span className="tabular-nums text-red-400">
                   {formatBRL(dre.totalDespesa)}
                 </span>
               </li>
@@ -147,6 +147,6 @@ export default function DREResumo({ dre, periodo }: { dre: DRE; periodo: string 
 
 function cnLucro(lucro: number): string {
   return `tabular-nums text-xl font-bold ${
-    lucro >= 0 ? "text-volt-300" : "text-magenta-400"
+    lucro >= 0 ? "text-volt-300" : "text-red-400"
   }`;
 }

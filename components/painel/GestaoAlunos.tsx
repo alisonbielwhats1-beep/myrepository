@@ -14,6 +14,7 @@ import {
   FilterX,
   HeartPulse,
   Loader2,
+  MoreHorizontal,
   Pencil,
   QrCode,
   Search,
@@ -662,13 +663,17 @@ function LinhaAluno({
   onEditar: () => void;
 }) {
   const [copiado, setCopiado] = useState(false);
+  const [menuAberto, setMenuAberto] = useState(false);
 
   const copiarLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const link = `${origemPublica()}/aluno/${slug}/${aluno.token_acesso_publico}`;
     await navigator.clipboard.writeText(link);
     setCopiado(true);
-    setTimeout(() => setCopiado(false), 1600);
+    setTimeout(() => {
+      setCopiado(false);
+      setMenuAberto(false);
+    }, 1200);
   };
 
   return (
@@ -744,37 +749,71 @@ function LinhaAluno({
             </span>
           )}
         </div>
-        <div className="flex flex-none items-center gap-1">
+        {/* Menu "•••": QR/editar/excluir viviam como 3 ícones sempre visíveis
+            na linha — junto com os chips de status, deixava a lista pesada
+            demais no celular (achado da auditoria visual). Agora só o gatilho
+            fica visível; as ações aparecem ao abrir o menu. */}
+        <div
+          className="relative flex-none"
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
             type="button"
-            onClick={copiarLink}
-            title="Copiar link do app do aluno"
-            className="grid h-8 w-8 flex-none place-items-center rounded-lg text-slate-500 transition hover:bg-ink-700 hover:text-volt-300"
-          >
-            {copiado ? (
-              <Check className="h-4 w-4 text-volt-300" />
-            ) : (
-              <QrCode className="h-4 w-4" />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEditar();
-            }}
-            title="Editar aluno"
+            onClick={() => setMenuAberto((v) => !v)}
+            aria-label="Mais ações"
+            aria-expanded={menuAberto}
+            title="Mais ações"
             className="grid h-8 w-8 flex-none place-items-center rounded-lg text-slate-500 transition hover:bg-ink-700 hover:text-white"
           >
-            <Pencil className="h-4 w-4" />
+            <MoreHorizontal className="h-4 w-4" />
           </button>
-          <span onClick={(e) => e.stopPropagation()}>
-            <ConfirmButton
-              action={() => excluirAluno(slug, aluno.id)}
-              confirmText={`Excluir o aluno "${aluno.nome}"? Treinos e histórico serão removidos.`}
-              label="Excluir aluno"
-            />
-          </span>
+
+          {menuAberto && (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-10 cursor-default"
+                aria-hidden
+                tabIndex={-1}
+                onClick={() => setMenuAberto(false)}
+              />
+              <div
+                role="menu"
+                className="absolute right-0 top-9 z-20 w-48 overflow-hidden rounded-xl border border-ink-600 bg-ink-800 shadow-card"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={copiarLink}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-ink-700"
+                >
+                  {copiado ? (
+                    <Check className="h-4 w-4 text-volt-300" />
+                  ) : (
+                    <QrCode className="h-4 w-4" />
+                  )}
+                  {copiado ? "Link copiado" : "Copiar link do app"}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuAberto(false);
+                    onEditar();
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-ink-700"
+                >
+                  <Pencil className="h-4 w-4" /> Editar aluno
+                </button>
+                <ConfirmButton
+                  action={() => excluirAluno(slug, aluno.id)}
+                  confirmText={`Excluir o aluno "${aluno.nome}"? Treinos e histórico serão removidos.`}
+                  label="Excluir aluno"
+                  variant="menu"
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
     </li>
