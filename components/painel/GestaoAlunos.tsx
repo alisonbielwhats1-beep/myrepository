@@ -9,6 +9,7 @@ import {
   ArrowRight,
   CalendarDays,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Dumbbell,
@@ -1579,6 +1580,10 @@ function CardFichaTreino({
   catalogo: CatalogoExercicio[];
 }) {
   const [editando, setEditando] = useState(false);
+  // Minimizado por padrão: com várias fichas na tela, a lista inteira de
+  // exercícios de cada uma deixava a ficha do aluno comprida demais pra só
+  // ver "quais treinos ele tem". Abre sob demanda.
+  const [expandido, setExpandido] = useState(false);
   const [dias, setDias] = useState<DiaSemana[]>(() =>
     normalizarDias(treino.dias_semana)
   );
@@ -1659,6 +1664,21 @@ function CardFichaTreino({
             confirmText={`Excluir a ficha "${treino.nome_treino}"?`}
             label="Excluir ficha"
           />
+          <button
+            type="button"
+            onClick={() => setExpandido((v) => !v)}
+            aria-expanded={expandido}
+            aria-label={expandido ? "Recolher ficha" : "Expandir ficha"}
+            title={expandido ? "Recolher ficha" : "Expandir ficha"}
+            className="grid h-7 w-7 flex-none place-items-center rounded-lg text-slate-400 transition hover:bg-ink-700 hover:text-white"
+          >
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 transition-transform",
+                expandido && "rotate-180"
+              )}
+            />
+          </button>
         </div>
       </div>
 
@@ -1706,40 +1726,46 @@ function CardFichaTreino({
         />
       ) : (
         <>
-          <p className="mt-1 text-xs text-slate-500">
-            {exercicios.length} exercícios
-          </p>
-          <div className="mt-3 space-y-1.5">
-            {exercicios.map((ex) => (
-              <div
-                key={ex.id}
-                className="flex items-center gap-2 text-xs text-slate-300"
-              >
-                {/* Miniatura: confirma visualmente que a mídia foi salva. */}
-                {ex.video_demonstracao_url ? (
-                  <span className="inline-flex flex-none items-center gap-1 rounded bg-volt-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-volt-300">
-                    <Video className="h-3 w-3" /> vídeo
+          <button
+            type="button"
+            onClick={() => setExpandido((v) => !v)}
+            className="mt-1 text-xs text-slate-500 transition hover:text-slate-300"
+          >
+            {exercicios.length} exercícios{expandido ? "" : " — toque pra ver"}
+          </button>
+          {expandido && (
+            <div className="mt-3 space-y-1.5">
+              {exercicios.map((ex) => (
+                <div
+                  key={ex.id}
+                  className="flex items-center gap-2 text-xs text-slate-300"
+                >
+                  {/* Miniatura: confirma visualmente que a mídia foi salva. */}
+                  {ex.video_demonstracao_url ? (
+                    <span className="inline-flex flex-none items-center gap-1 rounded bg-volt-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-volt-300">
+                      <Video className="h-3 w-3" /> vídeo
+                    </span>
+                  ) : (
+                    <span className="w-[52px] flex-none" />
+                  )}
+                  {ex.imagem_demonstracao_url ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={ex.imagem_demonstracao_url}
+                      alt=""
+                      className="h-6 w-6 flex-none rounded object-cover"
+                    />
+                  ) : (
+                    <span className="h-6 w-6 flex-none rounded bg-ink-700" />
+                  )}
+                  <span className="truncate">
+                    {ex.nome_exercicio} · {ex.series}x{ex.repeticoes}
+                    {ex.carga_kg ? ` · ${ex.carga_kg}kg` : ""}
                   </span>
-                ) : (
-                  <span className="w-[52px] flex-none" />
-                )}
-                {ex.imagem_demonstracao_url ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={ex.imagem_demonstracao_url}
-                    alt=""
-                    className="h-6 w-6 flex-none rounded object-cover"
-                  />
-                ) : (
-                  <span className="h-6 w-6 flex-none rounded bg-ink-700" />
-                )}
-                <span className="truncate">
-                  {ex.nome_exercicio} · {ex.series}x{ex.repeticoes}
-                  {ex.carga_kg ? ` · ${ex.carga_kg}kg` : ""}
-                </span>
-              </div>
-            ))}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>
