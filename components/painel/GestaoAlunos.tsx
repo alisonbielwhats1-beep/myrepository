@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useFormState } from "react-dom";
+import { createPortal, useFormState } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
@@ -664,6 +664,11 @@ function LinhaAluno({
 }) {
   const [copiado, setCopiado] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
+  // Posição calculada do gatilho, em coordenadas de viewport — o menu é
+  // renderizado via portal em document.body (ver abaixo), então não usa
+  // `position: absolute` relativo à linha.
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
 
   const copiarLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -675,6 +680,27 @@ function LinhaAluno({
       setMenuAberto(false);
     }, 1200);
   };
+
+  function alternarMenu(e: React.MouseEvent) {
+    e.stopPropagation();
+    const rect = menuBtnRef.current?.getBoundingClientRect();
+    if (rect) {
+      setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setMenuAberto((v) => !v);
+  }
+
+  // A lista de alunos rola dentro de um <ul overflow-auto> com altura
+  // limitada — um menu `position: absolute` ficaria cortado pelo próprio
+  // scroll da lista para qualquer aluno perto do fim da área visível. Por
+  // isso o menu é portalizado (como o diálogo de AtribuirTreino) e some ao
+  // rolar, para não flutuar sobre a linha errada.
+  useEffect(() => {
+    if (!menuAberto) return;
+    const fechar = () => setMenuAberto(false);
+    window.addEventListener("scroll", fechar, true);
+    return () => window.removeEventListener("scroll", fechar, true);
+  }, [menuAberto]);
 
   return (
     <li>
@@ -753,13 +779,11 @@ function LinhaAluno({
             na linha — junto com os chips de status, deixava a lista pesada
             demais no celular (achado da auditoria visual). Agora só o gatilho
             fica visível; as ações aparecem ao abrir o menu. */}
-        <div
-          className="relative flex-none"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="flex-none">
           <button
+            ref={menuBtnRef}
             type="button"
-            onClick={() => setMenuAberto((v) => !v)}
+            onClick={alternarMenu}
             aria-label="Mais ações"
             aria-expanded={menuAberto}
             title="Mais ações"
@@ -768,52 +792,57 @@ function LinhaAluno({
             <MoreHorizontal className="h-4 w-4" />
           </button>
 
-          {menuAberto && (
-            <>
-              <button
-                type="button"
-                className="fixed inset-0 z-10 cursor-default"
-                aria-hidden
-                tabIndex={-1}
-                onClick={() => setMenuAberto(false)}
-              />
-              <div
-                role="menu"
-                className="absolute right-0 top-9 z-20 w-48 overflow-hidden rounded-xl border border-ink-600 bg-ink-800 shadow-card"
-              >
+          {menuAberto &&
+            menuPos &&
+            createPortal(
+              <>
                 <button
                   type="button"
-                  role="menuitem"
-                  onClick={copiarLink}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-ink-700"
-                >
-                  {copiado ? (
-                    <Check className="h-4 w-4 text-volt-300" />
-                  ) : (
-                    <QrCode className="h-4 w-4" />
-                  )}
-                  {copiado ? "Link copiado" : "Copiar link do app"}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuAberto(false);
-                    onEditar();
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-ink-700"
-                >
-                  <Pencil className="h-4 w-4" /> Editar aluno
-                </button>
-                <ConfirmButton
-                  action={() => excluirAluno(slug, aluno.id)}
-                  confirmText={`Excluir o aluno "${aluno.nome}"? Treinos e histórico serão removidos.`}
-                  label="Excluir aluno"
-                  variant="menu"
+                  className="fixed inset-0 z-40 cursor-default"
+                  aria-hidden
+                  tabIndex={-1}
+                  onClick={() => setMenuAberto(false)}
                 />
-              </div>
-            </>
-          )}
+                <div
+                  role="menu"
+                  style={{ top: menuPos.top, right: menuPos.right }}
+                  className="fixed z-50 w-48 overflow-hidden rounded-xl border border-ink-600 bg-ink-800 shadow-card"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={copiarLink}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-ink-700"
+                  >
+                    {copiado ? (
+                      <Check className="h-4 w-4 text-volt-300" />
+                    ) : (
+                      <QrCode className="h-4 w-4" />
+                    )}
+                    {copiado ? "Link copiado" : "Copiar link do app"}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuAberto(false);
+                      onEditar();
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-200 hover:bg-ink-700"
+                  >
+                    <Pencil className="h-4 w-4" /> Editar aluno
+                  </button>
+                  <ConfirmButton
+                    action={() => excluirAluno(slug, aluno.id)}
+                    confirmText={`Excluir o aluno "${aluno.nome}"? Treinos e histórico serão removidos.`}
+                    label="Excluir aluno"
+                    variant="menu"
+                  />
+                </div>
+              </>,
+              document.body
+            )}
         </div>
       </div>
     </li>
