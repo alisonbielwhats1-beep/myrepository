@@ -42,7 +42,7 @@ export default function AlertasPainel({
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="surface rounded-2xl p-5">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 text-magenta-400" />
+          <AlertTriangle className="h-4 w-4 text-red-400" />
           <h2 className="font-semibold text-white">Inadimplentes</h2>
         </div>
         <p className="mb-3 text-xs text-slate-500">
@@ -64,7 +64,7 @@ export default function AlertasPainel({
                   >
                     {a.nome}
                   </Link>
-                  <p className="text-xs text-magenta-400">
+                  <p className="text-xs text-red-400">
                     {a.diasAtraso} {a.diasAtraso === 1 ? "dia" : "dias"} de atraso
                   </p>
                 </div>

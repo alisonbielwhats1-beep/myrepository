@@ -58,7 +58,7 @@ const ICONE_POR_TIPO: Record<TipoNotificacao, typeof Bell> = {
 };
 
 const COR_POR_PRIORIDADE: Record<Notificacao["prioridade"], string> = {
-  alta: "text-magenta-400",
+  alta: "text-red-400",
   media: "text-amber-300",
   baixa: "text-slate-400",
 };
@@ -218,7 +218,7 @@ export default function NotificationBell({
       >
         <Bell className="h-5 w-5" />
         {naoLidas > 0 && (
-          <span className="absolute -right-1 -top-1 grid h-5 min-w-[1.25rem] place-items-center rounded-full bg-magenta-500 px-1 text-[11px] font-bold text-white">
+          <span className="absolute -right-1 -top-1 grid h-5 min-w-[1.25rem] place-items-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
             {naoLidas > 99 ? "99+" : naoLidas}
           </span>
         )}

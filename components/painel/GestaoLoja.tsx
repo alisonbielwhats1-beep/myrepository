@@ -180,7 +180,7 @@ export default function GestaoLoja({
                             <span
                               className={cn(
                                 p.estoque === 0
-                                  ? "font-medium text-magenta-400"
+                                  ? "font-medium text-red-400"
                                   : p.estoque <= ESTOQUE_BAIXO
                                     ? "font-medium text-amber-300"
                                     : ""

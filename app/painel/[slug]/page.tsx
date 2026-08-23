@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
   CalendarClock,
+  ChevronDown,
   DollarSign,
   HeartPulse,
   Lock,
@@ -200,6 +201,9 @@ export default async function DashboardOverviewPage({
   // ---- Inadimplência (só para quem vê financeiro) ----
   const inadimplentes: AlertaInadimplente[] = [];
   const proximosVencimentos = proximosVencimentosRows;
+  // Recorte de "vence hoje" dentro dos próximos vencimentos já buscados —
+  // alimenta só a barra de "Ações de hoje" (nenhuma consulta nova).
+  const venceHojeCount = proximosVencimentos.filter((r) => r.data === hojeIso).length;
 
   if (verFinanceiro) {
     const inadimplentesMap = new Map<string, AlertaInadimplente>();
@@ -314,6 +318,39 @@ export default async function DashboardOverviewPage({
         )}
       </div>
 
+      {/* Ações de hoje — resumo de 1 linha antes dos números frios, montado só
+          com o que já foi buscado acima (nenhuma consulta nova). Pedido da
+          auditoria visual: dar uma resposta rápida a "o que preciso fazer
+          hoje" antes de qualquer gráfico ou card. */}
+      {(verFinanceiro || sumidos.length > 0) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-ink-700 bg-ink-800/40 px-4 py-3 text-sm">
+          <span className="font-medium text-slate-300">Hoje</span>
+          {verFinanceiro && venceHojeCount > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-slate-400">
+              <CalendarClock className="h-3.5 w-3.5" />
+              {venceHojeCount} cobrança{venceHojeCount > 1 ? "s" : ""} vence
+              {venceHojeCount > 1 ? "m" : ""} hoje
+            </span>
+          )}
+          {verFinanceiro && inadimplentes.length > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-red-400">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {inadimplentes.length} inadimplente{inadimplentes.length > 1 ? "s" : ""}
+            </span>
+          )}
+          {sumidos.length > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-slate-400">
+              <UserX className="h-3.5 w-3.5" />
+              {sumidos.length} aluno{sumidos.length > 1 ? "s" : ""} sumido
+              {sumidos.length > 1 ? "s" : ""}
+            </span>
+          )}
+          {venceHojeCount === 0 && inadimplentes.length === 0 && sumidos.length === 0 && (
+            <span className="text-slate-500">Nada pendente por aqui. 🎉</span>
+          )}
+        </div>
+      )}
+
       {/* Primeiros passos (só o dono; some sozinho quando concluído). */}
       {progressoOnboarding && (
         <PrimeirosPassos slug={params.slug} progresso={progressoOnboarding} />
@@ -333,7 +370,7 @@ export default async function DashboardOverviewPage({
           label="Novos alunos"
           value={String(novosAlunos)}
           hint={hintPeriodo}
-          accent="cyan"
+          accent="slate"
           delta={{ pct: variacao(novosAlunos, novosAlunosAnt) }}
         />
         <StatTile
@@ -341,7 +378,7 @@ export default async function DashboardOverviewPage({
           label="Alunos sumidos"
           value={String(sumidos.length)}
           hint={`sem acesso há ${configRetencao.diasSumido}+ dias`}
-          accent={sumidos.length > 0 ? "magenta" : "slate"}
+          accent="slate"
         />
         {verFinanceiro && (
           <StatTile
@@ -349,7 +386,7 @@ export default async function DashboardOverviewPage({
             label="Funcionários"
             value={String(funcionariosAtivos)}
             hint={`${funcionarios.length} cadastrados`}
-            accent="cyan"
+            accent="slate"
           />
         )}
       </div>
@@ -377,7 +414,7 @@ export default async function DashboardOverviewPage({
             </div>
             <div>
               <p className="label-muted">Despesa</p>
-              <p className="mt-1 text-xl font-bold tabular-nums text-magenta-400 [overflow-wrap:anywhere] sm:text-2xl">
+              <p className="mt-1 text-xl font-bold tabular-nums text-red-400 [overflow-wrap:anywhere] sm:text-2xl">
                 {formatBRL(despesaPeriodo, { compacto: true })}
               </p>
             </div>
@@ -386,7 +423,7 @@ export default async function DashboardOverviewPage({
               <p
                 className={cn(
                   "mt-1 text-xl font-bold tabular-nums [overflow-wrap:anywhere] sm:text-2xl",
-                  lucroPeriodo >= 0 ? "text-white" : "text-magenta-400"
+                  lucroPeriodo >= 0 ? "text-white" : "text-red-400"
                 )}
               >
                 {formatBRL(lucroPeriodo, { compacto: true })}
@@ -397,7 +434,7 @@ export default async function DashboardOverviewPage({
               <p
                 className={cn(
                   "mt-1 text-xl font-bold tabular-nums sm:text-2xl",
-                  inadimplentes.length > 0 ? "text-magenta-400" : "text-slate-400"
+                  inadimplentes.length > 0 ? "text-red-400" : "text-slate-400"
                 )}
               >
                 {inadimplentes.length}
@@ -565,14 +602,29 @@ export default async function DashboardOverviewPage({
         )}
       </div>
 
-      {/* PLG: teaser de recursos bloqueados para plano Básico */}
+      {/* PLG: teaser de recursos bloqueados para plano Básico.
+          Fica recolhido por padrão (<details>, sem JS) — a auditoria visual
+          apontou que misturar oferta comercial com dados operacionais reais
+          (aluno sumiu, inadimplência) no meio da rolagem cria uma quebra de
+          contexto. O aviso continua visível, só o conteúdo promocional espera
+          o clique. */}
       {!planoPodeAcessar(sessao.academia.plano_saas, "financeiro") && (
-        <div className="surface rounded-2xl border border-volt-500/20 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+        <details className="surface group rounded-2xl border border-volt-500/20">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5 [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-volt-400" />
               <h2 className="font-semibold text-white">Libere mais recursos</h2>
-            </div>
+            </span>
+            <ChevronDown
+              className="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
+              aria-hidden="true"
+            />
+          </summary>
+          <div className="px-5 pb-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-slate-400">
+              Upgrade para o Profissional (R$ 59,90/mês) e desbloqueie:
+            </p>
             <Link
               href={`/painel/${params.slug}/configuracoes#plano`}
               className="btn-volt text-xs"
@@ -580,9 +632,6 @@ export default async function DashboardOverviewPage({
               Ver planos
             </Link>
           </div>
-          <p className="mt-1 text-sm text-slate-400">
-            Upgrade para o Profissional (R$ 59,90/mês) e desbloqueie:
-          </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
             {[
               { icon: DollarSign, label: "Financeiro", desc: "Receitas, despesas e DRE" },
@@ -601,7 +650,8 @@ export default async function DashboardOverviewPage({
               </div>
             ))}
           </div>
-        </div>
+          </div>
+        </details>
       )}
     </div>
   );

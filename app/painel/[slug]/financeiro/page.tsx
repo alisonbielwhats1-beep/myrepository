@@ -119,7 +119,7 @@ export default async function FinanceiroOverviewPage({
             label="Despesa paga"
             value={formatBRL(caixa.despesaPaga, { compacto: true })}
             hint="saiu"
-            accent="magenta"
+            accent="red"
             ajuda="Dinheiro que realmente saiu no período."
           />
           <StatTile
@@ -127,7 +127,7 @@ export default async function FinanceiroOverviewPage({
             label="Resultado"
             value={formatBRL(caixa.resultado, { compacto: true })}
             hint="sobrou no período"
-            accent={caixa.resultado >= 0 ? "volt" : "magenta"}
+            accent={caixa.resultado >= 0 ? "volt" : "red"}
             ajuda="Receita recebida menos despesa paga, dentro do período selecionado."
           />
           <StatTile
@@ -139,7 +139,7 @@ export default async function FinanceiroOverviewPage({
                 ? `desde ${new Date(saldo.desde + "T00:00:00").toLocaleDateString("pt-BR")}`
                 : "no GestAcad"
             }
-            accent="cyan"
+            accent="slate"
             ajuda="O que o GestAcad conhece de caixa acumulado. Não é o saldo da sua conta no banco."
           />
         </div>
@@ -161,7 +161,7 @@ export default async function FinanceiroOverviewPage({
             <p
               className={cn(
                 "mt-1 text-xl font-bold tabular-nums transition group-hover:underline sm:text-2xl",
-                aReceber.vencido > 0 ? "text-magenta-400" : "text-slate-400"
+                aReceber.vencido > 0 ? "text-red-400" : "text-slate-400"
               )}
             >
               {formatBRL(aReceber.vencido, { compacto: true })}
@@ -179,7 +179,7 @@ export default async function FinanceiroOverviewPage({
             <p
               className={cn(
                 "mt-1 text-xl font-bold tabular-nums transition group-hover:underline sm:text-2xl",
-                aPagar.vencido > 0 ? "text-magenta-400" : "text-slate-400"
+                aPagar.vencido > 0 ? "text-red-400" : "text-slate-400"
               )}
             >
               {formatBRL(aPagar.vencido, { compacto: true })}
@@ -197,7 +197,7 @@ export default async function FinanceiroOverviewPage({
             <p
               className={cn(
                 "mt-1 text-xl font-bold tabular-nums sm:text-2xl",
-                projecao.projetado >= 0 ? "text-cyanx-400" : "text-magenta-400"
+                projecao.projetado >= 0 ? "text-slate-300" : "text-red-400"
               )}
             >
               {formatBRL(projecao.projetado, { compacto: true })}

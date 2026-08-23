@@ -145,14 +145,14 @@ export default async function RetencaoPage({
           label="Check-ins (30d)"
           value={String(totalCheckins30)}
           hint="entradas na catraca"
-          accent="cyan"
+          accent="slate"
         />
         <StatTile
           icon={TrendingDown}
           label="Precisam de contato"
           value={String(emRisco.length)}
           hint={`${totalSumidos} já sumido(s)`}
-          accent={emRisco.length > 0 ? "magenta" : "slate"}
+          accent="slate"
         />
         <StatTile
           icon={Cake}
@@ -195,7 +195,7 @@ export default async function RetencaoPage({
         {/* Aniversariantes */}
         <div className="surface rounded-2xl p-5">
           <h2 className="flex items-center gap-2 font-semibold text-white">
-            <Cake className="h-4 w-4 text-magenta-400" /> Aniversariantes de{" "}
+            <Cake className="h-4 w-4 text-slate-400" /> Aniversariantes de{" "}
             {MESES[mesAtual]}
           </h2>
           {aniversariantes.length === 0 ? (
@@ -220,7 +220,7 @@ export default async function RetencaoPage({
       {/* Em risco */}
       <div className="surface rounded-2xl p-5">
         <h2 className="flex items-center gap-2 font-semibold text-white">
-          <TrendingDown className="h-4 w-4 text-magenta-400" /> Precisam de contato
+          <TrendingDown className="h-4 w-4 text-slate-400" /> Precisam de contato
         </h2>
         <p className="mb-3 text-xs text-slate-500">
           Atenção a partir de {configRetencao.diasAtencao} dias, em risco a partir

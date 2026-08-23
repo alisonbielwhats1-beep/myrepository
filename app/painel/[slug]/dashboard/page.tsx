@@ -165,7 +165,7 @@ export default async function RelatoriosPage({
           label="Horário de pico"
           value={acessos.length ? horaPico.hora : "—"}
           hint={acessos.length ? `${horaPico.acessos} acessos` : "sem dados ainda"}
-          accent="cyan"
+          accent="slate"
         />
         {podeVerDinheiro && (
           <StatTile
@@ -173,7 +173,7 @@ export default async function RelatoriosPage({
             label="Faturamento (7 dias)"
             value={formatBRL(faturamentoTotal7d)}
             hint="receitas pagas"
-            accent="magenta"
+            accent="volt"
           />
         )}
         <StatTile
@@ -224,7 +224,7 @@ export default async function RelatoriosPage({
       {podeVerDinheiro && (
         <div className="surface rounded-2xl p-5">
           <div className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4 text-magenta-400" />
+            <DollarSign className="h-4 w-4 text-volt-300" />
             <h2 className="font-semibold text-white">
               Receitas pagas (7 dias)
             </h2>

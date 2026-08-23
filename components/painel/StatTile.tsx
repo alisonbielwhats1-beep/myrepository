@@ -17,7 +17,7 @@ export default function StatTile({
   label: string;
   value: string;
   hint?: string;
-  accent?: "volt" | "magenta" | "cyan" | "slate" | "amber";
+  accent?: "volt" | "slate" | "amber" | "red";
   /** Explicação curta em ícone de ajuda, ao lado do rótulo. */
   ajuda?: string;
   /** Se informado, o card vira um link clicável para esta rota. */
@@ -26,12 +26,15 @@ export default function StatTile({
    *  (ex.: em despesa, subir é ruim). */
   delta?: { pct: number; positivoBom?: boolean };
 }) {
+  // Paleta enxuta de propósito: verde (bom) e vermelho (ruim/urgente) são os
+  // únicos acentos "de status"; slate é o neutro pra tudo que é só
+  // informativo (contagem, horário, saldo); amber fica reservado pra alerta
+  // legítimo (ex.: "com alerta hoje" na Recepção).
   const accentMap = {
     volt: "text-volt-300 bg-volt-500/10",
-    magenta: "text-magenta-400 bg-magenta-500/10",
-    cyan: "text-cyanx-400 bg-cyanx-500/10",
     slate: "text-slate-300 bg-ink-700",
     amber: "text-amber-300 bg-amber-500/10",
+    red: "text-red-400 bg-red-500/10",
   } as const;
 
   const conteudo = (
@@ -89,7 +92,7 @@ function DeltaBadge({ pct, positivoBom }: { pct: number; positivoBom: boolean })
           ? "bg-ink-700 text-slate-400"
           : bom
           ? "bg-volt-500/10 text-volt-300"
-          : "bg-magenta-500/10 text-magenta-400"
+          : "bg-red-500/10 text-red-400"
       )}
       title="vs. período anterior"
     >

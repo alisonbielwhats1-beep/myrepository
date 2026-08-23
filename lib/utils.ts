@@ -125,7 +125,7 @@ export function badgeStatusMatricula(status: StatusMatricula): string {
     case "pendente":
       return "bg-amber-500/15 text-amber-300 border-amber-500/30";
     case "trancada":
-      return "bg-cyanx-500/15 text-cyanx-400 border-cyanx-500/30";
+      return "bg-ink-600 text-slate-300 border-ink-500";
     case "cancelada":
       return "bg-red-900/30 text-red-400 border-red-800/50";
     default:

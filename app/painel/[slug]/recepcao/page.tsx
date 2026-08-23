@@ -149,7 +149,7 @@ export default async function RecepcaoPage({
           label="Alunos ativos"
           value={String(ativos)}
           hint={`${alunos.length} no total`}
-          accent="cyan"
+          accent="slate"
         />
         <StatTile
           icon={Clock3}
