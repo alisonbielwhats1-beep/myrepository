@@ -158,7 +158,15 @@ body {
 
   /* Campo de formulário padrão (inputs, selects) */
   .inp {
-    @apply w-full rounded-xl border border-ink-600 bg-ink-900/70 px-3 py-2.5
+    /* `min-w-0` é o que impede o corte no celular: um <input> tem largura
+       intrínseca (~20 caracteres) e um <select> assume a largura da opção
+       mais longa. Sem `min-width: 0` eles NÃO encolhem abaixo disso, então
+       duas colunas de campo num grid-cols-2 somam ~430px de largura mínima —
+       mais que a tela — e esticavam todo o container além da viewport (o
+       formulário, os filtros e os botões apareciam cortados à direita). Com
+       `min-w-0` o campo encolhe para caber na coluna e o texto trunca/rola
+       dentro dele. Vale para todos os formulários do app. */
+    @apply w-full min-w-0 rounded-xl border border-ink-600 bg-ink-900/70 px-3 py-2.5
       text-sm text-white placeholder:text-slate-500 outline-none transition
       focus:border-volt-500/60 focus:ring-2 focus:ring-volt-500/20;
   }
