@@ -56,7 +56,10 @@ export default function AlertasPainel({
         ) : (
           <ul className="divide-y divide-ink-700/70">
             {inadimplentes.slice(0, 8).map((a) => (
-              <li key={a.alunoId} className="flex items-center justify-between gap-2 py-3">
+              <li
+                key={a.alunoId}
+                className="flex items-center justify-between gap-2 border-l-2 border-red-400/60 py-3 pl-3"
+              >
                 <div className="min-w-0">
                   <Link
                     href={`/painel/${slug}/alunos?q=${encodeURIComponent(a.nome)}`}
@@ -116,7 +119,10 @@ export default function AlertasPainel({
         ) : (
           <ul className="divide-y divide-ink-700/70">
             {sumidos.slice(0, 8).map((a) => (
-              <li key={a.alunoId} className="flex items-center justify-between gap-2 py-3">
+              <li
+                key={a.alunoId}
+                className="flex items-center justify-between gap-2 border-l-2 border-amber-400/60 py-3 pl-3"
+              >
                 {/* Mesma estrutura do item de inadimplente: nome + motivo
                     empilhados à esquerda, ação à direita. Mantém a explicação
                     (dias sem acesso) visível, agora sem disputar a linha. */}

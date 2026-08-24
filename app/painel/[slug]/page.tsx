@@ -405,7 +405,7 @@ export default async function DashboardOverviewPage({
             </Link>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-3 gap-4">
             <div>
               <p className="label-muted">Receita</p>
               <p className="mt-1 text-xl font-bold tabular-nums text-volt-300 [overflow-wrap:anywhere] sm:text-2xl">
@@ -429,19 +429,43 @@ export default async function DashboardOverviewPage({
                 {formatBRL(lucroPeriodo, { compacto: true })}
               </p>
             </div>
-            <div>
-              <p className="label-muted">Inadimplentes</p>
-              <p
-                className={cn(
-                  "mt-1 text-xl font-bold tabular-nums sm:text-2xl",
-                  inadimplentes.length > 0 ? "text-red-400" : "text-slate-400"
-                )}
-              >
-                {inadimplentes.length}
-              </p>
-              <p className="mt-0.5 text-xs text-slate-500">com mensalidade vencida</p>
-            </div>
           </div>
+
+          {/* Barra comparativa receita x despesa — leitura visual imediata da
+              proporção, sem precisar comparar dois números de cabeça. O
+              contador de inadimplentes já aparece na barra "Hoje" acima e no
+              card de Inadimplentes abaixo; repeti-lo aqui era o 3º lugar
+              mostrando o mesmo número. */}
+          {(receitaPeriodo > 0 || despesaPeriodo > 0) && (
+            <div className="mt-4">
+              <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-ink-700">
+                <div
+                  className="bg-volt-400"
+                  style={{
+                    width: `${
+                      (receitaPeriodo / Math.max(receitaPeriodo + despesaPeriodo, 1)) * 100
+                    }%`,
+                  }}
+                />
+                <div
+                  className="bg-red-400/70"
+                  style={{
+                    width: `${
+                      (despesaPeriodo / Math.max(receitaPeriodo + despesaPeriodo, 1)) * 100
+                    }%`,
+                  }}
+                />
+              </div>
+              <div className="mt-1.5 flex items-center gap-4 text-xs text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-2 rounded-full bg-volt-400" /> Receita
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-2 rounded-full bg-red-400/70" /> Despesa
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
