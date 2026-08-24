@@ -301,6 +301,240 @@ export async function atribuirModelosTreino(
   };
 }
 
+/** Resultado da atribuição de UM treino a VÁRIOS alunos de uma vez. */
+export type ResultadoAtribuirAlunos = {
+  criados: number;
+  ignorados: number;
+  falhas: { nome: string; motivo: string }[];
+  savedAt: number;
+};
+
+/**
+ * Atribui UM treino-modelo a VÁRIOS alunos numa única ação (pedido: soltar o
+ * mesmo treino para uma turma sem repetir aluno por aluno). Diferente da RPC de
+ * lote 087 (vários modelos → um aluno), aqui é um modelo → vários alunos, então
+ * o laço roda no servidor reutilizando a RPC canônica `atribuir_modelo_treino`
+ * (mesma cópia/checagens de tenant/papel/aluno):
+ *   • Seleção EXPLÍCITA (o cliente manda a lista de alunos marcados). Teto de 30.
+ *   • Não duplica: aluno que já tem esse modelo em ficha ativa é IGNORADO.
+ *   • Cada aluno que recebe ganha sua notificação (aqui é 1 treino → N alunos,
+ *     então é um aviso por aluno, não um consolidado).
+ *   • Isola por item: uma falha vira relatório, não derruba os outros.
+ */
+export async function atribuirTreinoVariosAlunos(
+  slug: string,
+  treinoModeloId: string,
+  alunoIds: string[],
+  nomeTreino: string,
+  dias: number[]
+): Promise<{ erro: string } | ResultadoAtribuirAlunos> {
+  const sessao = await requireSecao(slug, "treinos");
+  if (!podeGerenciarTreinos(sessao.papel)) {
+    return { erro: "Seu perfil não pode atribuir treinos." };
+  }
+  if (!FORMATO_UUID.test(treinoModeloId)) {
+    return { erro: "Treino inválido." };
+  }
+
+  const nome = (nomeTreino ?? "").trim();
+  if (nome.length > 120) {
+    return { erro: "O nome do treino deve ter no máximo 120 caracteres." };
+  }
+
+  // Dedup + só UUIDs válidos; teto de 30 alunos por vez (bounda o laço serial).
+  const ids = Array.from(
+    new Set((alunoIds ?? []).filter((id) => FORMATO_UUID.test(id)))
+  ).slice(0, 30);
+  if (ids.length === 0) {
+    return { erro: "Marque pelo menos um aluno." };
+  }
+
+  const diasNorm = normalizarDias((dias ?? []).map((d) => Number(d)));
+  const supabase = createClient();
+
+  // Nomes dos alunos só para o relatório amigável (id → nome).
+  const { data: alunosData } = await supabase
+    .from("alunos")
+    .select("id, nome")
+    .eq("academia_id", sessao.academia.id)
+    .in("id", ids);
+  const nomeDe = (id: string) =>
+    (alunosData ?? []).find((a) => a.id === id)?.nome ?? "aluno";
+
+  // Quem já tem esse modelo em ficha ATIVA é ignorado (não duplica a ficha).
+  const { data: jaTemData } = await supabase
+    .from("treinos")
+    .select("aluno_id")
+    .eq("academia_id", sessao.academia.id)
+    .eq("modelo_origem_id", treinoModeloId)
+    .eq("ativo", true)
+    .in("aluno_id", ids);
+  const jaTem = new Set((jaTemData ?? []).map((t) => t.aluno_id as string));
+
+  const aAtribuir = ids.filter((id) => !jaTem.has(id));
+  const falhas: { nome: string; motivo: string }[] = [];
+  let criados = 0;
+
+  for (const alunoId of aAtribuir) {
+    const { data, error } = await supabase.rpc("atribuir_modelo_treino", {
+      p_treino_modelo_id: treinoModeloId,
+      p_aluno_id: alunoId,
+      p_nome_treino: nome || null,
+    });
+    if (error || !data) {
+      falhas.push({
+        nome: nomeDe(alunoId),
+        motivo: await erroAmigavel(error, "atribuir o treino"),
+      });
+      continue;
+    }
+    criados += 1;
+
+    // Dias iguais para todos os marcados (opcional). Falha aqui não desfaz a
+    // atribuição — a ficha existe e os dias podem ser ajustados na lista.
+    if (diasNorm.length > 0) {
+      await supabase.rpc("definir_dias_treino", {
+        p_treino_id: String(data),
+        p_dias: diasNorm,
+      });
+    }
+
+    // Um aviso por aluno que recebeu (é 1 treino → N alunos). Secundário.
+    await supabase.from("notificacoes_aluno").insert({
+      academia_id: sessao.academia.id,
+      aluno_id: alunoId,
+      tipo: "treino",
+      titulo: "Novo treino liberado 🎉",
+      mensagem: `${sessao.nome} preparou o treino "${
+        nome || "novo"
+      }" para você. Toque para ver os exercícios com a demonstração.`,
+      link: "treinos",
+    });
+  }
+
+  if (criados > 0) {
+    revalidatePath(`/painel/${slug}/treinos`);
+    revalidatePath(`/painel/${slug}/alunos`);
+  }
+
+  return {
+    criados,
+    ignorados: jaTem.size,
+    falhas,
+    savedAt: Date.now(),
+  };
+}
+
+/** Resultado da atribuição em massa (vários treinos → vários alunos). */
+export type ResultadoAtribuirMassa = {
+  alunosAtingidos: number;
+  criados: number;
+  ignorados: number;
+  falhas: { nome: string; motivo: string }[];
+  savedAt: number;
+};
+
+/**
+ * Atribuição EM MASSA: vários treinos-modelo × vários alunos numa ação
+ * (programa inteiro → uma turma). Reutiliza a RPC de lote 087
+ * `atribuir_modelos_treino` chamada UMA vez por aluno com a lista de modelos —
+ * herda dedupe (não duplica ficha), teto de 20 modelos, e as checagens de
+ * tenant/papel/aluno. O laço externo (por aluno) fica no servidor, com teto de
+ * 30 alunos para bounda-lo. Uma notificação consolidada por aluno que recebeu.
+ * Dias NÃO são definidos aqui: um programa (A/B/C/D) tem dias distintos por
+ * ficha — o instrutor ajusta depois. Sem migration nova.
+ */
+export async function atribuirTreinosVariosAlunos(
+  slug: string,
+  treinoModeloIds: string[],
+  alunoIds: string[]
+): Promise<{ erro: string } | ResultadoAtribuirMassa> {
+  const sessao = await requireSecao(slug, "treinos");
+  if (!podeGerenciarTreinos(sessao.papel)) {
+    return { erro: "Seu perfil não pode atribuir treinos." };
+  }
+
+  const modeloIds = Array.from(
+    new Set((treinoModeloIds ?? []).filter((id) => FORMATO_UUID.test(id)))
+  ).slice(0, 20);
+  const alunos = Array.from(
+    new Set((alunoIds ?? []).filter((id) => FORMATO_UUID.test(id)))
+  ).slice(0, 30);
+  if (modeloIds.length === 0) {
+    return { erro: "Selecione pelo menos um treino." };
+  }
+  if (alunos.length === 0) {
+    return { erro: "Selecione pelo menos um aluno." };
+  }
+
+  const supabase = createClient();
+
+  // Nomes dos alunos só para o relatório amigável.
+  const { data: alunosData } = await supabase
+    .from("alunos")
+    .select("id, nome")
+    .eq("academia_id", sessao.academia.id)
+    .in("id", alunos);
+  const nomeAluno = (id: string) =>
+    (alunosData ?? []).find((a) => a.id === id)?.nome ?? "aluno";
+
+  let criados = 0;
+  let ignorados = 0;
+  let alunosAtingidos = 0;
+  const falhas: { nome: string; motivo: string }[] = [];
+
+  for (const alunoId of alunos) {
+    const { data, error } = await supabase.rpc("atribuir_modelos_treino", {
+      p_aluno_id: alunoId,
+      p_treino_modelo_ids: modeloIds,
+    });
+    if (error || !data) {
+      falhas.push({
+        nome: nomeAluno(alunoId),
+        motivo: await erroAmigavel(error, "atribuir os treinos"),
+      });
+      continue;
+    }
+
+    const res = data as {
+      criados?: { nome: string }[];
+      ignorados?: { nome: string }[];
+      falhas?: { nome: string; motivo: string }[];
+    };
+    const nCriados = (res.criados ?? []).length;
+    criados += nCriados;
+    ignorados += (res.ignorados ?? []).length;
+    for (const f of res.falhas ?? []) {
+      falhas.push({ nome: `${nomeAluno(alunoId)} · ${f.nome}`, motivo: f.motivo });
+    }
+
+    if (nCriados > 0) {
+      alunosAtingidos += 1;
+      await supabase.from("notificacoes_aluno").insert({
+        academia_id: sessao.academia.id,
+        aluno_id: alunoId,
+        tipo: "treino",
+        titulo:
+          nCriados === 1
+            ? "Novo treino liberado 🎉"
+            : `${nCriados} novos treinos liberados 🎉`,
+        mensagem:
+          nCriados === 1
+            ? `${sessao.nome} preparou um treino novo para você. Toque para ver os exercícios com a demonstração.`
+            : `${sessao.nome} preparou ${nCriados} treinos novos para você. Toque para ver os exercícios com a demonstração.`,
+        link: "treinos",
+      });
+    }
+  }
+
+  if (criados > 0) {
+    revalidatePath(`/painel/${slug}/treinos`);
+    revalidatePath(`/painel/${slug}/alunos`);
+  }
+
+  return { alunosAtingidos, criados, ignorados, falhas, savedAt: Date.now() };
+}
+
 /**
  * Define/edita os dias da semana de uma ficha JÁ atribuída (item 7), sem
  * re-atribuir. A academia e o papel são resolvidos dentro da RPC
