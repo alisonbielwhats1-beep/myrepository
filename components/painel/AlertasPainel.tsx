@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, UserX } from "lucide-react";
-import { formatBRL } from "@/lib/utils";
+import { AlertTriangle, ArrowUpRight } from "lucide-react";
+import { cn, formatBRL } from "@/lib/utils";
 import BotaoCobrancaWhats from "@/components/painel/BotaoCobrancaWhats";
 import BotaoReativacaoWhats from "@/components/painel/BotaoReativacaoWhats";
 
@@ -24,7 +24,19 @@ export interface AlertaSumido {
   diasSemAcesso?: number | null;
 }
 
-/** Painel de alertas: inadimplência e alunos que sumiram da academia. */
+type ItemUrgencia =
+  | { tipo: "inadimplente"; dias: number; dado: AlertaInadimplente }
+  | { tipo: "sumido"; dias: number; dado: AlertaSumido };
+
+const LIMITE_EXIBIDO = 10;
+
+/**
+ * Painel de alertas: inadimplência e alunos sumidos numa lista única,
+ * ordenada por urgência (dias de atraso / dias sem acesso). Antes eram dois
+ * cards lado a lado com o mesmo peso visual, mas são naturezas diferentes —
+ * inadimplência é dinheiro parado, aluno sumido é risco de cancelamento — e
+ * separar por card não deixava claro qual dos dois pedia atenção primeiro.
+ */
 export default function AlertasPainel({
   slug,
   inadimplentes,
@@ -38,51 +50,63 @@ export default function AlertasPainel({
   academiaNome?: string;
   isDemo?: boolean;
 }) {
-  return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <div className="surface rounded-2xl p-5">
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 text-red-400" />
-          <h2 className="font-semibold text-white">Inadimplentes</h2>
-        </div>
-        <p className="mb-3 text-xs text-slate-500">
-          Mensalidade vencida e ainda não paga
-        </p>
+  const itens: ItemUrgencia[] = [
+    ...inadimplentes.map((a) => ({ tipo: "inadimplente" as const, dias: a.diasAtraso, dado: a })),
+    ...sumidos.map((a) => ({ tipo: "sumido" as const, dias: a.diasSemAcesso ?? 0, dado: a })),
+  ]
+    .sort((a, b) => b.dias - a.dias)
+    .slice(0, LIMITE_EXIBIDO);
 
-        {inadimplentes.length === 0 ? (
-          <p className="py-6 text-center text-sm text-slate-500">
-            Nenhum aluno inadimplente. 🎉
-          </p>
-        ) : (
-          <ul className="divide-y divide-ink-700/70">
-            {inadimplentes.slice(0, 8).map((a) => (
+  return (
+    <div className="surface rounded-2xl p-5">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className={cn("h-4 w-4", itens.length > 0 ? "text-red-400" : "text-slate-500")} />
+        <h2 className="font-semibold text-white">Ações necessárias</h2>
+      </div>
+      <p className="mb-3 text-xs text-slate-500">
+        Inadimplência e alunos sumidos, do mais para o menos urgente
+      </p>
+
+      {itens.length === 0 ? (
+        <p className="py-6 text-center text-sm text-slate-500">
+          Nenhuma ação pendente por aqui. 🎉
+        </p>
+      ) : (
+        <ul className="divide-y divide-ink-700/70">
+          {itens.map((item) =>
+            item.tipo === "inadimplente" ? (
               <li
-                key={a.alunoId}
+                key={`inadimplente-${item.dado.alunoId}`}
                 className="flex items-center justify-between gap-2 border-l-2 border-red-400/60 py-3 pl-3"
               >
                 <div className="min-w-0">
-                  <Link
-                    href={`/painel/${slug}/alunos?q=${encodeURIComponent(a.nome)}`}
-                    className="block truncate text-sm font-medium text-white hover:text-volt-300"
-                  >
-                    {a.nome}
-                  </Link>
-                  <p className="text-xs text-red-400">
-                    {a.diasAtraso} {a.diasAtraso === 1 ? "dia" : "dias"} de atraso
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex flex-none items-center rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-300">
+                      Inadimplente
+                    </span>
+                    <Link
+                      href={`/painel/${slug}/alunos?q=${encodeURIComponent(item.dado.nome)}`}
+                      className="truncate text-sm font-medium text-white hover:text-volt-300"
+                    >
+                      {item.dado.nome}
+                    </Link>
+                  </div>
+                  <p className="mt-0.5 text-xs text-red-400">
+                    {item.dado.diasAtraso} {item.dado.diasAtraso === 1 ? "dia" : "dias"} de atraso
                   </p>
                 </div>
                 <div className="flex flex-none items-center gap-2">
                   <span className="font-semibold text-white">
-                    {formatBRL(a.valorTotal)}
+                    {formatBRL(item.dado.valorTotal)}
                   </span>
                   <BotaoCobrancaWhats
-                    nome={a.nome}
-                    telefone={a.telefone}
+                    nome={item.dado.nome}
+                    telefone={item.dado.telefone}
                     academia={academiaNome ?? "sua academia"}
-                    valor={formatBRL(a.valorTotal)}
+                    valor={formatBRL(item.dado.valorTotal)}
                     data={
-                      a.vencimento
-                        ? new Date(a.vencimento + "T00:00:00").toLocaleDateString("pt-BR")
+                      item.dado.vencimento
+                        ? new Date(item.dado.vencimento + "T00:00:00").toLocaleDateString("pt-BR")
                         : ""
                     }
                     vencida
@@ -91,66 +115,49 @@ export default function AlertasPainel({
                   />
                 </div>
               </li>
-            ))}
-          </ul>
-        )}
-
-        <Link
-          href={`/painel/${slug}/financeiro/receitas?gran=mes`}
-          className="btn-ghost mt-4 w-full"
-        >
-          Ver receitas pendentes <ArrowUpRight className="h-4 w-4" />
-        </Link>
-      </div>
-
-      <div className="surface rounded-2xl p-5">
-        <div className="flex items-center gap-2">
-          <UserX className="h-4 w-4 text-amber-400" />
-          <h2 className="font-semibold text-white">Alunos sumidos</h2>
-        </div>
-        <p className="mb-3 text-xs text-slate-500">
-          Ativos, conforme o limite configurado nas Configurações
-        </p>
-
-        {sumidos.length === 0 ? (
-          <p className="py-6 text-center text-sm text-slate-500">
-            Ninguém sumiu — todo mundo ativo apareceu recentemente.
-          </p>
-        ) : (
-          <ul className="divide-y divide-ink-700/70">
-            {sumidos.slice(0, 8).map((a) => (
+            ) : (
               <li
-                key={a.alunoId}
+                key={`sumido-${item.dado.alunoId}`}
                 className="flex items-center justify-between gap-2 border-l-2 border-amber-400/60 py-3 pl-3"
               >
-                {/* Mesma estrutura do item de inadimplente: nome + motivo
-                    empilhados à esquerda, ação à direita. Mantém a explicação
-                    (dias sem acesso) visível, agora sem disputar a linha. */}
                 <div className="min-w-0">
-                  <Link
-                    href={`/painel/${slug}/alunos?q=${encodeURIComponent(a.nome)}`}
-                    className="block truncate text-sm font-medium text-white hover:text-volt-300"
-                  >
-                    {a.nome}
-                  </Link>
-                  <p className="text-xs text-amber-400">{a.explicacao}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex flex-none items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                      Sumido
+                    </span>
+                    <Link
+                      href={`/painel/${slug}/alunos?q=${encodeURIComponent(item.dado.nome)}`}
+                      className="truncate text-sm font-medium text-white hover:text-volt-300"
+                    >
+                      {item.dado.nome}
+                    </Link>
+                  </div>
+                  <p className="mt-0.5 text-xs text-amber-400">{item.dado.explicacao}</p>
                 </div>
                 <div className="flex-none">
                   <BotaoReativacaoWhats
-                    nome={a.nome}
-                    telefone={a.telefone}
+                    nome={item.dado.nome}
+                    telefone={item.dado.telefone}
                     academia={academiaNome ?? "sua academia"}
-                    diasSemAcesso={a.diasSemAcesso ?? null}
+                    diasSemAcesso={item.dado.diasSemAcesso ?? null}
                     compacto
                     isDemo={isDemo}
                   />
                 </div>
               </li>
-            ))}
-          </ul>
-        )}
+            )
+          )}
+        </ul>
+      )}
 
-        <Link href={`/painel/${slug}/alunos`} className="btn-ghost mt-4 w-full">
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link
+          href={`/painel/${slug}/financeiro/receitas?gran=mes`}
+          className="btn-ghost flex-1"
+        >
+          Ver receitas pendentes <ArrowUpRight className="h-4 w-4" />
+        </Link>
+        <Link href={`/painel/${slug}/alunos`} className="btn-ghost flex-1">
           Ver todos os alunos <ArrowUpRight className="h-4 w-4" />
         </Link>
       </div>

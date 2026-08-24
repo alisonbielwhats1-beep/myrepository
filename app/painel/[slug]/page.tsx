@@ -1,12 +1,14 @@
 import Link from "next/link";
 import {
   AlertTriangle,
+  ArrowDownRight,
   ArrowUpRight,
   CalendarClock,
   ChevronDown,
   DollarSign,
   HeartPulse,
   Lock,
+  Minus,
   Scale,
   Target,
   TrendingUp,
@@ -43,7 +45,6 @@ import {
   getEvolucaoAlunosContagem,
   getMensalidadesVencidas,
   getProximosVencimentos,
-  getFuncionarios,
   getRepassesParceirosFinanceiro,
   getProgressoOnboarding,
 } from "@/lib/data";
@@ -123,7 +124,6 @@ export default async function DashboardOverviewPage({
   // período que ela realmente precisa (ver comentários em lib/data.ts).
   const [
     contagemAlunos,
-    funcionarios,
     receitasJanela,
     despesasJanela,
     receitasAnt,
@@ -138,7 +138,6 @@ export default async function DashboardOverviewPage({
     repassesParceiros,
   ] = await Promise.all([
     getContagemAlunos(sessao.academia.id),
-    verFinanceiro ? getFuncionarios(sessao.academia.id) : Promise.resolve([]),
     verFinanceiro ? getReceitasJanela(sessao.academia.id, janela.desde, janela.ate) : Promise.resolve([]),
     verFinanceiro ? getDespesasJanela(sessao.academia.id, janela.desde, janela.ate) : Promise.resolve([]),
     verFinanceiro ? getReceitas(sessao.academia.id, antDesde, antAte) : Promise.resolve([]),
@@ -196,7 +195,12 @@ export default async function DashboardOverviewPage({
 
   const totalAlunos = contagemAlunos.total;
   const alunosAtivos = contagemAlunos.ativos;
-  const funcionariosAtivos = funcionarios.filter((f) => f.status === "ativo").length;
+  // Resume "alunos sumidos" num único número, em vez de repetir a contagem
+  // num terceiro lugar (já aparece na barra "Hoje" e na lista de alertas).
+  const taxaRetencao =
+    alunosAtivos > 0
+      ? Math.round(((alunosAtivos - sumidos.length) / alunosAtivos) * 100)
+      : null;
 
   // ---- Inadimplência (só para quem vê financeiro) ----
   const inadimplentes: AlertaInadimplente[] = [];
@@ -356,8 +360,10 @@ export default async function DashboardOverviewPage({
         <PrimeirosPassos slug={params.slug} progresso={progressoOnboarding} />
       )}
 
-      {/* KPIs — linha 1 */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {/* KPIs — linha 1: os três giram em torno da mesma pergunta ("como está
+          a base de alunos"), em vez de misturar crescimento com um dado
+          estático de outra área (Funcionários já tem página própria). */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatTile
           icon={Users}
           label="Alunos"
@@ -374,21 +380,22 @@ export default async function DashboardOverviewPage({
           delta={{ pct: variacao(novosAlunos, novosAlunosAnt) }}
         />
         <StatTile
-          icon={UserX}
-          label="Alunos sumidos"
-          value={String(sumidos.length)}
-          hint={`sem acesso há ${configRetencao.diasSumido}+ dias`}
-          accent="slate"
+          icon={HeartPulse}
+          label="Taxa de retenção"
+          value={taxaRetencao === null ? "—" : `${taxaRetencao}%`}
+          hint={
+            sumidos.length > 0
+              ? `${sumidos.length} sumido(s) há ${configRetencao.diasSumido}+ dias`
+              : "nenhum aluno sumido"
+          }
+          accent={
+            taxaRetencao === null || taxaRetencao >= 85
+              ? "volt"
+              : taxaRetencao >= 70
+              ? "slate"
+              : "red"
+          }
         />
-        {verFinanceiro && (
-          <StatTile
-            icon={UserRound}
-            label="Funcionários"
-            value={String(funcionariosAtivos)}
-            hint={`${funcionarios.length} cadastrados`}
-            accent="slate"
-          />
-        )}
       </div>
 
       {/* Mini resumo financeiro — o detalhe mora no módulo Financeiro */}
@@ -420,52 +427,22 @@ export default async function DashboardOverviewPage({
             </div>
             <div>
               <p className="label-muted">Resultado</p>
-              <p
-                className={cn(
-                  "mt-1 text-xl font-bold tabular-nums [overflow-wrap:anywhere] sm:text-2xl",
-                  lucroPeriodo >= 0 ? "text-white" : "text-red-400"
-                )}
-              >
-                {formatBRL(lucroPeriodo, { compacto: true })}
-              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <p
+                  className={cn(
+                    "text-xl font-bold tabular-nums [overflow-wrap:anywhere] sm:text-2xl",
+                    lucroPeriodo >= 0 ? "text-white" : "text-red-400"
+                  )}
+                >
+                  {formatBRL(lucroPeriodo, { compacto: true })}
+                </p>
+                {/* Comparativo vs período anterior — mesma linguagem visual
+                    do selo ↑/↓ dos KPIs do topo, em vez de uma barra de
+                    proporção que não deixava claro o que estava comparando. */}
+                <ResultadoDelta atual={lucroPeriodo} anterior={lucroAnt} />
+              </div>
             </div>
           </div>
-
-          {/* Barra comparativa receita x despesa — leitura visual imediata da
-              proporção, sem precisar comparar dois números de cabeça. O
-              contador de inadimplentes já aparece na barra "Hoje" acima e no
-              card de Inadimplentes abaixo; repeti-lo aqui era o 3º lugar
-              mostrando o mesmo número. */}
-          {(receitaPeriodo > 0 || despesaPeriodo > 0) && (
-            <div className="mt-4">
-              <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-ink-700">
-                <div
-                  className="bg-volt-400"
-                  style={{
-                    width: `${
-                      (receitaPeriodo / Math.max(receitaPeriodo + despesaPeriodo, 1)) * 100
-                    }%`,
-                  }}
-                />
-                <div
-                  className="bg-red-400/70"
-                  style={{
-                    width: `${
-                      (despesaPeriodo / Math.max(receitaPeriodo + despesaPeriodo, 1)) * 100
-                    }%`,
-                  }}
-                />
-              </div>
-              <div className="mt-1.5 flex items-center gap-4 text-xs text-slate-500">
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-full bg-volt-400" /> Receita
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-full bg-red-400/70" /> Despesa
-                </span>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -678,5 +655,32 @@ export default async function DashboardOverviewPage({
         </details>
       )}
     </div>
+  );
+}
+
+/** Selo ↑/↓ do Resultado vs período anterior — mesma linguagem visual do
+ *  selo de "Novos alunos" no topo, sem introduzir um componente novo de
+ *  gráfico só para isto. */
+function ResultadoDelta({ atual, anterior }: { atual: number; anterior: number }) {
+  const pct = anterior === 0 ? (atual === 0 ? 0 : 100) : ((atual - anterior) / Math.abs(anterior)) * 100;
+  const nulo = !isFinite(pct) || Math.round(pct) === 0;
+  const subiu = pct > 0;
+  const Icone = nulo ? Minus : subiu ? ArrowUpRight : ArrowDownRight;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
+        nulo
+          ? "bg-ink-700 text-slate-400"
+          : subiu
+          ? "bg-volt-500/10 text-volt-300"
+          : "bg-red-500/10 text-red-400"
+      )}
+      title="vs. período anterior"
+    >
+      <Icone className="h-3 w-3" />
+      {nulo ? "—" : `${Math.abs(Math.round(pct))}%`}
+    </span>
   );
 }
