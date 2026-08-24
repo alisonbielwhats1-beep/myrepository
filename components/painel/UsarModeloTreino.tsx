@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 import { Check, Dumbbell, Loader2, Search, X } from "lucide-react";
 import { atribuirModelosTreino } from "@/app/painel/[slug]/treinos/actions";
 
+// Teto de modelos por lote — espelha o limite da RPC atribuir_modelos_treino (087).
+// O "Marcar todos" respeita esse mesmo número para não montar uma seleção que a
+// RPC recusaria no fim.
+const TETO_LOTE = 20;
+
 export type ModeloTreinoResumo = {
   id: string;
   nome_treino: string;
@@ -86,6 +91,8 @@ function DialogModelo({
   // atribuir tudo de uma vez. A ordem de marcação vira a ordem na ficha.
   const [selecionados, setSelecionados] = useState<string[]>([]);
   const [erro, setErro] = useState("");
+  // Aviso neutro (não é erro): usado quando o "Marcar todos" bate no teto de 20.
+  const [aviso, setAviso] = useState("");
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -118,9 +125,53 @@ function DialogModelo({
 
   const alternar = (id: string) => {
     setErro("");
+    setAviso("");
     setSelecionados((atual) =>
       atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]
     );
+  };
+
+  // Ids do filtro atual (ex.: a recepção buscou "Avançado ABCD" e quer os 4).
+  const idsFiltrados = useMemo(
+    () => modelosFiltrados.map((m) => m.id),
+    [modelosFiltrados]
+  );
+  const todosFiltradosMarcados =
+    idsFiltrados.length > 0 &&
+    idsFiltrados.every((id) => selecionados.includes(id));
+
+  // Marca (ou desmarca) todos os resultados da busca de uma vez — o atalho para
+  // "montar o ABCD sem remarcar toda vez". Ao marcar, respeita o teto global de
+  // 20; se sobrar modelo por causa do teto, avisa sem bloquear.
+  const alternarTodosFiltrados = () => {
+    setErro("");
+    setAviso("");
+    if (todosFiltradosMarcados) {
+      setSelecionados((atual) =>
+        atual.filter((id) => !idsFiltrados.includes(id))
+      );
+      return;
+    }
+    setSelecionados((atual) => {
+      const restante = TETO_LOTE - atual.length;
+      const aMarcar = idsFiltrados.filter((id) => !atual.includes(id));
+      if (restante <= 0) {
+        setAviso(`Você já atingiu o máximo de ${TETO_LOTE} treinos por vez.`);
+        return atual;
+      }
+      if (aMarcar.length > restante) {
+        setAviso(
+          `Máximo de ${TETO_LOTE} treinos por vez — marcamos os primeiros ${restante}. Atribua estes e repita para o restante.`
+        );
+      }
+      return [...atual, ...aMarcar.slice(0, restante)];
+    });
+  };
+
+  const limparSelecao = () => {
+    setErro("");
+    setAviso("");
+    setSelecionados([]);
   };
 
   const atribuir = () => {
@@ -212,6 +263,12 @@ function DialogModelo({
               De cada treino marcado o sistema cria uma cópia independente na
               ficha. Depois você ajusta exercícios, cargas e dias só para este
               aluno.
+              <span className="mt-1 block text-slate-400">
+                Dica: busque pelo nome do programa (ex.:{" "}
+                <span className="text-slate-300">“Avançado ABCD”</span>) e use{" "}
+                <span className="text-slate-300">Marcar todos</span> para subir a
+                divisão inteira de uma vez.
+              </span>
             </div>
 
             <div className="relative mt-5">
@@ -225,7 +282,30 @@ function DialogModelo({
               />
             </div>
 
-            <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+            {modelosFiltrados.length > 0 && (
+              <div className="mt-3 flex items-center justify-between gap-2 px-1">
+                <button
+                  type="button"
+                  onClick={alternarTodosFiltrados}
+                  className="text-xs font-medium text-volt-300 hover:text-volt-200"
+                >
+                  {todosFiltradosMarcados
+                    ? "Desmarcar todos"
+                    : `Marcar todos (${modelosFiltrados.length})`}
+                </button>
+                {selecionados.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={limparSelecao}
+                    className="text-xs text-slate-400 hover:text-slate-200"
+                  >
+                    Limpar seleção
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="mt-2 max-h-72 space-y-2 overflow-y-auto pr-1">
               {modelosFiltrados.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-ink-600 px-3 py-8 text-center text-sm text-slate-500">
                   Nenhum treino encontrado.
@@ -295,6 +375,12 @@ function DialogModelo({
             {erro && (
               <p className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
                 {erro}
+              </p>
+            )}
+
+            {aviso && !erro && (
+              <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                {aviso}
               </p>
             )}
 
