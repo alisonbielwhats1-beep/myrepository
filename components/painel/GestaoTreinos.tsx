@@ -38,6 +38,7 @@ import ExercicioBuilder, {
   type LinhaExercicio,
 } from "@/components/painel/ExercicioBuilder";
 import AtribuirTreino from "@/components/painel/AtribuirTreino";
+import AtribuirEmMassa from "@/components/painel/AtribuirEmMassa";
 import ImportarTreinos from "@/components/painel/ImportarTreinos";
 import GerenciarAcesso from "@/components/painel/GerenciarAcesso";
 import {
@@ -256,6 +257,7 @@ export default function GestaoTreinos({
           Biblioteca de exercícios
         </button>
         {podeAtribuir && <ImportarTreinos slug={slug} />}
+        {podeAtribuir && <AtribuirEmMassa slug={slug} treinos={treinos} />}
       </div>
 
       {avisoDuplicado && (

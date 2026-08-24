@@ -136,36 +136,21 @@ function DialogModelo({
     () => modelosFiltrados.map((m) => m.id),
     [modelosFiltrados]
   );
-  const todosFiltradosMarcados =
-    idsFiltrados.length > 0 &&
-    idsFiltrados.every((id) => selecionados.includes(id));
-
-  // Marca (ou desmarca) todos os resultados da busca de uma vez — o atalho para
-  // "montar o ABCD sem remarcar toda vez". Ao marcar, respeita o teto global de
-  // 20; se sobrar modelo por causa do teto, avisa sem bloquear.
-  const alternarTodosFiltrados = () => {
+  // Atalho de UM clique: atribui todos os resultados da busca de uma vez
+  // (ex.: buscou "Avançado ABCD" → já atribui os 4). Marca e dispara a
+  // atribuição no mesmo gesto — sem o passo extra de depois clicar em
+  // "Atribuir". Respeita o teto de 20; se passar, atribui os primeiros e avisa.
+  const atribuirTodosFiltrados = () => {
     setErro("");
     setAviso("");
-    if (todosFiltradosMarcados) {
-      setSelecionados((atual) =>
-        atual.filter((id) => !idsFiltrados.includes(id))
+    const ids = idsFiltrados.slice(0, TETO_LOTE);
+    if (idsFiltrados.length > TETO_LOTE) {
+      setAviso(
+        `Máximo de ${TETO_LOTE} por vez — atribuindo os primeiros ${TETO_LOTE}. Refine a busca para o restante.`
       );
-      return;
     }
-    setSelecionados((atual) => {
-      const restante = TETO_LOTE - atual.length;
-      const aMarcar = idsFiltrados.filter((id) => !atual.includes(id));
-      if (restante <= 0) {
-        setAviso(`Você já atingiu o máximo de ${TETO_LOTE} treinos por vez.`);
-        return atual;
-      }
-      if (aMarcar.length > restante) {
-        setAviso(
-          `Máximo de ${TETO_LOTE} treinos por vez — marcamos os primeiros ${restante}. Atribua estes e repita para o restante.`
-        );
-      }
-      return [...atual, ...aMarcar.slice(0, restante)];
-    });
+    setSelecionados(ids);
+    atribuir(ids);
   };
 
   const limparSelecao = () => {
@@ -174,14 +159,15 @@ function DialogModelo({
     setSelecionados([]);
   };
 
-  const atribuir = () => {
-    if (selecionados.length === 0) {
+  const atribuir = (idsParaAtribuir?: string[]) => {
+    const ids = idsParaAtribuir ?? selecionados;
+    if (ids.length === 0) {
       setErro("Marque pelo menos um treino da biblioteca.");
       return;
     }
 
     startTransition(async () => {
-      const r = await atribuirModelosTreino(slug, alunoId, selecionados);
+      const r = await atribuirModelosTreino(slug, alunoId, ids);
       if ("erro" in r) {
         setErro(r.erro);
         return;
@@ -265,9 +251,9 @@ function DialogModelo({
               aluno.
               <span className="mt-1 block text-slate-400">
                 Dica: busque pelo nome do programa (ex.:{" "}
-                <span className="text-slate-300">“Avançado ABCD”</span>) e use{" "}
-                <span className="text-slate-300">Marcar todos</span> para subir a
-                divisão inteira de uma vez.
+                <span className="text-slate-300">“Avançado ABCD”</span>) e clique
+                em <span className="text-slate-300">Atribuir todos</span> para
+                subir a divisão inteira de uma vez.
               </span>
             </div>
 
@@ -286,12 +272,19 @@ function DialogModelo({
               <div className="mt-3 flex items-center justify-between gap-2 px-1">
                 <button
                   type="button"
-                  onClick={alternarTodosFiltrados}
-                  className="text-xs font-medium text-volt-300 hover:text-volt-200"
+                  onClick={atribuirTodosFiltrados}
+                  disabled={pending}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-volt-500/50 bg-volt-500/15 px-3 py-1.5 text-xs font-semibold text-volt-200 transition hover:bg-volt-500/25 disabled:opacity-50"
+                  title="Atribui todos os treinos que apareceram na busca, de uma vez"
                 >
-                  {todosFiltradosMarcados
-                    ? "Desmarcar todos"
-                    : `Marcar todos (${modelosFiltrados.length})`}
+                  {pending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Dumbbell className="h-4 w-4" />
+                  )}
+                  {pending
+                    ? "Atribuindo..."
+                    : `Atribuir todos (${modelosFiltrados.length})`}
                 </button>
                 {selecionados.length > 0 && (
                   <button
@@ -403,7 +396,7 @@ function DialogModelo({
                 </button>
                 <button
                   type="button"
-                  onClick={atribuir}
+                  onClick={() => atribuir()}
                   disabled={total === 0 || pending}
                   className="btn-volt"
                 >

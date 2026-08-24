@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { useFormState, useFormStatus } from "react-dom";
 import {
   ArrowLeftRight,
   Check,
@@ -21,9 +20,10 @@ import type { DiaSemana, FichaRealocada } from "@/lib/dias-semana";
 import { fraseRealocacao, resumoDias } from "@/lib/dias-semana";
 import SeletorDiasTreino from "./SeletorDiasTreino";
 import {
-  atribuirTreinoBiblioteca,
+  atribuirTreinoVariosAlunos,
   definirDiasTreino,
   removerAtribuicaoTreino,
+  type ResultadoAtribuirAlunos,
 } from "@/app/painel/[slug]/treinos/actions";
 
 type AlunoOpcao = {
@@ -105,19 +105,24 @@ function DialogAtribuir({
   treino: Treino;
   onClose: () => void;
 }) {
-  const acao = atribuirTreinoBiblioteca.bind(null, slug, treino.id);
-  const [estado, formAction] = useFormState(acao, {});
   const [busca, setBusca] = useState("");
   const [alunos, setAlunos] = useState<AlunoOpcao[]>([]);
-  const [alunoId, setAlunoId] = useState("");
+  // Multi-seleção de alunos: marcar vários e soltar o mesmo treino de uma vez.
+  const [selecionados, setSelecionados] = useState<string[]>([]);
+  const [nomeFicha, setNomeFicha] = useState(treino.nome_treino);
   const [dias, setDias] = useState<DiaSemana[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erroBusca, setErroBusca] = useState("");
+  const [erro, setErro] = useState("");
 
   const [atribuicoes, setAtribuicoes] = useState<Atribuicao[]>([]);
   const [carregandoAtrib, setCarregandoAtrib] = useState(true);
   const [removendo, setRemovendo] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  const [resultado, setResultado] = useState<ResultadoAtribuirAlunos | null>(
+    null
+  );
+  const [pending, startTransition] = useTransition();
 
   // Carrega/recarrega a lista de quem já recebeu este modelo.
   const carregarAtribuicoes = useCallback(async () => {
@@ -140,26 +145,6 @@ function DialogAtribuir({
     carregarAtribuicoes();
   }, [carregarAtribuicoes]);
 
-  // Após atribuir com sucesso: NÃO fecha — mostra confirmação, limpa a seleção
-  // e recarrega a lista, para o professor ver quem recebeu e notificar em série.
-  useEffect(() => {
-    if (estado.ok) {
-      const nome = alunos.find((a) => a.id === alunoId)?.nome;
-      setSucesso(
-        nome
-          ? `Treino atribuído a ${nome} — o aluno já foi avisado no app dele.`
-          : "Treino atribuído — o aluno já foi avisado no app dele."
-      );
-      setAlunoId("");
-      setBusca("");
-      setDias([]);
-      carregarAtribuicoes();
-      const t = window.setTimeout(() => setSucesso(null), 6000);
-      return () => window.clearTimeout(t);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estado.savedAt]);
-
   // Busca de alunos (debounce).
   useEffect(() => {
     const controller = new AbortController();
@@ -177,13 +162,9 @@ function DialogAtribuir({
         };
         if (!resposta.ok) throw new Error(corpo.erro || "Falha ao buscar alunos.");
         setAlunos(corpo.alunos ?? []);
-        setAlunoId((atual) =>
-          (corpo.alunos ?? []).some((aluno) => aluno.id === atual) ? atual : ""
-        );
       } catch (erro) {
         if (erro instanceof DOMException && erro.name === "AbortError") return;
         setAlunos([]);
-        setAlunoId("");
         setErroBusca(erro instanceof Error ? erro.message : "Falha ao buscar alunos.");
       } finally {
         if (!controller.signal.aborted) setCarregando(false);
@@ -213,6 +194,50 @@ function DialogAtribuir({
       window.setTimeout(() => setSucesso(null), 5000);
     }
     setRemovendo(null);
+  };
+
+  const alternarAluno = (id: string) => {
+    setErro("");
+    setResultado(null);
+    setSelecionados((atual) =>
+      atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]
+    );
+  };
+
+  // Atribui o treino a TODOS os alunos marcados de uma vez. NÃO fecha: mostra o
+  // resumo (recebeu / já tinha / falhou), limpa a seleção e recarrega a lista.
+  const atribuir = () => {
+    if (selecionados.length === 0) {
+      setErro("Marque pelo menos um aluno.");
+      return;
+    }
+    setErro("");
+    setSucesso(null);
+    startTransition(async () => {
+      const r = await atribuirTreinoVariosAlunos(
+        slug,
+        treino.id,
+        selecionados,
+        nomeFicha,
+        dias
+      );
+      if ("erro" in r) {
+        setErro(r.erro);
+        return;
+      }
+      if (r.criados === 0 && r.falhas.length === 0) {
+        setErro(
+          r.ignorados > 0
+            ? "Todos os alunos marcados já tinham este treino — nada a fazer."
+            : "Nenhum aluno recebeu o treino."
+        );
+        return;
+      }
+      setResultado(r);
+      setSelecionados([]);
+      setBusca("");
+      carregarAtribuicoes();
+    });
   };
 
   return (
@@ -294,21 +319,21 @@ function DialogAtribuir({
         </div>
 
         <div className="mt-5 rounded-xl border border-volt-500/20 bg-volt-500/5 px-3 py-2 text-xs text-slate-300">
-          Será criada uma cópia independente na ficha do aluno, e ele recebe um
-          aviso no app. O modelo original não é alterado.
+          Cada aluno marcado recebe uma cópia independente na ficha e um aviso no
+          app. O modelo original não é alterado. Quem já tem este treino é
+          ignorado (não duplica).
         </div>
 
-        <form action={formAction} className="mt-4 space-y-4">
+        <div className="mt-4 space-y-4">
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-slate-400">
               Nome na ficha do aluno
             </span>
             <input
-              name="nome_treino"
-              defaultValue={treino.nome_treino}
+              value={nomeFicha}
+              onChange={(evento) => setNomeFicha(evento.target.value)}
               maxLength={120}
               className="inp"
-              required
             />
           </label>
 
@@ -319,12 +344,12 @@ function DialogAtribuir({
                 (opcional — deixe vazio para aparecer em “Todos”)
               </span>
             </span>
-            <SeletorDiasTreino name="dias" value={dias} onChange={setDias} />
+            <SeletorDiasTreino value={dias} onChange={setDias} />
           </div>
 
           <div>
             <label htmlFor="buscar-aluno-treino" className="label-muted">
-              Escolha o aluno
+              Escolha os alunos
             </label>
             <div className="relative mt-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
@@ -353,42 +378,78 @@ function DialogAtribuir({
                 Nenhum aluno ativo encontrado.
               </p>
             ) : (
-              alunos.map((aluno) => (
-                <label
-                  key={aluno.id}
-                  className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 transition ${
-                    alunoId === aluno.id
-                      ? "border-volt-500/50 bg-volt-500/10"
-                      : "border-ink-600 bg-ink-900/50 hover:border-ink-500"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="aluno_id"
-                    value={aluno.id}
-                    checked={alunoId === aluno.id}
-                    onChange={() => setAlunoId(aluno.id)}
-                    className="accent-volt-400"
-                    required
-                  />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-white">
-                      {aluno.nome}
-                    </span>
-                    {aluno.matricula_codigo && (
-                      <span className="block text-xs text-slate-500">
-                        Matrícula {aluno.matricula_codigo}
+              alunos.map((aluno) => {
+                const marcado = selecionados.includes(aluno.id);
+                return (
+                  <label
+                    key={aluno.id}
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 transition ${
+                      marcado
+                        ? "border-volt-500/50 bg-volt-500/10"
+                        : "border-ink-600 bg-ink-900/50 hover:border-ink-500"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={marcado}
+                      onChange={() => alternarAluno(aluno.id)}
+                      className="accent-volt-400"
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-white">
+                        {aluno.nome}
                       </span>
-                    )}
-                  </span>
-                </label>
-              ))
+                      {aluno.matricula_codigo && (
+                        <span className="block text-xs text-slate-500">
+                          Matrícula {aluno.matricula_codigo}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                );
+              })
             )}
           </div>
 
-          {estado.erro && (
+          {resultado && (
+            <div className="space-y-2">
+              {resultado.criados > 0 && (
+                <p className="flex items-start gap-2 rounded-xl border border-volt-500/30 bg-volt-500/10 px-3 py-2 text-sm text-volt-200">
+                  <Check className="mt-0.5 h-4 w-4 flex-none" />
+                  {resultado.criados === 1
+                    ? "1 aluno recebeu o treino — já foi avisado no app."
+                    : `${resultado.criados} alunos receberam o treino — já foram avisados no app.`}
+                </p>
+              )}
+              {resultado.ignorados > 0 && (
+                <p className="rounded-xl border border-ink-600 bg-ink-900/50 px-3 py-2 text-xs text-slate-400">
+                  {resultado.ignorados === 1
+                    ? "1 aluno já tinha este treino e foi ignorado (nada duplicado)."
+                    : `${resultado.ignorados} alunos já tinham este treino e foram ignorados (nada duplicado).`}
+                </p>
+              )}
+              {resultado.falhas.length > 0 && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                  <p className="font-medium">
+                    {resultado.falhas.length === 1
+                      ? "1 aluno não recebeu:"
+                      : `${resultado.falhas.length} alunos não receberam:`}
+                  </p>
+                  <ul className="mt-1 list-inside list-disc space-y-0.5">
+                    {resultado.falhas.map((f, i) => (
+                      <li key={i}>
+                        <span className="font-medium">{f.nome}</span> — {f.motivo}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {erro && (
             <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-              {estado.erro}
+              {erro}
             </p>
           )}
 
@@ -396,9 +457,30 @@ function DialogAtribuir({
             <button type="button" onClick={onClose} className="btn-ghost">
               Fechar
             </button>
-            <BotaoAtribuir desabilitado={!alunoId} />
+            {selecionados.length > 0 && (
+              <span className="text-xs text-slate-500">
+                {selecionados.length} marcado{selecionados.length > 1 ? "s" : ""}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={atribuir}
+              disabled={selecionados.length === 0 || pending}
+              className="btn-volt ml-auto"
+            >
+              {pending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+              {pending
+                ? "Atribuindo..."
+                : selecionados.length > 1
+                  ? `Atribuir aos ${selecionados.length}`
+                  : "Atribuir treino"}
+            </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
@@ -522,23 +604,5 @@ function LinhaAtribuicao({
         </div>
       )}
     </div>
-  );
-}
-
-function BotaoAtribuir({ desabilitado }: { desabilitado: boolean }) {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={desabilitado || pending}
-      className="btn-volt ml-auto"
-    >
-      {pending ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <UserPlus className="h-4 w-4" />
-      )}
-      {pending ? "Atribuindo..." : "Atribuir treino"}
-    </button>
   );
 }
