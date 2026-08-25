@@ -2,11 +2,13 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowUpRight,
+  Cake,
   CalendarClock,
   ChevronDown,
   DollarSign,
   HeartPulse,
   Lock,
+  MessageCircle,
   Scale,
   Target,
   TrendingUp,
@@ -46,7 +48,9 @@ import {
   getFuncionarios,
   getRepassesParceirosFinanceiro,
   getProgressoOnboarding,
+  getAlunosAniversariantes,
 } from "@/lib/data";
+import { linkWhats, mensagemAniversario } from "@/lib/whats";
 import { agruparFinanceiro, calcularCaixaPeriodo, ultimosMeses } from "@/lib/financeiro";
 import { resolverJanelaDashboard } from "@/lib/periodo";
 import {
@@ -136,6 +140,7 @@ export default async function DashboardOverviewPage({
     vencidas,
     proximosVencimentosRows,
     repassesParceiros,
+    aniversariantesMes,
   ] = await Promise.all([
     getContagemAlunos(sessao.academia.id),
     verFinanceiro ? getFuncionarios(sessao.academia.id) : Promise.resolve([]),
@@ -157,7 +162,27 @@ export default async function DashboardOverviewPage({
     // gerente/recepção/instrutor. A RPC repasses_parceiros_resumo também se
     // protege por dentro (migration 049) — dupla trava.
     verDono ? getRepassesParceirosFinanceiro(janela.desde, janela.ate) : Promise.resolve([]),
+    // Aniversariantes do mês (RPC agregada no banco) — filtramos o dia de hoje
+    // abaixo. Visível para todo papel que vê o Dashboard: é relacionamento, não
+    // financeiro. mesJs é 0-11 (Date#getMonth); hojeIso está em SP.
+    getAlunosAniversariantes(Number(hojeIso.slice(5, 7)) - 1),
   ]);
+
+  // Aniversariantes de HOJE: mesmo dia/mês da data de nascimento, comparado em
+  // America/Sao_Paulo (hojeIso). A RPC já recortou o mês.
+  const mmddHoje = hojeIso.slice(5, 10); // MM-DD
+  const aniversariantesHoje = aniversariantesMes.filter(
+    (a) => a.data_nascimento.slice(5, 10) === mmddHoje
+  );
+  const telefonesAniversario = await getTelefonesDosAlunos(
+    sessao.academia.id,
+    aniversariantesHoje.map((a) => a.id)
+  );
+  const aniversariantesComContato = aniversariantesHoje.map((a) => ({
+    id: a.id,
+    nome: a.nome,
+    telefone: telefonesAniversario.get(a.id) ?? null,
+  }));
 
   // Mesma consulta agregada e mesma função de classificação da tela de Retenção.
   // O card "Alunos sumidos" conta somente a classificação "sumido".
@@ -322,9 +347,16 @@ export default async function DashboardOverviewPage({
           com o que já foi buscado acima (nenhuma consulta nova). Pedido da
           auditoria visual: dar uma resposta rápida a "o que preciso fazer
           hoje" antes de qualquer gráfico ou card. */}
-      {(verFinanceiro || sumidos.length > 0) && (
+      {(verFinanceiro || sumidos.length > 0 || aniversariantesComContato.length > 0) && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-ink-700 bg-ink-800/40 px-4 py-3 text-sm">
           <span className="font-medium text-slate-300">Hoje</span>
+          {aniversariantesComContato.length > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-volt-300">
+              <Cake className="h-3.5 w-3.5" />
+              {aniversariantesComContato.length} aniversariante
+              {aniversariantesComContato.length > 1 ? "s" : ""}
+            </span>
+          )}
           {verFinanceiro && venceHojeCount > 0 && (
             <span className="inline-flex items-center gap-1.5 text-slate-400">
               <CalendarClock className="h-3.5 w-3.5" />
@@ -345,9 +377,12 @@ export default async function DashboardOverviewPage({
               {sumidos.length > 1 ? "s" : ""}
             </span>
           )}
-          {venceHojeCount === 0 && inadimplentes.length === 0 && sumidos.length === 0 && (
-            <span className="text-slate-500">Nada pendente por aqui. 🎉</span>
-          )}
+          {venceHojeCount === 0 &&
+            inadimplentes.length === 0 &&
+            sumidos.length === 0 &&
+            aniversariantesComContato.length === 0 && (
+              <span className="text-slate-500">Nada pendente por aqui. 🎉</span>
+            )}
         </div>
       )}
 
@@ -517,6 +552,43 @@ export default async function DashboardOverviewPage({
           linhas={repassesParceiros}
           hintPeriodo={hintPeriodo}
         />
+      )}
+
+      {/* Aniversariantes de hoje — relacionamento, visível a todo papel. O
+          botão de WhatsApp usa a mesma mensagem do alerta de aniversário. */}
+      {aniversariantesComContato.length > 0 && (
+        <div className="surface rounded-2xl p-5">
+          <h2 className="flex items-center gap-2 font-semibold text-white">
+            <Cake className="h-4 w-4 text-volt-300" /> Aniversariantes de hoje
+          </h2>
+          <ul className="mt-3 divide-y divide-ink-700/70">
+            {aniversariantesComContato.map((a) => {
+              const href = sessao.academia.is_demo
+                ? null
+                : linkWhats(a.telefone, mensagemAniversario(a.nome, sessao.academia.nome_fantasia));
+              return (
+                <li key={a.id} className="flex items-center justify-between gap-2 py-2.5">
+                  <span className="min-w-0 truncate text-sm text-white">🎂 {a.nome}</span>
+                  {href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Parabenizar no WhatsApp"
+                      className="inline-flex flex-none items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20"
+                    >
+                      <MessageCircle className="h-4 w-4" /> Parabenizar
+                    </a>
+                  ) : (
+                    <span className="flex-none text-xs text-slate-500">
+                      {sessao.academia.is_demo ? "indisponível na demo" : "sem telefone"}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
 
       {/* Alertas */}

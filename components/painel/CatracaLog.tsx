@@ -18,6 +18,7 @@ import {
   badgeStatusFinanceiro,
   rotuloStatusFinanceiro,
   badgeStatusMatricula,
+  calcularIdade,
   cn,
   formatBRL,
   timeAgo,
@@ -88,6 +89,24 @@ function normalizar(s: string): string {
 }
 function apenasDigitos(s: string): string {
   return s.replace(/\D/g, "");
+}
+
+/**
+ * Selo de "menor de idade" para a recepção — academia costuma exigir termo de
+ * responsável para quem tem menos de 18. Só aparece quando a data de
+ * nascimento está preenchida e a idade calculada é menor que 18.
+ */
+function SeloMenorIdade({ dataNascimento }: { dataNascimento: string | null }) {
+  const idade = calcularIdade(dataNascimento);
+  if (idade == null || idade >= 18) return null;
+  return (
+    <span
+      title="Menor de idade — verifique o termo de responsável"
+      className="inline-flex flex-none items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300"
+    >
+      Menor · {idade}a
+    </span>
+  );
 }
 
 function FormularioAcesso({
@@ -198,7 +217,10 @@ function FormularioAcesso({
                   >
                     <FotoAluno aluno={a} tamanho={36} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-white">{a.nome}</p>
+                      <p className="flex items-center gap-1.5 text-sm font-medium text-white">
+                        <span className="truncate">{a.nome}</span>
+                        <SeloMenorIdade dataNascimento={a.data_nascimento} />
+                      </p>
                       <p className="truncate text-xs text-slate-500">
                         {a.matricula_codigo ?? "sem matrícula"}
                         {a.telefone ? ` · ${a.telefone}` : ""}
@@ -272,13 +294,23 @@ function CartaoAlunoSelecionado({
   ultimoAcesso?: string;
   onTrocar: () => void;
 }) {
+  const idadeAluno = calcularIdade(aluno.data_nascimento);
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-ink-600 bg-ink-800/60 px-4 py-3">
       <FotoAluno aluno={aluno} tamanho={44} />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-white">{aluno.nome}</p>
+        <p className="flex items-center gap-1.5 font-medium text-white">
+          <span className="truncate">{aluno.nome}</span>
+          <SeloMenorIdade dataNascimento={aluno.data_nascimento} />
+        </p>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
           <span>{plano?.nome ?? "sem plano"}</span>
+          {idadeAluno != null && (
+            <>
+              <span className="text-slate-600">·</span>
+              <span>{idadeAluno} anos</span>
+            </>
+          )}
           <span className="text-slate-600">·</span>
           <span className={cn("chip text-[10px]", badgeStatusMatricula(aluno.status_matricula))}>
             {aluno.status_matricula}
