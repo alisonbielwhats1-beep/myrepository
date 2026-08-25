@@ -23,6 +23,7 @@ import {
   MoreHorizontal,
   Pencil,
   Phone,
+  Printer,
   QrCode,
   Search,
   Target,
@@ -635,9 +636,22 @@ export default function GestaoAlunos({
         {/* Fichas já montadas */}
         {alunoSelecionado && (
           <div className="surface rounded-2xl p-5">
-            <h3 className="font-semibold text-white">
-              Fichas de {alunoSelecionado.nome.split(" ")[0]}
-            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-semibold text-white">
+                Fichas de {alunoSelecionado.nome.split(" ")[0]}
+              </h3>
+              {treinosDoAluno.length > 0 && (
+                <a
+                  href={`/imprimir/${slug}/aluno/${alunoSelecionado.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Abrir versão para papel e imprimir"
+                  className="inline-flex items-center gap-1.5 text-xs text-slate-400 transition hover:text-white"
+                >
+                  <Printer className="h-3.5 w-3.5" /> Imprimir ficha
+                </a>
+              )}
+            </div>
             {treinosDoAluno.length === 0 ? (
               <p className="mt-3 text-sm text-slate-500">
                 Nenhuma ficha montada ainda.
