@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Camera, ImagePlus, Loader2, Trash2, UserRound } from "lucide-react";
 import Image from "next/image";
 import { prepararFotoParaEnvio } from "@/lib/imagem-cliente";
+import CapturaWebcam from "@/components/ui/CapturaWebcam";
 import {
   atualizarFotoAlunoAdmin,
   removerFotoAlunoAdmin,
@@ -32,8 +33,8 @@ export default function FotoAlunoAdminCard({
   const [blob, setBlob] = useState<Blob | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [mostrarWebcam, setMostrarWebcam] = useState(false);
   const galeriaRef = useRef<HTMLInputElement>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
 
   const escolherArquivo = async (file: File | undefined) => {
     if (!file) return;
@@ -123,15 +124,6 @@ export default function FotoAlunoAdminCard({
             className="hidden"
             onChange={(e) => escolherArquivo(e.target.files?.[0])}
           />
-          <input
-            ref={cameraRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            capture="user"
-            className="hidden"
-            onChange={(e) => escolherArquivo(e.target.files?.[0])}
-          />
-
           {blob ? (
             <div className="flex flex-wrap gap-2">
               <button
@@ -156,7 +148,7 @@ export default function FotoAlunoAdminCard({
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => cameraRef.current?.click()}
+                onClick={() => setMostrarWebcam(true)}
                 className="btn-ghost !py-1.5 text-xs"
               >
                 <Camera className="h-3.5 w-3.5" /> Tirar foto
@@ -187,6 +179,14 @@ export default function FotoAlunoAdminCard({
           )}
         </div>
       </div>
+
+      {mostrarWebcam && (
+        <CapturaWebcam
+          titulo={`Foto de ${nome.split(" ")[0]}`}
+          onCapturar={(file) => escolherArquivo(file)}
+          onFechar={() => setMostrarWebcam(false)}
+        />
+      )}
     </div>
   );
 }
