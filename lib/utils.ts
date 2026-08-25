@@ -198,6 +198,31 @@ export function anoSaoPaulo(): number {
   return hojePartesSaoPaulo().ano;
 }
 
+/**
+ * Idade em anos completos a partir da data de nascimento (YYYY-MM-DD),
+ * calculada contra "hoje" no fuso da academia. Retorna null quando a data é
+ * vazia, malformada, no futuro ou fora de um intervalo plausível — assim a UI
+ * pode simplesmente não mostrar idade em vez de exibir um número sem sentido.
+ */
+export function calcularIdade(
+  dataNascimento: string | null | undefined
+): number | null {
+  if (!dataNascimento) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dataNascimento);
+  if (!m) return null;
+  const ano = Number(m[1]);
+  const mes = Number(m[2]);
+  const dia = Number(m[3]);
+  const { ano: anoHoje, mes: mes0Hoje, dia: diaHoje } = hojePartesSaoPaulo();
+  // hojePartesSaoPaulo devolve mês 0-indexado; a data de nascimento é 1-indexada.
+  const mesHoje = mes0Hoje + 1;
+  let idade = anoHoje - ano;
+  // Ainda não fez aniversário este ano → desconta um.
+  if (mesHoje < mes || (mesHoje === mes && diaHoje < dia)) idade--;
+  if (idade < 0 || idade > 150) return null;
+  return idade;
+}
+
 /** Soma (ou subtrai, com valor negativo) dias a uma data-calendário YYYY-MM-DD. */
 export function somarDiasISO(data: string, dias: number): string {
   const d = new Date(`${data.slice(0, 10)}T00:00:00Z`);

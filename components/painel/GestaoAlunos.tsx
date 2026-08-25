@@ -44,6 +44,7 @@ import {
   badgeStatusFinanceiro,
   rotuloStatusFinanceiro,
   badgeStatusMatricula,
+  calcularIdade,
   cn,
   diaDoMesSaoPaulo,
   formatDataISO,
@@ -1203,6 +1204,13 @@ function FormularioAluno({
     planoSelecionado.cobranca_recorrente &&
     planoSelecionado.valor_mensal > 0;
 
+  // Data de nascimento controlada só para derivar a idade ao vivo — o valor
+  // vai pro servidor pelo próprio `name="data_nascimento"` do input.
+  const [dataNascimento, setDataNascimento] = useState(
+    alunoExistente?.data_nascimento?.slice(0, 10) ?? ""
+  );
+  const idade = calcularIdade(dataNascimento);
+
   const [pagamentoInicial, setPagamentoInicial] = useState<"a_pagar" | "pago_agora">("a_pagar");
   const [diaVencimento, setDiaVencimento] = useState(
     alunoExistente?.dia_vencimento ?? diaDoMesSaoPaulo()
@@ -1253,13 +1261,16 @@ function FormularioAluno({
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="CPF">
+          <Field label="CPF (opcional)">
             <input
               name="cpf"
               defaultValue={alunoExistente?.cpf ?? ""}
               placeholder="000.000.000-00"
               className="inp"
             />
+            <p className="mt-1 text-xs text-slate-500">
+              Opcional — pode deixar em branco. Preencha se for usar Gympass/TotalPass.
+            </p>
           </Field>
           <Field label="Status">
             <select
@@ -1273,6 +1284,30 @@ function FormularioAluno({
               <option value="inativa">Inativa</option>
               <option value="cancelada">Cancelada</option>
             </select>
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Data de nascimento">
+            <input
+              name="data_nascimento"
+              type="date"
+              value={dataNascimento}
+              max={hoje}
+              onChange={(e) => setDataNascimento(e.target.value)}
+              className="inp"
+            />
+          </Field>
+          <Field label="Idade">
+            {/* Preenchida automaticamente a partir da data de nascimento —
+                somente leitura, atualiza ao vivo enquanto o campo ao lado muda. */}
+            <input
+              value={idade != null ? `${idade} anos` : ""}
+              placeholder="Preenchida pela data"
+              className="inp cursor-not-allowed text-slate-400"
+              readOnly
+              tabIndex={-1}
+              aria-label="Idade calculada a partir da data de nascimento"
+            />
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">

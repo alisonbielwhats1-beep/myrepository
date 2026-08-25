@@ -276,6 +276,19 @@ function lerCpf(formData: FormData): { cpf: string | null } | { erro: string } {
 }
 
 
+/**
+ * Lê a data de nascimento do formulário (input type="date" → YYYY-MM-DD).
+ * Campo opcional: vazio vira null. Só aceita o formato de data-calendário;
+ * qualquer outra coisa também vira null (o input nativo já garante o formato,
+ * isto é a defesa do lado do servidor). A idade não é gravada — é sempre
+ * derivada desta data (ver calcularIdade), então nunca fica desatualizada.
+ */
+function lerDataNascimento(formData: FormData): string | null {
+  const raw = String(formData.get("data_nascimento") ?? "").trim();
+  if (!raw) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+}
+
 /** Campos de anamnese/saúde — nunca expostos na ficha pública do aluno. */
 function lerCamposSaude(formData: FormData) {
   return {
@@ -368,6 +381,7 @@ export async function criarAluno(
       cpf: cpf.cpf,
       email: normalizarEmail(formData.get("email") as string),
       telefone: normalizarTelefone(formData.get("telefone") as string),
+      data_nascimento: lerDataNascimento(formData),
       // Foto é enviada à parte, por atualizarFotoAlunoAdmin (upload real via
       // Storage) — este formulário não grava foto_perfil_url.
       status_matricula: statusInicial,
@@ -598,6 +612,7 @@ export async function atualizarAluno(
       cpf: cpf.cpf,
       email: normalizarEmail(formData.get("email") as string),
       telefone: normalizarTelefone(formData.get("telefone") as string),
+      data_nascimento: lerDataNascimento(formData),
       // Foto é enviada à parte, por atualizarFotoAlunoAdmin — edição de dados
       // cadastrais não mexe em foto_perfil_url.
       status_matricula: novoStatus,
