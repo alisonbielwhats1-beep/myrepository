@@ -33,6 +33,8 @@ export default function CardTreino({
   treino,
   hoje = false,
   emAndamento = false,
+  rotuloEstado,
+  ctaLabel,
   onAbrir,
 }: {
   treino: FichaTreinoPublico;
@@ -40,6 +42,10 @@ export default function CardTreino({
   hoje?: boolean;
   /** true se já existe uma sessão ativa deste treino (Retomar). */
   emAndamento?: boolean;
+  /** Rótulo de estado do dia na trilha da semana, ex.: "CONCLUÍDO · SÁB". */
+  rotuloEstado?: string;
+  /** Sobrescreve o texto do botão principal (ex.: "Adiantar este treino"). */
+  ctaLabel?: string;
   onAbrir: () => void;
 }) {
   const { titulo, grupos } = separarNome(treino.nome_treino);
@@ -58,11 +64,16 @@ export default function CardTreino({
         hoje && "border-volt-400/50 bg-volt-500/[0.06] shadow-glow"
       )}
     >
+      {rotuloEstado && (
+        <p className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.09em] text-slate-400">
+          {rotuloEstado}
+        </p>
+      )}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-bold text-white">{titulo}</h3>
-            {hoje && (
+            {hoje && !rotuloEstado && (
               <span className="chip border-volt-400/40 bg-volt-400/15 text-volt-300">
                 <Flame className="h-3 w-3" /> Hoje
               </span>
@@ -120,7 +131,7 @@ export default function CardTreino({
       <div className="mt-4 flex items-center justify-between">
         <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-volt-300">
           <PlayCircle className="h-4 w-4" />
-          {emAndamento ? "Retomar treino" : "Iniciar treino"}
+          {ctaLabel ?? (emAndamento ? "Retomar treino" : "Iniciar treino")}
         </span>
         <ChevronRight className="h-5 w-5 text-slate-500" />
       </div>
