@@ -179,6 +179,48 @@ body {
   .label-muted {
     @apply text-xs font-medium uppercase tracking-wide text-slate-400;
   }
+
+  /* Bloco de esqueleto (loading.tsx). Em vez de um `animate-pulse` chapado,
+     um shimmer que corre da esquerda pra direita — a espera parece menor e a
+     forma do bloco antecipa o conteúdo real (sem salto de layout na troca).
+     Usa os tokens ink para funcionar igual no tema claro e no escuro. */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgb(var(--ink-800)),
+      rgb(var(--ink-600)) 45%,
+      rgb(var(--ink-800))
+    );
+    background-size: 320px 100%;
+    animation: skeleton-shimmer 1.15s linear infinite;
+  }
+
+  /* Entrada suave de blocos que aparecem DEPOIS do carregamento (resultado de
+     busca, drawer, comentário otimista). Fade + leve subida. Nunca no layout
+     inteiro — só no bloco que surge. */
+  .anim-up {
+    animation: anim-up 0.24s ease both;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: -320px 0;
+  }
+  to {
+    background-position: 320px 0;
+  }
+}
+
+@keyframes anim-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Regra explícita do prompt: imagens de mídia (fotos nativas de exercícios e
