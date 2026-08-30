@@ -73,12 +73,17 @@ export default function ResumoCaixaCompetencia({
             <Linha rotulo="Despesa paga" valor={-despesaPaga} cor="red" />
             <Total rotulo="Resultado do período" valor={resultado} />
           </dl>
-          <p className="mt-4 flex items-center gap-2 border-t border-ink-700 pt-3 text-xs text-slate-500">
-            <Wallet className="h-3.5 w-3.5 text-slate-500" />
-            Saldo registrado no GestAcad: {formatBRL(saldoRegistrado)}
-            {saldoDesde && (
-              <> · desde {new Date(saldoDesde + "T00:00:00").toLocaleDateString("pt-BR")}</>
-            )}
+          <p className="mt-4 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 border-t border-ink-700 pt-3 text-xs text-slate-500">
+            <Wallet className="h-3.5 w-3.5 flex-none text-slate-500" />
+            {/* "Saldo registrado" fica em seu próprio elemento para o e2e
+                (financeiro-acesso.spec.ts) reconhecer o marco por texto exato. */}
+            <span>Saldo registrado</span>
+            <span>
+              no GestAcad: {formatBRL(saldoRegistrado)}
+              {saldoDesde && (
+                <> · desde {new Date(saldoDesde + "T00:00:00").toLocaleDateString("pt-BR")}</>
+              )}
+            </span>
           </p>
         </div>
       ) : (
