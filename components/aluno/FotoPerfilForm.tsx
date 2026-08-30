@@ -37,9 +37,9 @@ export default function FotoPerfilForm({
       <button
         type="button"
         onClick={() => setAberto(true)}
-        className="btn-ghost w-full"
+        className="btn-ghost flex-none text-sm"
       >
-        <ImagePlus className="h-4 w-4" /> Alterar foto de perfil
+        <ImagePlus className="h-4 w-4" /> Trocar foto
       </button>
     );
   }
@@ -97,7 +97,10 @@ export default function FotoPerfilForm({
   };
 
   return (
-    <div className="surface space-y-4 rounded-2xl p-5">
+    // Sem `surface` própria de propósito: este formulário sempre aparece
+    // aninhado dentro de outro card (header do Perfil), então ganhar sua
+    // própria borda/fundo criaria uma caixa dentro de caixa.
+    <div className="space-y-4">
       <div className="flex items-center gap-3">
         <AvatarAluno nome={nome} fotoUrl={preview ?? fotoAtual} size={64} />
         <div className="min-w-0 flex-1">
