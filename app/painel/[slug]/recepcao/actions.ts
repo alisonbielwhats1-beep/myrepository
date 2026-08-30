@@ -78,24 +78,33 @@ export async function registrarAcesso(
   const valorRepasse =
     decisao.resultado === "bloqueado" ? 0 : await valorRepasseVigente(supabase, origem);
 
-  const { error } = await supabase.from("acessos_catraca").insert({
-    academia_id: sessao.academia.id,
-    aluno_id: alunoId,
-    origem,
-    valor_repasse: valorRepasse,
-    status_liberacao: statusLiberacaoDe(decisao.resultado),
-    observacao: decisao.motivo,
-    politica_aplicada: decisao.politicaAplicada,
-    mensalidade_id: decisao.mensalidadeId,
-    dias_atraso: decisao.diasAtraso,
-    registrado_por: sessao.userId,
-    chave_idempotencia: chaveIdempotencia,
-  });
+  const { data: registroCriado, error } = await supabase
+    .from("acessos_catraca")
+    .insert({
+      academia_id: sessao.academia.id,
+      aluno_id: alunoId,
+      origem,
+      valor_repasse: valorRepasse,
+      status_liberacao: statusLiberacaoDe(decisao.resultado),
+      observacao: decisao.motivo,
+      politica_aplicada: decisao.politicaAplicada,
+      mensalidade_id: decisao.mensalidadeId,
+      dias_atraso: decisao.diasAtraso,
+      registrado_por: sessao.userId,
+      chave_idempotencia: chaveIdempotencia,
+    })
+    // Colunas explícitas (nunca `*`): `valor_repasse` é repasse de parceiro e
+    // não pode ir ao cliente — ver comentário de valorRepasseVigente acima.
+    .select(
+      "id, academia_id, aluno_id, origem, data_hora_entrada, status_liberacao, observacao, politica_aplicada, mensalidade_id, dias_atraso, registrado_por, chave_idempotencia, cancelado_em, cancelado_por, motivo_cancelamento"
+    )
+    .single();
 
   if (error) {
     // 23505 = mesma chave de idempotência já gravada: é um reenvio da mesma
     // tentativa (duplo clique, retry de rede). A decisão recém-calculada é a
-    // mesma que gerou a linha original, então devolvemos ok sem duplicar.
+    // mesma que gerou a linha original, então devolvemos ok sem duplicar (e
+    // sem acessoRegistrado — a linha original já prependou no primeiro envio).
     if (error.code === "23505") {
       return { ok: true, savedAt: Date.now(), decisao };
     }
@@ -104,7 +113,12 @@ export async function registrarAcesso(
 
   revalidatePath(`/painel/${slug}/recepcao`);
   revalidatePath(`/painel/${slug}`);
-  return { ok: true, savedAt: Date.now(), decisao };
+  return {
+    ok: true,
+    savedAt: Date.now(),
+    decisao,
+    acessoRegistrado: registroCriado,
+  };
 }
 
 /**

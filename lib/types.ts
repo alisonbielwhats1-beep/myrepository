@@ -767,6 +767,13 @@ export type EstadoAcao = {
   id?: string;
   /** Preenchido por registrarAcesso para a recepção exibir o resultado. */
   decisao?: DecisaoAcesso;
+  /**
+   * Preenchido por registrarAcesso com o registro recém-inserido, para a
+   * recepção prependar a linha no log sem esperar o próximo carregamento da
+   * página. Nunca inclui `valor_repasse` — repasse de parceiro não vai ao
+   * cliente (mesma regra de `registrarAcesso`/`confirmarAcessoQr`).
+   */
+  acessoRegistrado?: Omit<AcessoCatraca, "valor_repasse" | "aluno">;
 };
 
 export type Papel = "dono" | "gerente" | "recepcao" | "instrutor";
