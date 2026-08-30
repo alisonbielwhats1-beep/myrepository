@@ -160,23 +160,29 @@ export default async function RecepcaoPage({
         />
       </div>
 
-      <CatracaLog
-        alunos={alunos}
-        planos={planos}
-        statusFinanceiroMap={statusFinanceiroMap}
-        ultimosAcessos={ultimosAcessos}
-        slug={params.slug}
-      />
+      {/* Lado a lado a partir de lg: registrar entrada é a ação, histórico é
+          a consulta — ficarem lado a lado evita que a recepção precise rolar
+          a tela toda pra baixo pra conferir um acesso enquanto atende
+          alguém na catraca. Empilhado (como antes) em telas menores. */}
+      <div className="grid gap-6 lg:grid-cols-[380px_1fr] lg:items-start">
+        <CatracaLog
+          alunos={alunos}
+          planos={planos}
+          statusFinanceiroMap={statusFinanceiroMap}
+          ultimosAcessos={ultimosAcessos}
+          slug={params.slug}
+        />
 
-      <HistoricoAcessos
-        slug={params.slug}
-        papel={sessao.papel}
-        acessos={historico.acessos}
-        total={historico.total}
-        pagina={pagina}
-        tamanhoPagina={TAMANHO_PAGINA}
-        alunos={alunos}
-      />
+        <HistoricoAcessos
+          slug={params.slug}
+          papel={sessao.papel}
+          acessos={historico.acessos}
+          total={historico.total}
+          pagina={pagina}
+          tamanhoPagina={TAMANHO_PAGINA}
+          alunos={alunos}
+        />
+      </div>
     </div>
   );
 }
