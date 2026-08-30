@@ -13,7 +13,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { Aluno, DecisaoAcesso, Plano, StatusFinanceiro } from "@/lib/types";
+import { AcessoCatraca, Aluno, DecisaoAcesso, Plano, StatusFinanceiro } from "@/lib/types";
 import {
   badgeStatusFinanceiro,
   rotuloStatusFinanceiro,
@@ -32,12 +32,15 @@ export default function CatracaLog({
   statusFinanceiroMap,
   ultimosAcessos,
   slug,
+  onRegistrado,
 }: {
   alunos: Aluno[];
   planos: Plano[];
   statusFinanceiroMap: Record<string, StatusFinanceiro>;
   ultimosAcessos: Record<string, string>;
   slug: string;
+  /** Chamado com o acesso recém-registrado, para prepend otimista no log. */
+  onRegistrado?: (acesso: AcessoCatraca) => void;
 }) {
   const [mostrarForm, setMostrarForm] = useState(false);
 
@@ -70,6 +73,7 @@ export default function CatracaLog({
           statusFinanceiroMap={statusFinanceiroMap}
           ultimosAcessos={ultimosAcessos}
           onSalvo={() => setMostrarForm(false)}
+          onRegistrado={onRegistrado}
         />
       ) : (
         <p className="px-5 py-4 text-sm text-slate-400">
@@ -116,6 +120,7 @@ function FormularioAcesso({
   statusFinanceiroMap,
   ultimosAcessos,
   onSalvo,
+  onRegistrado,
 }: {
   slug: string;
   alunos: Aluno[];
@@ -123,6 +128,7 @@ function FormularioAcesso({
   statusFinanceiroMap: Record<string, StatusFinanceiro>;
   ultimosAcessos: Record<string, string>;
   onSalvo: () => void;
+  onRegistrado?: (acesso: AcessoCatraca) => void;
 }) {
   const acao = registrarAcesso.bind(null, slug);
   const [estado, formAction] = useFormState(acao, {});
@@ -138,6 +144,21 @@ function FormularioAcesso({
   useEffect(() => {
     if (!estado.savedAt) return;
     setChave(gerarChave());
+    // Prepend otimista no log: o servidor já inseriu a linha (mesmo em
+    // "alerta"/"bloqueado" — ambos ficam no histórico) e devolveu o registro
+    // completo, exceto `aluno`, que montamos aqui com o aluno já selecionado
+    // (evita mais uma consulta só pra isso).
+    if (estado.ok && estado.acessoRegistrado && alunoSelecionado) {
+      onRegistrado?.({
+        ...estado.acessoRegistrado,
+        valor_repasse: null,
+        aluno: {
+          id: alunoSelecionado.id,
+          nome: alunoSelecionado.nome,
+          foto_perfil_url: alunoSelecionado.foto_perfil_url,
+        },
+      });
+    }
     if (estado.ok && estado.decisao?.resultado === "liberado") onSalvo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado.savedAt]);
