@@ -143,6 +143,13 @@ function FormularioAcesso({
   }, [estado.savedAt]);
 
   const alunoSelecionado = alunos.find((a) => a.id === alunoId) ?? null;
+  // Situação financeira do aluno escolhido — faz o CTA e o aviso mudarem antes
+  // mesmo de registrar (auditoria de UX): "Liberar entrada" vs "Liberar com
+  // alerta". A decisão final (e o bloqueio por política) continua no servidor.
+  const statusSelecionado = alunoSelecionado
+    ? statusFinanceiroMap[alunoSelecionado.id]
+    : undefined;
+  const liberarComAlerta = statusSelecionado === "inadimplente";
 
   const resultados = useMemo(() => {
     const termo = busca.trim();
@@ -237,6 +244,14 @@ function FormularioAcesso({
         </div>
       )}
 
+      {liberarComAlerta && (
+        <p className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-none" />
+          Aluno com mensalidade vencida. Confirme com o gestor antes de liberar —
+          o registro fica no histórico.
+        </p>
+      )}
+
       <div className="flex flex-wrap items-end gap-3">
         <label>
           <span className="mb-1 block text-xs font-medium text-slate-400">Origem</span>
@@ -246,7 +261,7 @@ function FormularioAcesso({
             <option value="TotalPass">TotalPass</option>
           </select>
         </label>
-        <BotaoRegistrar disabled={!alunoId} />
+        <BotaoRegistrar disabled={!alunoId} alerta={liberarComAlerta} />
       </div>
     </form>
   );
@@ -424,16 +439,37 @@ function PainelDecisao({ decisao }: { decisao: DecisaoAcesso }) {
   );
 }
 
-function BotaoRegistrar({ disabled }: { disabled: boolean }) {
+function BotaoRegistrar({
+  disabled,
+  alerta = false,
+}: {
+  disabled: boolean;
+  alerta?: boolean;
+}) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={disabled || pending} className="btn-volt disabled:opacity-50">
+    <button
+      type="submit"
+      disabled={disabled || pending}
+      className={cn(
+        "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50",
+        alerta
+          ? "border border-amber-500/40 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25"
+          : "btn-volt"
+      )}
+    >
       {pending ? (
         <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
       ) : (
         <Plus className="h-4 w-4" />
       )}
-      {pending ? "Registrando..." : "Registrar"}
+      {pending
+        ? "Registrando..."
+        : disabled
+          ? "Liberar entrada"
+          : alerta
+            ? "Liberar com alerta"
+            : "Liberar entrada"}
     </button>
   );
 }
