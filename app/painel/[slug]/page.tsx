@@ -4,6 +4,7 @@ import {
   Cake,
   CalendarClock,
   ChevronDown,
+  Clock,
   DollarSign,
   HeartPulse,
   Lock,
@@ -24,7 +25,9 @@ import BotaoCobrancaWhats from "@/components/painel/BotaoCobrancaWhats";
 import {
   GraficoEvolucaoAlunos,
   GraficoFinanceiroMensal,
+  GraficoHorarios,
   PontoEvolucaoAlunos,
+  PontoHora,
 } from "@/components/painel/DashboardCharts";
 import AlertasPainel, {
   AlertaInadimplente,
@@ -39,6 +42,7 @@ import {
   getDespesas,
   getReceitasJanela,
   getDespesasJanela,
+  getAcessosPeriodo,
   getContagemAlunos,
   getTelefonesDosAlunos,
   getContagemAlunosCriadosEntre,
@@ -59,6 +63,7 @@ import {
   configRetencaoDe,
   formatBRL,
   hojeSaoPaulo,
+  horaSaoPaulo,
 } from "@/lib/utils";
 import { planoPodeAcessar } from "@/lib/planos";
 
@@ -122,6 +127,13 @@ export default async function DashboardOverviewPage({
     return new Date(Date.UTC(ano, mes, 1)).toISOString().slice(0, 10);
   });
 
+  // Limites ISO da janela do filtro do topo, para o gráfico "Movimento por
+  // hora" abaixo — mesma convenção (imprecisa, mas já usada) do Relatórios/BI:
+  // dia final vai até agora quando é hoje, senão até o fim do dia.
+  const desdeIsoJanela = `${janela.desde}T00:00:00.000Z`;
+  const ateIsoJanela =
+    janela.ate === hojeIso ? new Date().toISOString() : `${janela.ate}T23:59:59.999Z`;
+
   // Fase 13: nada de carregar a base inteira de alunos/receitas/despesas para
   // somar em memória. Cada consulta abaixo já vem do banco recortada pelo
   // período que ela realmente precisa (ver comentários em lib/data.ts).
@@ -141,6 +153,7 @@ export default async function DashboardOverviewPage({
     proximosVencimentosRows,
     repassesParceiros,
     aniversariantesMes,
+    acessosPeriodo,
   ] = await Promise.all([
     getContagemAlunos(sessao.academia.id),
     verFinanceiro ? getFuncionarios(sessao.academia.id) : Promise.resolve([]),
@@ -166,6 +179,10 @@ export default async function DashboardOverviewPage({
     // abaixo. Visível para todo papel que vê o Dashboard: é relacionamento, não
     // financeiro. mesJs é 0-11 (Date#getMonth); hojeIso está em SP.
     getAlunosAniversariantes(Number(hojeIso.slice(5, 7)) - 1),
+    // Movimento por hora (auditoria de UX, item 3): visível a todo papel que
+    // vê o Dashboard, não só quem vê financeiro — recepção e instrutor também
+    // se beneficiam de saber o horário de pico.
+    getAcessosPeriodo(sessao.academia.id, desdeIsoJanela, ateIsoJanela),
   ]);
 
   // Aniversariantes de HOJE: mesmo dia/mês da data de nascimento, comparado em
@@ -314,6 +331,48 @@ export default async function DashboardOverviewPage({
     : [];
 
   const hintPeriodo = janela.custom ? "no período" : janela.label.toLowerCase();
+
+  // ---- Movimento por hora (auditoria de UX, item 3) ----
+  // Só entradas efetivamente liberadas contam, mesmo critério de
+  // "permitidosHoje" da Recepção — um "negado" não é movimento de gente
+  // entrando na academia. Faixa mostrada = só as horas com algum acesso no
+  // período (evita 24 barras vazias fora do horário de funcionamento).
+  const contagemHora = new Map<number, number>();
+  for (const a of acessosPeriodo) {
+    if (a.status_liberacao !== "liberado" && a.status_liberacao !== "alerta") continue;
+    const h = horaSaoPaulo(a.data_hora_entrada);
+    contagemHora.set(h, (contagemHora.get(h) ?? 0) + 1);
+  }
+  const horasComMovimento = Array.from(contagemHora.keys());
+  const horaMin = horasComMovimento.length ? Math.min(...horasComMovimento) : 0;
+  const horaMax = horasComMovimento.length ? Math.max(...horasComMovimento) : -1;
+  const dadosHora: PontoHora[] = [];
+  for (let h = horaMin; h <= horaMax; h++) {
+    dadosHora.push({ hora: `${h}h`, acessos: contagemHora.get(h) ?? 0 });
+  }
+  const totalMovimento = dadosHora.reduce((soma, p) => soma + p.acessos, 0);
+
+  // Melhor janela contígua de até 2 horas — vira a frase de insight acima do
+  // gráfico, pra "que horas eu preciso de mais gente" não depender de ler o
+  // eixo barra a barra.
+  let insightMovimento: string | null = null;
+  if (totalMovimento > 0) {
+    let melhorIdx = 0;
+    let melhorSoma = -1;
+    let melhorSpan = 1;
+    for (let i = 0; i < dadosHora.length; i++) {
+      const temSeguinte = i + 1 < dadosHora.length;
+      const soma = dadosHora[i].acessos + (temSeguinte ? dadosHora[i + 1].acessos : 0);
+      if (soma > melhorSoma) {
+        melhorSoma = soma;
+        melhorIdx = i;
+        melhorSpan = temSeguinte ? 2 : 1;
+      }
+    }
+    const horaInicio = horaMin + melhorIdx;
+    const horaFim = horaInicio + melhorSpan;
+    insightMovimento = `Das ${horaInicio}h às ${horaFim}h entram ${melhorSoma} dos ${totalMovimento} check-ins ${hintPeriodo}.`;
+  }
 
   const evolucaoAlunos: PontoEvolucaoAlunos[] = ultimosMeses(6).map(({ label }, i) => ({
     mes: label,
@@ -576,6 +635,23 @@ export default async function DashboardOverviewPage({
 
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-6">
+          {/* Movimento por hora (auditoria de UX, item 3): visível a todo
+              papel, não só quem vê financeiro. */}
+          <div className="surface rounded-2xl p-5">
+            <h2 className="flex items-center gap-2 font-semibold text-white">
+              <Clock className="h-4 w-4 text-volt-300" /> Movimento por hora
+            </h2>
+            <p className="mb-2 text-xs text-slate-500">
+              {insightMovimento ?? `Volume de acessos por horário ${hintPeriodo}`}
+            </p>
+            {dadosHora.length > 0 ? (
+              <GraficoHorarios dados={dadosHora} destacarPico />
+            ) : (
+              <p className="py-10 text-center text-sm text-slate-500">
+                Nenhum acesso registrado {hintPeriodo}.
+              </p>
+            )}
+          </div>
           {verFinanceiro && (
             <div className="surface rounded-2xl p-5">
               <h2 className="font-semibold text-white">Receita x Despesa</h2>
