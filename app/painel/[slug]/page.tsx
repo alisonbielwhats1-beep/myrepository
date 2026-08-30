@@ -15,7 +15,6 @@ import {
   UserPlus,
   UserRound,
   Users,
-  UserX,
   Zap,
 } from "lucide-react";
 import Ajuda from "@/components/ui/Ajuda";
@@ -424,8 +423,11 @@ export default async function DashboardOverviewPage({
         <PrimeirosPassos slug={params.slug} progresso={progressoOnboarding} />
       )}
 
-      {/* KPIs — linha 1 */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {/* KPIs — linha 1. "Alunos sumidos" não repete aqui: já aparece com bem
+          mais destaque (e um CTA) no card de ação de "Precisa de você hoje"
+          acima quando há algum. 3 colunas de propósito — mesma contagem da
+          fileira de "Precisa de você hoje", pra as duas fileiras alinharem. */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatTile
           icon={Users}
           label="Alunos"
@@ -440,13 +442,6 @@ export default async function DashboardOverviewPage({
           hint={hintPeriodo}
           accent="slate"
           delta={{ pct: variacao(novosAlunos, novosAlunosAnt) }}
-        />
-        <StatTile
-          icon={UserX}
-          label="Alunos sumidos"
-          value={String(sumidos.length)}
-          hint={`sem acesso há ${configRetencao.diasSumido}+ dias`}
-          accent="slate"
         />
         {verFinanceiro && (
           <StatTile
