@@ -70,26 +70,8 @@ export default async function PerfilPage({
         atualizar={atualizarFotoAluno.bind(null, params.slug, params.token)}
       />
 
-      {/* Plano */}
-      {aluno.plano_nome && (
-        <div className="surface rounded-2xl p-5">
-          <div className="flex items-center gap-2 text-slate-300">
-            <CreditCard className="h-4 w-4 text-volt-300" />
-            <span className="text-sm font-medium">Plano atual</span>
-          </div>
-          <p className="mt-2 text-lg font-bold text-white">{aluno.plano_nome}</p>
-        </div>
-      )}
-
-      {/* Identificação */}
-      <div className="surface space-y-3 rounded-2xl p-5">
-        <div className="flex items-center gap-3 text-sm text-slate-300">
-          <ShieldCheck className="h-4 w-4 text-slate-500" />
-          Matrícula {aluno.matricula_codigo ?? "—"}
-        </div>
-      </div>
-
-      {/* Evolução */}
+      {/* Evolução — sobe para o topo do conteúdo (auditoria de UX): é o que o
+          aluno quer ver, não pode ser o último de seis cards empilhados. */}
       {progresso.length > 0 && (
         <div className="surface rounded-2xl p-5">
           <div className="flex items-center gap-2 text-slate-300">
@@ -137,6 +119,25 @@ export default async function PerfilPage({
           </p>
         </div>
       )}
+
+      {/* Plano */}
+      {aluno.plano_nome && (
+        <div className="surface rounded-2xl p-5">
+          <div className="flex items-center gap-2 text-slate-300">
+            <CreditCard className="h-4 w-4 text-volt-300" />
+            <span className="text-sm font-medium">Plano atual</span>
+          </div>
+          <p className="mt-2 text-lg font-bold text-white">{aluno.plano_nome}</p>
+        </div>
+      )}
+
+      {/* Identificação */}
+      <div className="surface space-y-3 rounded-2xl p-5">
+        <div className="flex items-center gap-3 text-sm text-slate-300">
+          <ShieldCheck className="h-4 w-4 text-slate-500" />
+          Matrícula {aluno.matricula_codigo ?? "—"}
+        </div>
+      </div>
 
       {/* Mais — itens secundários (rotas preservadas, só saíram da barra
           inferior fixa no Bloco 2) e documentos legais do piloto. */}
