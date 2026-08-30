@@ -28,6 +28,7 @@ import {
   getNotificacoesAluno,
   getPoliticaAcessoAlunoPublico,
   getRecordesAluno,
+  getSessoesAtivasTreino,
 } from "@/lib/data";
 import {
   badgeStatusAcesso,
@@ -39,8 +40,17 @@ import {
   formatBRL,
   hojeSaoPaulo,
 } from "@/lib/utils";
-import { diaSemanaHojeSaoPaulo, normalizarDias } from "@/lib/dias-semana";
-import type { ResultadoAcesso, StatusFinanceiro } from "@/lib/types";
+import {
+  ROTULO_DIA_LONGO,
+  diaSemanaHojeSaoPaulo,
+  normalizarDias,
+} from "@/lib/dias-semana";
+import type { DiaSemana } from "@/lib/dias-semana";
+import type {
+  FichaTreinoPublico,
+  ResultadoAcesso,
+  StatusFinanceiro,
+} from "@/lib/types";
 
 const ROTULO_FINANCEIRO: Record<StatusFinanceiro, string> = {
   em_dia: "Em dia",
@@ -70,6 +80,25 @@ function separarNome(nome: string): { titulo: string; grupos: string | null } {
   return { titulo: partes[0].trim(), grupos: partes.slice(1).join(" · ").trim() };
 }
 
+/**
+ * Próximo treino a partir de amanhã (auditoria de UX, item 2): um dia de
+ * descanso nunca deve ser um beco sem saída — mostramos qual é o próximo dia
+ * de treino para o aluno se situar na semana. Varre os 7 dias seguintes (com
+ * volta ao início da semana) e devolve a primeira ficha que se aplica.
+ */
+function proximoTreino(
+  treinos: FichaTreinoPublico[],
+  diaHoje: DiaSemana
+): { treino: FichaTreinoPublico; dia: DiaSemana } | null {
+  const porOrdem = [...treinos].sort((a, b) => a.ordem - b.ordem);
+  for (let i = 1; i <= 7; i++) {
+    const dia = (((diaHoje - 1 + i) % 7) + 1) as DiaSemana;
+    const treino = porOrdem.find((t) => normalizarDias(t.dias_semana).includes(dia));
+    if (treino) return { treino, dia };
+  }
+  return null;
+}
+
 export default async function AlunoHome({
   params,
 }: {
@@ -78,7 +107,7 @@ export default async function AlunoHome({
   const ficha = await requireFichaAluno(params.slug, params.token);
   const { aluno, academia, treinos } = ficha;
 
-  const [mensalidades, acessos, politicaAcesso, recordes, avisos, feed] =
+  const [mensalidades, acessos, politicaAcesso, recordes, avisos, feed, sessoes] =
     await Promise.all([
       getMensalidadesAlunoPublico(params.token, params.slug),
       getFrequenciaAlunoPublico(params.token, params.slug),
@@ -86,6 +115,7 @@ export default async function AlunoHome({
       getRecordesAluno(params.token, params.slug),
       getNotificacoesAluno(params.token, params.slug),
       getFeedComunidade(params.token, params.slug, 3),
+      getSessoesAtivasTreino(params.token, params.slug),
     ]);
 
   const base = `/aluno/${params.slug}/${params.token}`;
@@ -99,6 +129,23 @@ export default async function AlunoHome({
   const treinoHoje = [...treinos]
     .sort((a, b) => a.ordem - b.ordem)
     .find((t) => normalizarDias(t.dias_semana).includes(diaHoje));
+
+  // Sessão em andamento do treino de hoje (Bloco 1): habilita "Retomar de onde
+  // parei" e a barra de progresso no herói, em vez de um "Iniciar" cru.
+  const sessaoHoje = treinoHoje
+    ? sessoes.find((s) => s.treino_id === treinoHoje.id && s.status === "ativa")
+    : undefined;
+  const totalExerciciosHoje = treinoHoje?.exercicios?.length ?? 0;
+  const feitosHoje = sessaoHoje
+    ? sessaoHoje.progresso.filter((p) => p.concluido).length
+    : 0;
+  const progressoPct =
+    totalExerciciosHoje > 0
+      ? Math.round((feitosHoje / totalExerciciosHoje) * 100)
+      : 0;
+
+  // Próximo treino da semana — usado no estado "dia de descanso" para dar saída.
+  const proximo = proximoTreino(treinos, diaHoje);
 
   // "Treinos este mês" = check-ins (acessos) do mês corrente no fuso da academia.
   const prefixoMes = hoje.slice(0, 7); // YYYY-MM
@@ -139,7 +186,7 @@ export default async function AlunoHome({
       {/* Avisos in-app (ex.: treino novo atribuído) */}
       <AvisosAluno slug={params.slug} token={params.token} notificacoes={avisos} />
 
-      {/* TREINO DE HOJE — herói da home */}
+      {/* TREINO DE HOJE — herói da home. Único destaque verde da tela. */}
       <Link
         href={`${base}/treinos`}
         className={cn(
@@ -151,9 +198,15 @@ export default async function AlunoHome({
       >
         <div className="flex items-center justify-between">
           <p className="label-muted">Treino de hoje</p>
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-volt-300/15 text-volt-300">
-            <Dumbbell className="h-5 w-5" />
-          </span>
+          {treinoHoje && sessaoHoje ? (
+            <span className="rounded-full bg-volt-300 px-2.5 py-1 text-xs font-bold tabular-nums text-ink-950">
+              {feitosHoje} de {totalExerciciosHoje}
+            </span>
+          ) : (
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-volt-300/15 text-volt-300">
+              <Dumbbell className="h-5 w-5" />
+            </span>
+          )}
         </div>
         {treinoHoje ? (
           <>
@@ -165,25 +218,56 @@ export default async function AlunoHome({
               {separarNome(treinoHoje.nome_treino).grupos
                 ? separarNome(treinoHoje.nome_treino).titulo + " · "
                 : ""}
-              {treinoHoje.exercicios?.length ?? 0} exercícios
+              {totalExerciciosHoje} exercícios
             </p>
+            {sessaoHoje && totalExerciciosHoje > 0 && (
+              <div
+                className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"
+                role="progressbar"
+                aria-valuenow={progressoPct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <div
+                  className="h-full rounded-full bg-volt-300 transition-[width] duration-300"
+                  style={{ width: `${progressoPct}%` }}
+                />
+              </div>
+            )}
             <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-volt-300">
-              Ver treino <ChevronRight className="h-4 w-4" />
+              {sessaoHoje ? "Retomar de onde parei" : "Começar treino"}
+              <ChevronRight className="h-4 w-4" />
+            </span>
+          </>
+        ) : treinos.length > 0 ? (
+          <>
+            <h2 className="mt-2 text-lg font-bold text-white">
+              Dia de descanso — e está tudo certo.
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Você treinou {seq.treinosSemana}{" "}
+              {seq.treinosSemana === 1 ? "vez" : "vezes"} esta semana.
+              {proximo && (
+                <>
+                  {" "}
+                  Próximo: {separarNome(proximo.treino.nome_treino).titulo} na{" "}
+                  {ROTULO_DIA_LONGO[proximo.dia].toLowerCase()}.
+                </>
+              )}
+            </p>
+            <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-200">
+              Ver a semana <ChevronRight className="h-4 w-4" />
             </span>
           </>
         ) : (
           <>
             <h2 className="mt-2 text-lg font-bold text-white">
-              {treinos.length > 0
-                ? "Sem treino programado para hoje"
-                : "Nenhum treino atribuído"}
+              Seu treino ainda está sendo montado
             </h2>
-            <p className="mt-0.5 text-sm text-slate-400">
-              {treinos.length > 0
-                ? "Aproveite para descansar ou ver os outros dias."
-                : "Fale com a recepção da sua academia."}
+            <p className="mt-1 text-sm text-slate-400">
+              Fale com a recepção da sua academia para receber sua ficha.
             </p>
-            <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-300">
+            <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-200">
               Ver meus treinos <ChevronRight className="h-4 w-4" />
             </span>
           </>

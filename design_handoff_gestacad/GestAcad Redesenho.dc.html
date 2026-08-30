@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#e9e7e2;font-family:Inter,system-ui,sans-serif;color:#14161c}
+a{color:#3a6b1f}a:hover{color:#2a4f16}
+.dv-turn{padding:40px 44px 34px;border-bottom:1px solid rgba(0,0,0,.08)}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 6px}
+.dv-tid{font:700 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#14161c;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:700 13px/1.2 Inter,sans-serif}
+.dv-sub{font:400 13px/1.6 Inter,sans-serif;color:rgba(0,0,0,.55);max-width:70ch;margin:0 0 24px;text-wrap:pretty}
+.dv-opts{display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px}
+.dv-oid{font:700 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);border-radius:5px;text-decoration:none;color:#14161c}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:500 11.5px/1.3 Inter,sans-serif;color:rgba(0,0,0,.58)}
+.dv-opt:target .dv-oid{background:#78a048;color:#fff}
+.dv-next{margin:24px 0 0;font:12px/1.5 Inter,sans-serif;color:rgba(0,0,0,.5)}
+.ctrl{display:flex;gap:6px;margin-bottom:2px}
+.fone{width:390px;height:790px;background:#07080d;border:1px solid #242838;border-radius:34px;overflow:hidden;position:relative;box-shadow:0 24px 60px -30px rgba(0,0,0,.7)}
+@keyframes shim{0%{background-position:-320px 0}100%{background-position:320px 0}}
+.sk{background:linear-gradient(90deg,#12141d 0%,#1e2230 45%,#12141d 90%);background-size:320px 100%;animation:shim 1.15s linear infinite;border-radius:8px}
+@keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t3">
+  <div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Fechando: Perfil do aluno e cadastro no painel</span></div>
+  <p class="dv-sub">As duas que faltavam. No Perfil, a evolução vira o conteúdo principal (hoje é o último card de seis). No painel, a ficha do aluno ganha abas e o cadastro sai de um formulário único para 3 passos — só o nome é obrigatório.</p>
+
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="3a">
+      <div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a>Perfil — evolução em primeiro plano</div>
+      <div class="fone">
+        <div style="padding:18px 16px;display:flex;flex-direction:column;gap:14px;height:100%;box-sizing:border-box;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:13px">
+            <span style="width:56px;height:56px;flex:none;border-radius:50%;background:rgba(138,182,84,.15);border:1px solid rgba(120,160,72,.45);color:#8ab654;font:700 17px Inter,sans-serif;display:flex;align-items:center;justify-content:center">AB</span>
+            <div style="flex:1;min-width:0">
+              <div style="font:800 19px Inter,sans-serif;color:#fff;letter-spacing:-.02em">Alison Bielwhats</div>
+              <div style="display:flex;align-items:center;gap:7px;margin-top:4px">
+                <span style="font:600 10.5px Inter,sans-serif;color:#8ab654;background:rgba(138,182,84,.13);border:1px solid rgba(120,160,72,.4);padding:3px 8px;border-radius:20px">Matrícula ativa</span>
+                <span style="font:400 11px Inter,sans-serif;color:#64748b">desde fev 2023</span>
+              </div>
+            </div>
+            <span style="font:600 11px Inter,sans-serif;color:#94a3b8;border:1px solid #333849;padding:6px 10px;border-radius:10px">Trocar foto</span>
+          </div>
+
+          <div style="background:#12141d;border:1px solid #242838;border-radius:18px;padding:16px 18px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">
+              <span style="font:700 13.5px Inter,sans-serif;color:#fff">Sua evolução</span>
+              <span style="font:600 11.5px Inter,sans-serif;color:#8ab654">-3,8 kg em 3 meses</span>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:6px;height:96px">
+              <sc-for list="{{ pesoBarras }}" as="p" hint-placeholder-count="7">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end">
+                  <div style="width:100%;height:{{ p.h }};background:{{ p.cor }};border-radius:5px 5px 2px 2px"></div>
+                  <span style="font:500 9px Inter,sans-serif;color:#4b5468">{{ p.data }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="font:400 11px Inter,sans-serif;color:#64748b;margin-top:10px">Última medição 25/08 · 80,4 kg</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <sc-for list="{{ medidas }}" as="m" hint-placeholder-count="6">
+              <div style="background:#12141d;border:1px solid #242838;border-radius:14px;padding:11px 12px">
+                <div style="font:400 10px Inter,sans-serif;color:#64748b">{{ m.k }}</div>
+                <div style="font:700 14px Inter,sans-serif;color:#fff;margin-top:3px">{{ m.v }}</div>
+                <div style="font:600 10px Inter,sans-serif;color:{{ m.cor }};margin-top:2px">{{ m.d }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="background:#12141d;border:1px solid #242838;border-radius:16px;overflow:hidden">
+            <sc-for list="{{ perfilLinks }}" as="l" hint-placeholder-count="5">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 15px;border-bottom:1px solid rgba(36,40,56,.55);font:500 12.5px Inter,sans-serif;color:#e2e8f0">
+                {{ l.label }}<span style="color:#4b5468">›</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="font:400 10.5px/1.5 Inter,sans-serif;color:#4b5468;text-align:center">Nome, plano, matrícula e vencimento são controlados pela academia.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="3b">
+      <div class="dv-olabel"><a class="dv-oid" href="#3b">3b</a>Painel · Alunos — ficha com abas, cadastro em 3 passos</div>
+      <div style="width:1080px;background:#07080d;border:1px solid #242838;border-radius:20px;overflow:hidden;position:relative;box-shadow:0 24px 60px -30px rgba(0,0,0,.7)">
+        <div style="padding:26px 28px;display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end">
+            <div>
+              <div style="font:800 24px Inter,sans-serif;color:#fff;letter-spacing:-.025em">Alunos</div>
+              <div style="font:400 12.5px Inter,sans-serif;color:#94a3b8;margin-top:3px">23 cadastrados · 19 ativos · a ficha completa vive à direita, sem trocar de página</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button style="border:1px solid #333849;background:transparent;color:#94a3b8;font:600 12.5px Inter,sans-serif;padding:9px 14px;border-radius:11px;cursor:pointer">Importar CSV</button>
+              <button onClick="{{ abrirNovo }}" style="border:0;background:#8ab654;color:#07080d;font:700 12.5px Inter,sans-serif;padding:9px 16px;border-radius:11px;cursor:pointer">Novo aluno</button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1.5fr;gap:14px;align-items:start">
+            <div style="background:#12141d;border:1px solid #242838;border-radius:18px;padding:8px">
+              <sc-for list="{{ fichaLista }}" as="f" hint-placeholder-count="5">
+                <div onClick="{{ f.go }}" style="display:flex;align-items:center;gap:11px;padding:12px 13px;border-radius:14px;cursor:pointer;background:{{ f.bg }};border:1px solid {{ f.bd }}">
+                  <span style="width:8px;height:8px;flex:none;border-radius:50%;background:{{ f.cor }}"></span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font:600 13px Inter,sans-serif;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.nome }}</div>
+                    <div style="font:400 11px Inter,sans-serif;color:#64748b;margin-top:2px">{{ f.plano }} · {{ f.nota }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="background:#12141d;border:1px solid #242838;border-radius:18px;padding:20px 22px">
+              <div style="display:flex;align-items:center;gap:13px;padding-bottom:16px;border-bottom:1px solid #242838">
+                <span style="width:44px;height:44px;flex:none;border-radius:50%;background:#1a1d29;border:1px solid #333849;color:#cbd5e1;font:700 14px Inter,sans-serif;display:flex;align-items:center;justify-content:center">{{ fichaIni }}</span>
+                <div style="flex:1">
+                  <div style="font:700 17px Inter,sans-serif;color:#fff;letter-spacing:-.015em">{{ fichaNome }}</div>
+                  <div style="font:400 12px Inter,sans-serif;color:#94a3b8;margin-top:2px">{{ fichaPlano }}</div>
+                </div>
+                <span style="font:600 11px Inter,sans-serif;color:{{ fichaCor }};border:1px solid {{ fichaCor }};padding:4px 11px;border-radius:20px">{{ fichaRotulo }}</span>
+              </div>
+
+              <div style="display:flex;gap:5px;background:#07080d;border:1px solid #242838;border-radius:12px;padding:4px;margin:16px 0">
+                <sc-for list="{{ fichaAbas }}" as="t" hint-placeholder-count="4">
+                  <button onClick="{{ t.go }}" style="flex:1;border:0;background:{{ t.bg }};color:{{ t.fg }};font:600 12px Inter,sans-serif;padding:8px;border-radius:9px;cursor:pointer">{{ t.label }}</button>
+                </sc-for>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+                <sc-for list="{{ fichaCampos }}" as="c" hint-placeholder-count="6">
+                  <div>
+                    <div style="font:400 10.5px Inter,sans-serif;letter-spacing:.05em;color:#64748b;text-transform:uppercase">{{ c.k }}</div>
+                    <div style="font:600 13.5px Inter,sans-serif;color:#e2e8f0;margin-top:3px">{{ c.v }}</div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display:flex;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid #242838">
+                <sc-for list="{{ fichaAcoes }}" as="b" hint-placeholder-count="2">
+                  <button style="border:1px solid #333849;background:#1a1d29;color:#e2e8f0;font:600 12.5px Inter,sans-serif;padding:9px 14px;border-radius:11px;cursor:pointer">{{ b.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <sc-if value="{{ novoAberto }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ fecharNovo }}" style="position:absolute;inset:0;background:rgba(3,4,8,.68);z-index:5"></div>
+          <div style="position:absolute;top:0;right:0;bottom:0;width:440px;background:#0c0e15;border-left:1px solid #242838;z-index:6;padding:26px 28px;display:flex;flex-direction:column;gap:18px;animation:up .22s ease both">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <div style="font:800 19px Inter,sans-serif;color:#fff;letter-spacing:-.02em">Novo aluno</div>
+                <div style="font:400 12px Inter,sans-serif;color:#64748b;margin-top:3px">{{ novoTitulo }}</div>
+              </div>
+              <button onClick="{{ fecharNovo }}" style="border:1px solid #242838;background:#12141d;color:#94a3b8;width:28px;height:28px;border-radius:9px;cursor:pointer;font-size:14px;line-height:1">×</button>
+            </div>
+
+            <div style="display:flex;gap:8px">
+              <sc-for list="{{ novoPassos }}" as="p" hint-placeholder-count="3">
+                <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+                  <div style="height:3px;border-radius:2px;background:{{ p.cor }}"></div>
+                  <div style="font:600 10.5px Inter,sans-serif;color:{{ p.fg }}">{{ p.n }}. {{ p.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:13px">
+              <sc-for list="{{ novoCampos }}" as="c" hint-placeholder-count="4">
+                <div>
+                  <div style="font:600 11.5px Inter,sans-serif;color:#94a3b8;margin-bottom:6px">{{ c.k }}</div>
+                  <div style="background:#07080d;border:1px solid #333849;border-radius:11px;padding:11px 13px;font:400 12.5px Inter,sans-serif;color:#4b5468">{{ c.ph }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="font:400 12px/1.55 Inter,sans-serif;color:#8ab654;background:rgba(138,182,84,.07);border:1px solid rgba(120,160,72,.3);border-radius:12px;padding:12px 14px">{{ novoNota }}</div>
+
+            <div style="margin-top:auto;display:flex;justify-content:space-between;gap:8px">
+              <button onClick="{{ novoVoltar }}" style="border:1px solid #333849;background:transparent;color:#94a3b8;font:600 12.5px Inter,sans-serif;padding:11px 16px;border-radius:12px;cursor:pointer;visibility:{{ novoVisVoltar }}">Voltar</button>
+              <button onClick="{{ novoAvancar }}" style="flex:1;border:0;background:#8ab654;color:#07080d;font:700 13px Inter,sans-serif;padding:12px;border-radius:12px;cursor:pointer">{{ novoCta }}</button>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+  </div>
+  <p class="dv-next">Todas as telas do app estão cobertas agora. Em seguida: tema claro, versão desktop do app do aluno, ou handoff para o Claude Code com o diff de cada componente.</p>
+</section>
+
+<section class="dv-turn" id="t2">
+  <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">As telas que faltavam — Recepção, execução de treino, Financeiro, Comunidade, Loja e Acesso</span></div>
+  <p class="dv-sub">Mesmo sistema de <a href="#t1">1</a>: superfície verde só no que é ação principal, resto neutro. Todas interativas — busque um aluno na catraca (tente "Rodrigo" ou "Wesley"), conclua séries com o cronômetro de descanso, troque caixa × DRE.</p>
+
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="2a">
+      <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Recepção &amp; Catraca — liberar sem sair do log</div>
+      <div style="width:1080px;background:#07080d;border:1px solid #242838;border-radius:20px;overflow:hidden;box-shadow:0 24px 60px -30px rgba(0,0,0,.7)">
+        <div style="padding:26px 28px;display:flex;flex-direction:column;gap:18px">
+          <div>
+            <div style="font:800 24px Inter,sans-serif;color:#fff;letter-spacing:-.025em">Recepção &amp; Catraca</div>
+            <div style="font:400 13px Inter,sans-serif;color:#94a3b8;margin-top:3px">Entradas em tempo real · fuso America/São_Paulo</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+            <sc-for list="{{ statsRecepcao }}" as="k" hint-placeholder-count="4">
+              <div style="background:#12141d;border:1px solid #242838;border-radius:15px;padding:14px 16px">
+                <div style="font:500 10.5px Inter,sans-serif;letter-spacing:.07em;color:#64748b">{{ k.label }}</div>
+                <div style="font:800 26px Inter,sans-serif;color:{{ k.cor }};letter-spacing:-.03em;margin-top:4px">{{ k.valor }}</div>
+                <div style="font:400 11.5px Inter,sans-serif;color:#64748b;margin-top:2px">{{ k.hint }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1.35fr;gap:14px;align-items:start">
+            <div style="background:#12141d;border:1px solid #242838;border-radius:18px;padding:20px 22px">
+              <div style="font:700 14px Inter,sans-serif;color:#fff;margin-bottom:4px">Liberar entrada</div>
+              <div style="font:400 12px Inter,sans-serif;color:#64748b;margin-bottom:13px">Nome, matrícula ou CPF — a situação financeira aparece antes de liberar.</div>
+              <input value="{{ busca }}" onChange="{{ setBusca }}" placeholder="Buscar aluno…" style="width:100%;box-sizing:border-box;background:#07080d;border:1px solid #333849;color:#fff;border-radius:12px;padding:11px 14px;font:400 13px Inter,sans-serif;outline:none" />
+
+              <sc-if value="{{ temAchado }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:14px;border:1px solid #242838;border-radius:15px;padding:16px;animation:up .2s ease both">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+                    <div>
+                      <div style="font:700 15px Inter,sans-serif;color:#fff">{{ achNome }}</div>
+                      <div style="font:400 12px Inter,sans-serif;color:#94a3b8;margin-top:2px">{{ achPlano }} · {{ achUltimo }}</div>
+                    </div>
+                    <span style="font:600 10.5px Inter,sans-serif;color:{{ achCor }};background:{{ achBg }};border:1px solid {{ achCor }};padding:3px 9px;border-radius:20px;white-space:nowrap">{{ achRotulo }}</span>
+                  </div>
+                  <div style="font:500 12.5px Inter,sans-serif;color:{{ achCor }};margin-top:10px">{{ achFin }}</div>
+                  <sc-if value="{{ achBloqueado }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top:12px;font:400 12px/1.5 Inter,sans-serif;color:#94a3b8;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.28);border-radius:11px;padding:10px 12px">
+                      Acima de 30 dias a liberação exige senha do gestor — a recepção não decide sozinha.
+                    </div>
+                  </sc-if>
+                  <button onClick="{{ liberar }}" style="width:100%;margin-top:13px;border:0;background:{{ achCor }};color:#07080d;font:700 13.5px Inter,sans-serif;padding:12px;border-radius:12px;cursor:pointer">{{ achCta }}</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ semAchado }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:14px;font:400 12.5px/1.5 Inter,sans-serif;color:#64748b">Nenhum aluno com esse nome. Tente "Rodrigo", "Renata" ou "Wesley".</div>
+              </sc-if>
+            </div>
+
+            <div style="background:#12141d;border:1px solid #242838;border-radius:18px;overflow:hidden">
+              <div style="padding:16px 20px;border-bottom:1px solid #242838;display:flex;justify-content:space-between;align-items:center">
+                <span style="font:700 14px Inter,sans-serif;color:#fff">Log da catraca</span>
+                <span style="font:500 11.5px Inter,sans-serif;color:#8ab654">● ao vivo</span>
+              </div>
+              <sc-for list="{{ catraca }}" as="c" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid rgba(36,40,56,.6)">
+                  <span style="font:600 12px ui-monospace,Menlo,monospace;color:#64748b;flex:none">{{ c.hora }}</span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font:600 13.5px Inter,sans-serif;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.nome }}</div>
+                    <div style="font:400 11.5px Inter,sans-serif;color:#64748b;margin-top:1px">{{ c.plano }} · {{ c.nota }}</div>
+                  </div>
+                  <span style="font:600 10.5px Inter,sans-serif;color:{{ c.cor }};background:{{ c.bg }};border:1px solid {{ c.bd }};padding:3px 9px;border-radius:20px;flex:none">{{ c.rotulo }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="2b">
+      <div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Execução do treino — série a série, com descanso</div>
+      <div class="fone">
+        <div style="padding:18px 16px;display:flex;flex-direction:column;gap:14px;height:100%;box-sizing:border-box">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font:500 11.5px Inter,sans-serif;color:#8ab654">TREINO A · PEITO E TRÍCEPS</div>
+              <div style="font:500 11.5px Inter,sans-serif;color:#64748b;margin-top:2px">{{ exPosicao }}</div>
+            </div>
+            <span style="font:600 11px Inter,sans-serif;color:#94a3b8;background:#12141d;border:1px solid #242838;padding:5px 10px;border-radius:20px">{{ progressoTreino }}</span>
+          </div>
+
+          <div style="border-radius:22px;padding:18px;background:linear-gradient(160deg,rgba(138,182,84,.16),rgba(138,182,84,.04));border:1px solid rgba(120,160,72,.45)">
+            <div style="font:800 20px/1.25 Inter,sans-serif;color:#fff;letter-spacing:-.02em">{{ exNome }}</div>
+            <div style="font:400 12.5px/1.5 Inter,sans-serif;color:#94a3b8;margin-top:6px">{{ exDica }}</div>
+
+            <div style="display:flex;gap:10px;margin-top:16px">
+              <div style="flex:1;background:rgba(7,8,13,.45);border-radius:14px;padding:12px 14px">
+                <div style="font:500 10px Inter,sans-serif;letter-spacing:.08em;color:#64748b">META</div>
+                <div style="font:700 17px Inter,sans-serif;color:#fff;margin-top:3px">{{ exReps }}</div>
+              </div>
+              <div style="flex:1.3;background:rgba(7,8,13,.45);border-radius:14px;padding:12px 14px">
+                <div style="font:500 10px Inter,sans-serif;letter-spacing:.08em;color:#64748b">CARGA</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:3px">
+                  <button onClick="{{ menosCarga }}" style="width:26px;height:26px;flex:none;border:1px solid #333849;background:#12141d;color:#e2e8f0;border-radius:8px;font:700 14px Inter,sans-serif;cursor:pointer;line-height:1">−</button>
+                  <span style="flex:1;text-align:center;font:700 17px Inter,sans-serif;color:#fff;font-variant-numeric:tabular-nums">{{ exCarga }}</span>
+                  <button onClick="{{ maisCarga }}" style="width:26px;height:26px;flex:none;border:1px solid #333849;background:#12141d;color:#e2e8f0;border-radius:8px;font:700 14px Inter,sans-serif;cursor:pointer;line-height:1">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div style="font:600 11px Inter,sans-serif;letter-spacing:.08em;color:#64748b;margin-bottom:9px">{{ exSerieRot }}</div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <sc-for list="{{ exSeries }}" as="x" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:11px;background:{{ x.bg }};border:1px solid {{ x.bd }};border-radius:13px;padding:11px 14px">
+                  <span style="font:700 11.5px Inter,sans-serif;color:{{ x.fg }};width:22px">{{ x.n }}</span>
+                  <span style="flex:1;font:500 12.5px Inter,sans-serif;color:{{ x.fg }};font-variant-numeric:tabular-nums">{{ x.peso }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <sc-if value="{{ descansando }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#12141d;border:1px solid #333849;border-radius:18px;padding:16px 18px;animation:up .2s ease both">
+              <div style="display:flex;justify-content:space-between;align-items:baseline">
+                <span style="font:600 11.5px Inter,sans-serif;letter-spacing:.06em;color:#64748b">DESCANSO</span>
+                <span style="font:800 24px ui-monospace,Menlo,monospace;color:#fff;font-variant-numeric:tabular-nums">{{ descansoTexto }}</span>
+              </div>
+              <div style="height:5px;border-radius:3px;background:#1a1d29;margin:12px 0 12px;overflow:hidden">
+                <div style="width:{{ descansoPct }};height:100%;background:#8ab654;transition:width 1s linear"></div>
+              </div>
+              <button onClick="{{ pularDescanso }}" style="width:100%;border:1px solid #333849;background:transparent;color:#94a3b8;font:600 12.5px Inter,sans-serif;padding:10px;border-radius:12px;cursor:pointer">Pular descanso</button>
+            </div>
+          </sc-if>
+
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:9px">
+            <div style="font:400 11.5px Inter,sans-serif;color:#64748b;text-align:center">{{ proximoEx }}</div>
+            <button onClick="{{ exAcao }}" style="width:100%;border:0;background:{{ exBtnBg }};color:{{ exBtnFg }};font:700 14.5px Inter,sans-serif;padding:15px;border-radius:16px;cursor:pointer">{{ exCta }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="2c">
+      <div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>Financeiro — caixa e DRE deixam de se confundir</div>
+      <div style="width:620px;background:#07080d;border:1px solid #242838;border-radius:20px;padding:24px 26px;display:flex;flex-direction:column;gap:16px;box-shadow:0 24px 60px -30px rgba(0,0,0,.7)">
+        <div>
+          <div style="font:800 22px Inter,sans-serif;color:#fff;letter-spacing:-.025em">Financeiro</div>
+          <div style="font:400 12.5px Inter,sans-serif;color:#94a3b8;margin-top:3px">Duas perguntas diferentes, duas abas — não dois cards parecidos na mesma tela.</div>
+        </div>
+        <div style="display:flex;gap:5px;background:#12141d;border:1px solid #242838;border-radius:12px;padding:4px">
+          <sc-for list="{{ finTabs }}" as="t" hint-placeholder-count="2">
+            <button onClick="{{ t.go }}" style="flex:1;border:0;background:{{ t.bg }};color:{{ t.fg }};font:600 12.5px Inter,sans-serif;padding:9px;border-radius:9px;cursor:pointer">{{ t.label }}</button>
+          </sc-for>
+        </div>
+        <div style="background:#12141d;border:1px solid #242838;border-radius:18px;padding:20px 22px">
+          <div style="font:700 15px Inter,sans-serif;color:#fff">{{ finTitulo }}</div>
+          <div style="font:400 12px/1.5 Inter,sans-serif;color:#64748b;margin-top:5px">{{ finNota }}</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin:18px 0 16px">
+            <sc-for list="{{ finLinhas }}" as="l" hint-placeholder-count="4">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;padding-left:{{ l.recuo }}">
+                <span style="font:500 13px Inter,sans-serif;color:#94a3b8">{{ l.k }}</span>
+                <span style="font:600 14.5px Inter,sans-serif;color:{{ l.cor }};font-variant-numeric:tabular-nums">{{ l.v }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="border-top:1px solid #242838;padding-top:15px;display:flex;justify-content:space-between;align-items:flex-end">
+            <span style="font:500 12.5px Inter,sans-serif;color:#94a3b8">{{ finTotalRot }}</span>
+            <span style="font:800 26px Inter,sans-serif;color:{{ finTotalCor }};letter-spacing:-.03em;font-variant-numeric:tabular-nums">{{ finTotal }}</span>
+          </div>
+        </div>
+        <div style="font:400 12.5px/1.55 Inter,sans-serif;color:#8ab654;background:rgba(138,182,84,.07);border:1px solid rgba(120,160,72,.3);border-radius:13px;padding:13px 15px">{{ finExtra }}</div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="2d">
+      <div class="dv-olabel"><a class="dv-oid" href="#2d">2d</a>Comunidade — feed que puxa treino, não vaidade</div>
+      <div class="fone">
+        <div style="padding:18px 16px;display:flex;flex-direction:column;gap:14px;height:100%;box-sizing:border-box">
+          <div>
+            <div style="font:500 12px Inter,sans-serif;color:#64748b">GestAcad Demonstração</div>
+            <div style="font:800 24px Inter,sans-serif;color:#fff;letter-spacing:-.02em;margin-top:2px">Comunidade</div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:11px;background:#12141d;border:1px solid #242838;border-radius:16px;padding:12px 14px">
+            <span style="width:34px;height:34px;flex:none;border-radius:50%;background:rgba(138,182,84,.15);border:1px solid rgba(120,160,72,.4);color:#8ab654;font:700 12px Inter,sans-serif;display:flex;align-items:center;justify-content:center">AB</span>
+            <span style="flex:1;font:400 13px Inter,sans-serif;color:#64748b">Compartilhe o treino de hoje…</span>
+            <span style="font:600 11px Inter,sans-serif;color:#07080d;background:#8ab654;padding:5px 10px;border-radius:9px">Treino A ✓</span>
+          </div>
+
+          <div style="background:#12141d;border:1px solid #242838;border-radius:20px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:11px;padding:14px 16px 11px">
+              <span style="width:38px;height:38px;flex:none;border-radius:50%;background:#2b2733;color:#cbd5e1;font:700 12px Inter,sans-serif;display:flex;align-items:center;justify-content:center">JN</span>
+              <div style="flex:1;min-width:0">
+                <div style="font:600 13.5px Inter,sans-serif;color:#fff">Juliana Prado Neves</div>
+                <div style="font:400 11.5px Inter,sans-serif;color:#64748b">há 3 horas</div>
+              </div>
+              <span style="font:600 10.5px Inter,sans-serif;color:#8ab654;background:rgba(138,182,84,.13);border:1px solid rgba(120,160,72,.4);padding:3px 9px;border-radius:20px">Treino C · Pernas</span>
+            </div>
+            <div style="font:400 13px/1.5 Inter,sans-serif;color:#cbd5e1;padding:0 16px 11px">Agachamento livre 5×5 com 60 kg — primeira vez que fechei todas as séries. 🎯</div>
+            <div style="height:230px;background:linear-gradient(150deg,#1a1d29,#12141d);display:flex;align-items:center;justify-content:center;font:500 11.5px Inter,sans-serif;color:#3f4657">foto do treino</div>
+            <div style="display:flex;align-items:center;gap:18px;padding:13px 16px">
+              <button onClick="{{ curtir }}" style="display:flex;align-items:center;gap:6px;border:0;background:transparent;color:{{ corCurtir }};font:600 13px Inter,sans-serif;cursor:pointer;padding:0">
+                <span style="font-size:17px;line-height:1">{{ iconeCurtir }}</span>{{ curtidas }}
+              </button>
+              <button onClick="{{ abrirComentarios }}" style="display:flex;align-items:center;gap:6px;border:0;background:transparent;color:#94a3b8;font:600 13px Inter,sans-serif;cursor:pointer;padding:0">
+                <span style="font-size:15px;line-height:1">◌</span>2
+              </button>
+              <span style="margin-left:auto;font:600 12.5px Inter,sans-serif;color:#94a3b8">Compartilhar</span>
+            </div>
+            <sc-if value="{{ comentando }}" hint-placeholder-val="{{ false }}">
+              <div style="border-top:1px solid rgba(36,40,56,.7);padding:13px 16px;display:flex;flex-direction:column;gap:11px;animation:up .18s ease both">
+                <sc-for list="{{ comentarios }}" as="c" hint-placeholder-count="2">
+                  <div style="display:flex;gap:9px">
+                    <span style="width:26px;height:26px;flex:none;border-radius:50%;background:#20302f;color:#94a3b8;font:700 9.5px Inter,sans-serif;display:flex;align-items:center;justify-content:center">{{ c.ini }}</span>
+                    <div style="flex:1;background:rgba(7,8,13,.55);border-radius:14px;padding:9px 12px">
+                      <div style="display:flex;justify-content:space-between;gap:8px">
+                        <span style="font:600 11.5px Inter,sans-serif;color:#fff">{{ c.nome }}</span>
+                        <span style="font:400 10px Inter,sans-serif;color:#64748b">{{ c.quando }}</span>
+                      </div>
+                      <div style="font:400 12.5px/1.45 Inter,sans-serif;color:#cbd5e1;margin-top:3px">{{ c.texto }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="font:400 11.5px/1.5 Inter,sans-serif;color:#64748b;text-align:center">Cada post carrega o treino que o gerou — quem curte pode abrir a ficha e adiantar o mesmo treino.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="2e">
+      <div class="dv-olabel"><a class="dv-oid" href="#2e">2e</a>Loja e Acesso — as duas telas curtas</div>
+      <div style="display:flex;gap:24px">
+        <div class="fone">
+          <div style="padding:18px 16px;display:flex;flex-direction:column;gap:14px;height:100%;box-sizing:border-box">
+            <div>
+              <div style="font:500 12px Inter,sans-serif;color:#64748b">Produtos da academia</div>
+              <div style="font:800 24px Inter,sans-serif;color:#fff;letter-spacing:-.02em;margin-top:2px">Loja</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+              <sc-for list="{{ produtos }}" as="p" hint-placeholder-count="4">
+                <div style="background:#12141d;border:1px solid #242838;border-radius:17px;overflow:hidden;display:flex;flex-direction:column">
+                  <div style="height:96px;background:{{ p.bg }};display:flex;align-items:center;justify-content:center;font:500 10.5px Inter,sans-serif;color:#4b5468">foto</div>
+                  <div style="padding:11px 12px;display:flex;flex-direction:column;gap:3px;flex:1">
+                    <div style="font:600 12.5px/1.3 Inter,sans-serif;color:#fff">{{ p.nome }}</div>
+                    <div style="font:400 10.5px Inter,sans-serif;color:#64748b">{{ p.cat }}</div>
+                    <div style="font:700 14px Inter,sans-serif;color:#8ab654;margin-top:4px">{{ p.preco }}</div>
+                    <button onClick="{{ p.go }}" style="margin-top:8px;width:100%;border:0;background:{{ p.ctaBg }};color:{{ p.ctaFg }};font:600 11px Inter,sans-serif;padding:8px;border-radius:10px;cursor:pointer">{{ p.cta }}</button>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="font:400 11.5px Inter,sans-serif;color:#64748b;text-align:center">{{ cestaTexto }}</div>
+          </div>
+        </div>
+
+        <div class="fone">
+          <div style="padding:18px 16px;display:flex;flex-direction:column;gap:16px;height:100%;box-sizing:border-box;align-items:center">
+            <div style="width:100%">
+              <div style="font:500 12px Inter,sans-serif;color:#64748b">Entrada na academia</div>
+              <div style="font:800 24px Inter,sans-serif;color:#fff;letter-spacing:-.02em;margin-top:2px">Seu acesso</div>
+            </div>
+
+            <div style="width:100%;border-radius:22px;padding:20px;background:linear-gradient(160deg,rgba(138,182,84,.16),rgba(138,182,84,.04));border:1px solid rgba(120,160,72,.45);display:flex;flex-direction:column;align-items:center;gap:14px">
+              <div style="display:flex;align-items:center;gap:7px;font:700 10.5px Inter,sans-serif;letter-spacing:.09em;color:#8ab654">
+                <span style="width:7px;height:7px;border-radius:50%;background:#8ab654"></span>LIBERADO
+              </div>
+              <div style="width:212px;height:212px;background:#fff;border-radius:16px;display:flex;align-items:center;justify-content:center;font:500 11px Inter,sans-serif;color:#94a3b8">QR de acesso</div>
+              <div style="font:600 15px ui-monospace,Menlo,monospace;color:#fff;letter-spacing:.14em">AC-2481-93</div>
+              <div style="font:400 11.5px Inter,sans-serif;color:#94a3b8">Código renova em 4 min · sem internet? use a matrícula</div>
+            </div>
+
+            <div style="width:100%;background:#12141d;border:1px solid #242838;border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font:500 13px Inter,sans-serif;color:#cbd5e1">Plano Mensal</span>
+                <span style="font:600 11px Inter,sans-serif;color:#8ab654">Ativo até 10/09</span>
+              </div>
+              <div style="height:1px;background:#242838"></div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font:500 13px Inter,sans-serif;color:#cbd5e1">Última entrada</span>
+                <span style="font:500 12.5px Inter,sans-serif;color:#94a3b8">ontem, 19:42</span>
+              </div>
+              <div style="height:1px;background:#242838"></div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font:500 13px Inter,sans-serif;color:#cbd5e1">Entradas no mês</span>
+                <span style="font:500 12.5px Inter,sans-serif;color:#94a3b8">14</span>
+              </div>
+            </div>
+
+            <div style="font:400 11.5px/1.5 Inter,sans-serif;color:#64748b;text-align:center">O status de acesso é a primeira coisa da tela: o aluno abre o app na catraca, não para ler menu.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <p class="dv-next">Em seguida: "aplica isso no Perfil e no cadastro do painel" · "quero o tema claro" · "monta a versão desktop do app do aluno"</p>
+</section>
+
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">GestAcad — auditoria e redesenho das telas que você citou</span></div>
+  <p class="dv-sub">Feito em cima do repo (tokens <b>ink/volt</b> do tailwind.config, dark nativo) e das suas 4 capturas. Ataquei as dores na ordem que você deu: loading de início, dashboard, aba de treinos e o "cara de app genérico". Tudo abaixo é clicável.</p>
+
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="1a">
+      <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Início do aluno — carregamento e estado vazio</div>
+      <div class="ctrl">
+        <sc-for list="{{ estados }}" as="e" hint-placeholder-count="3">
+          <button onClick="{{ e.go }}" style="border:1px solid {{ e.bd }};background:{{ e.bg }};color:{{ e.fg }};font:600 11px Inter,sans-serif;padding:6px 11px;border-radius:20px;cursor:pointer">{{ e.label }}</button>
+        </sc-for>
+      </div>
+      <div class="fone">
+        <div style="padding:18px 16px 0;display:flex;flex-direction:column;gap:14px;height:100%;box-sizing:border-box">
+
+          <sc-if value="{{ carregando }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div style="display:flex;flex-direction:column;gap:7px">
+                  <div class="sk" style="width:120px;height:11px"></div>
+                  <div class="sk" style="width:172px;height:24px"></div>
+                </div>
+                <div class="sk" style="width:44px;height:44px;border-radius:50%"></div>
+              </div>
+              <div class="sk" style="height:132px;border-radius:20px"></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div class="sk" style="height:78px;border-radius:16px"></div>
+                <div class="sk" style="height:78px;border-radius:16px"></div>
+              </div>
+              <div class="sk" style="height:88px;border-radius:20px"></div>
+              <div style="text-align:center;font:500 11.5px Inter,sans-serif;color:#64748b;margin-top:4px">carregando seu treino de hoje…</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ pronto }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:14px;animation:up .28s ease both">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div>
+                  <div style="font:500 12px Inter,sans-serif;color:#8ab654">GestAcad Demonstração</div>
+                  <div style="font:800 24px/1.2 Inter,sans-serif;color:#fff;letter-spacing:-.02em;margin-top:2px">Bom treino, Alison.</div>
+                </div>
+                <div style="width:44px;height:44px;border-radius:50%;background:#1a1d29;border:1px solid #242838"></div>
+              </div>
+
+              <sc-if value="{{ temTreino }}" hint-placeholder-val="{{ true }}">
+                <div style="border-radius:22px;padding:18px;background:linear-gradient(160deg,rgba(138,182,84,.16),rgba(138,182,84,.04));border:1px solid rgba(120,160,72,.45)">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font:700 10.5px Inter,sans-serif;letter-spacing:.09em;color:#8ab654">TREINO DE HOJE · SEG</span>
+                    <span style="font:600 10.5px Inter,sans-serif;color:#07080d;background:#8ab654;padding:3px 8px;border-radius:20px">4 de 7</span>
+                  </div>
+                  <div style="font:800 21px/1.25 Inter,sans-serif;color:#fff;margin:10px 0 4px;letter-spacing:-.02em">Treino A · Peito e Tríceps</div>
+                  <div style="font:400 13px Inter,sans-serif;color:#94a3b8">Hipertrofia · ≈ 43 min restantes: 19 min</div>
+                  <div style="height:6px;border-radius:3px;background:rgba(255,255,255,.1);margin:14px 0 4px;overflow:hidden">
+                    <div style="width:{{ pct }};height:100%;background:#8ab654;border-radius:3px;transition:width .35s ease"></div>
+                  </div>
+                  <div style="font:500 11.5px Inter,sans-serif;color:#94a3b8;margin-bottom:14px">Parou em: Crucifixo com Halteres · série 2</div>
+                  <button onClick="{{ continuar }}" style="width:100%;border:0;background:#8ab654;color:#07080d;font:700 14px Inter,sans-serif;padding:13px;border-radius:14px;cursor:pointer">{{ ctaTreino }}</button>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ vazio }}" hint-placeholder-val="{{ false }}">
+                <div style="border-radius:22px;padding:20px;background:#12141d;border:1px solid #242838">
+                  <span style="font:700 10.5px Inter,sans-serif;letter-spacing:.09em;color:#64748b">HOJE · SEG · DESCANSO</span>
+                  <div style="font:800 20px/1.3 Inter,sans-serif;color:#fff;margin:10px 0 6px;letter-spacing:-.02em">Dia de descanso — e está tudo certo.</div>
+                  <div style="font:400 13px/1.5 Inter,sans-serif;color:#94a3b8">Você treinou 3 de 4 dias planejados nesta semana. O próximo é <span style="color:#cbd5e1;font-weight:600">Treino B · Costas e Bíceps, terça</span>.</div>
+                  <div style="display:flex;gap:8px;margin-top:16px">
+                    <button style="flex:1;border:0;background:#1a1d29;color:#e2e8f0;font:600 13px Inter,sans-serif;padding:12px;border-radius:13px;cursor:pointer">Adiantar o Treino B</button>
+                    <button style="flex:1;border:1px solid #242838;background:transparent;color:#94a3b8;font:600 13px Inter,sans-serif;padding:12px;border-radius:13px;cursor:pointer">Ver a semana</button>
+                  </div>
+                </div>
+              </sc-if>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div style="background:#12141d;border:1px solid #242838;border-radius:18px;padding:14px 16px">
+                  <div style="font:500 10.5px Inter,sans-serif;letter-spacing:.07em;color:#64748b">SEQUÊNCIA</div>
+                  <div style="font:800 26px Inter,sans-serif;color:#fff;margin-top:4px">3<span style="font:600 12px Inter,sans-serif;color:#94a3b8;margin-left:5px">semanas</span></div>
+                </div>
+                <div style="background:#12141d;border:1px solid #242838;border-radius:18px;padding:14px 16px">
+                  <div style="font:500 10.5px Inter,sans-serif;letter-spacing:.07em;color:#64748b">ESTE MÊS</div>
+                  <div style="font:800 26px Inter,sans-serif;color:#fff;margin-top:4px">11<span style="font:600 12px Inter,sans-serif;color:#94a3b8;margin-left:5px">treinos</span></div>
+                </div>
+              </div>
+
+              <div style="background:#12141d;border:1px solid #242838;border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:11px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font:500 13px Inter,sans-serif;color:#cbd5e1">Situação financeira</span>
+                  <span style="font:600 11px Inter,sans-serif;color:#8ab654;background:rgba(138,182,84,.14);border:1px solid rgba(120,160,72,.4);padding:3px 10px;border-radius:20px">Em dia</span>
+                </div>
+                <div style="height:1px;background:#242838"></div>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font:500 13px Inter,sans-serif;color:#cbd5e1">Acesso à catraca</span>
+                  <span style="font:600 11px Inter,sans-serif;color:#8ab654;background:rgba(138,182,84,.14);border:1px solid rgba(120,160,72,.4);padding:3px 10px;border-radius:20px">Liberado</span>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex;background:rgba(18,20,29,.94);border:1px solid #242838;border-radius:20px;padding:7px">
+            <sc-for list="{{ abas }}" as="t" hint-placeholder-count="5">
+              <div style="flex:1;text-align:center;padding:8px 0;border-radius:14px;font:600 10px Inter,sans-serif;background:{{ t.bg }};color:{{ t.fg }}">
+                <div style="width:16px;height:16px;border-radius:5px;margin:0 auto 5px;background:{{ t.dot }}"></div>
+                {{ t.label }}
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Treinos — a semana vira trilha, não lista</div>
+      <div class="fone">
+        <div style="padding:18px 16px 0;display:flex;flex-direction:column;gap:14px;height:100%;box-sizing:border-box">
+          <div>
+            <div style="font:500 12px Inter,sans-serif;color:#64748b">Plano Avançado ABCD</div>
+            <div style="font:800 24px Inter,sans-serif;color:#fff;letter-spacing:-.02em;margin-top:2px">Sua semana</div>
+          </div>
+
+          <div style="display:flex;gap:5px">
+            <sc-for list="{{ dias }}" as="d" hint-placeholder-count="7">
+              <button onClick="{{ d.go }}" style="flex:1;min-width:0;border:1px solid {{ d.bd }};background:{{ d.bg }};border-radius:12px;padding:9px 0 7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px">
+                <span style="font:700 10.5px Inter,sans-serif;color:{{ d.fg }}">{{ d.label }}</span>
+                <span style="width:6px;height:6px;border-radius:50%;background:{{ d.dot }}"></span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:14px;font:500 10.5px Inter,sans-serif;color:#64748b">
+            <span>● feito</span><span style="color:#8ab654">● hoje</span><span>○ planejado</span>
+          </div>
+
+          <div style="border-radius:22px;padding:18px;background:{{ diaBg }};border:1px solid {{ diaBd }};animation:up .25s ease both">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+              <div>
+                <span style="font:700 10.5px Inter,sans-serif;letter-spacing:.09em;color:{{ diaTag }}">{{ diaRotulo }}</span>
+                <div style="font:800 21px/1.25 Inter,sans-serif;color:#fff;margin-top:8px;letter-spacing:-.02em">{{ treinoNome }}</div>
+                <div style="font:400 13px Inter,sans-serif;color:#94a3b8;margin-top:4px">{{ treinoMeta }}</div>
+              </div>
+              <span style="width:40px;height:40px;flex:none;border-radius:13px;background:rgba(255,255,255,.06)"></span>
+            </div>
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ exercicios }}" as="x" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="width:18px;height:18px;flex:none;border-radius:6px;border:1px solid {{ x.bd }};background:{{ x.bg }};color:#07080d;font:800 10px Inter,sans-serif;display:flex;align-items:center;justify-content:center">{{ x.check }}</span>
+                  <span style="flex:1;font:500 13px Inter,sans-serif;color:{{ x.fg }}">{{ x.nome }}</span>
+                  <span style="font:500 12px Inter,sans-serif;color:#64748b;font-variant-numeric:tabular-nums">{{ x.series }}</span>
+                </div>
+              </sc-for>
+              <div style="font:500 11.5px Inter,sans-serif;color:#64748b">{{ maisExercicios }}</div>
+            </div>
+            <button onClick="{{ continuar }}" style="width:100%;margin-top:16px;border:0;background:{{ btnBg }};color:{{ btnFg }};font:700 14px Inter,sans-serif;padding:13px;border-radius:14px;cursor:pointer">{{ btnLabel }}</button>
+          </div>
+
+          <div>
+            <div style="font:600 11px Inter,sans-serif;letter-spacing:.08em;color:#64748b;margin-bottom:9px">RESTO DO PLANO</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ outros }}" as="o" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:12px;background:#12141d;border:1px solid #242838;border-radius:15px;padding:12px 14px">
+                  <span style="font:700 10.5px Inter,sans-serif;color:#64748b;width:26px">{{ o.dia }}</span>
+                  <span style="flex:1;min-width:0;font:600 13px Inter,sans-serif;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ o.nome }}</span>
+                  <span style="font:500 11px Inter,sans-serif;color:#64748b">{{ o.meta }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="position:absolute;left:12px;right:12px;bottom:12px;display:flex;background:rgba(18,20,29,.94);border:1px solid #242838;border-radius:20px;padding:7px">
+            <sc-for list="{{ abasTreino }}" as="t" hint-placeholder-count="5">
+              <div style="flex:1;text-align:center;padding:8px 0;border-radius:14px;font:600 10px Inter,sans-serif;background:{{ t.bg }};color:{{ t.fg }}">
+                <div style="width:16px;height:16px;border-radius:5px;margin:0 auto 5px;background:{{ t.dot }}"></div>
+                {{ t.label }}
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="1c">
+      <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Dashboard do painel — ação antes de indicador</div>
+      <div style="width:1080px;background:#07080d;border:1px solid #242838;border-radius:20px;overflow:hidden;box-shadow:0 24px 60px -30px rgba(0,0,0,.7)">
+        <div style="padding:26px 28px;display:flex;flex-direction:column;gap:20px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end">
+            <div>
+              <div style="font:800 26px Inter,sans-serif;color:#fff;letter-spacing:-.025em">Sexta, 29 de agosto</div>
+              <div style="font:400 13.5px Inter,sans-serif;color:#94a3b8;margin-top:4px">GestAcad Demonstração · 19 alunos ativos · 47 check-ins até agora</div>
+            </div>
+            <div style="display:flex;gap:5px;background:#12141d;border:1px solid #242838;border-radius:12px;padding:4px">
+              <sc-for list="{{ periodos }}" as="p" hint-placeholder-count="4">
+                <button onClick="{{ p.go }}" style="border:0;background:{{ p.bg }};color:{{ p.fg }};font:600 12px Inter,sans-serif;padding:7px 14px;border-radius:9px;cursor:pointer">{{ p.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div>
+            <div style="font:700 11px Inter,sans-serif;letter-spacing:.09em;color:#64748b;margin-bottom:10px">PRECISA DE VOCÊ HOJE</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+              <sc-for list="{{ acoes }}" as="a" hint-placeholder-count="3">
+                <div style="background:#12141d;border:1px solid {{ a.bd }};border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;align-items:baseline;gap:9px">
+                    <span style="font:800 30px Inter,sans-serif;color:{{ a.cor }};letter-spacing:-.03em">{{ a.n }}</span>
+                    <span style="font:600 13.5px Inter,sans-serif;color:#e2e8f0">{{ a.titulo }}</span>
+                  </div>
+                  <div style="font:400 12.5px/1.45 Inter,sans-serif;color:#94a3b8">{{ a.sub }}</div>
+                  <button onClick="{{ a.go }}" style="align-self:flex-start;border:1px solid {{ a.bd }};background:{{ a.btnBg }};color:{{ a.cor }};font:600 12px Inter,sans-serif;padding:7px 13px;border-radius:9px;cursor:pointer">{{ a.cta }}</button>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:14px">
+            <div style="background:#12141d;border:1px solid #242838;border-radius:18px;padding:20px 22px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px">
+                <span style="font:700 14px Inter,sans-serif;color:#fff">Movimento por hora</span>
+                <span style="font:500 12px Inter,sans-serif;color:#64748b">{{ rotuloPeriodo }} · pico às 19h</span>
+              </div>
+              <div style="display:flex;align-items:flex-end;gap:6px;height:150px">
+                <sc-for list="{{ barras }}" as="b" hint-placeholder-count="14">
+                  <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%;justify-content:flex-end">
+                    <div style="width:100%;height:{{ b.h }};background:{{ b.cor }};border-radius:5px 5px 2px 2px;transition:height .4s cubic-bezier(.2,.7,.2,1)"></div>
+                    <span style="font:500 9.5px Inter,sans-serif;color:#64748b">{{ b.hora }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="margin-top:16px;padding-top:14px;border-top:1px solid #242838;font:400 12.5px/1.5 Inter,sans-serif;color:#94a3b8">
+                {{ insight }}
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div style="background:#12141d;border:1px solid #242838;border-radius:18px;padding:20px 22px">
+                <div style="font:700 14px Inter,sans-serif;color:#fff;margin-bottom:14px">Financeiro · {{ rotuloPeriodo }}</div>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <sc-for list="{{ financeiro }}" as="f" hint-placeholder-count="3">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline">
+                      <span style="font:500 12.5px Inter,sans-serif;color:#94a3b8">{{ f.k }}</span>
+                      <span style="font:700 16px Inter,sans-serif;color:{{ f.cor }};font-variant-numeric:tabular-nums">{{ f.v }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="background:#12141d;border:1px solid #242838;border-radius:18px;padding:20px 22px;flex:1">
+                <div style="font:700 14px Inter,sans-serif;color:#fff;margin-bottom:6px">Retenção</div>
+                <div style="font:400 12.5px Inter,sans-serif;color:#94a3b8;margin-bottom:14px">Alunos ativos que treinaram nos últimos 14 dias</div>
+                <div style="display:flex;align-items:baseline;gap:8px">
+                  <span style="font:800 34px Inter,sans-serif;color:#8ab654;letter-spacing:-.03em">{{ retencao }}</span>
+                  <span style="font:500 12px Inter,sans-serif;color:#94a3b8">{{ retencaoSub }}</span>
+                </div>
+                <div style="height:8px;border-radius:4px;background:#1a1d29;margin-top:14px;overflow:hidden">
+                  <div style="width:{{ retencao }};height:100%;background:#78a048;transition:width .4s ease"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="1d">
+      <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Auditoria — o que faz o app parecer genérico</div>
+      <div style="width:620px;background:#fff;border:1px solid rgba(0,0,0,.09);border-radius:16px;padding:26px 28px;display:flex;flex-direction:column;gap:18px">
+        <sc-for list="{{ auditoria }}" as="p" hint-placeholder-count="6">
+          <div style="display:flex;gap:14px">
+            <span style="flex:none;font:700 9.5px ui-monospace,Menlo,monospace;letter-spacing:.06em;color:#fff;background:{{ p.cor }};padding:4px 7px;border-radius:5px;height:fit-content">{{ p.sev }}</span>
+            <div>
+              <div style="font:700 14px Inter,sans-serif;letter-spacing:-.01em">{{ p.titulo }}</div>
+              <div style="font:400 13px/1.55 Inter,sans-serif;color:rgba(0,0,0,.6);margin-top:4px;text-wrap:pretty">{{ p.texto }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+  </div>
+  <p class="dv-next">Testar em seguida: "aplica o padrão de <a class="dv-oid" href="#1a">1a</a> na tela de Acesso e Perfil" · "quero o dashboard <a class="dv-oid" href="#1c">1c</a> no tema claro também" · "protótipo do fluxo de execução de treino (série a série, cronômetro)"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;estadoInicial&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;carregando&quot;,&quot;pronto&quot;,&quot;vazio&quot;],&quot;default&quot;:&quot;pronto&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;App do aluno&quot;}}">
+class Component extends DCLogic {
+  state = { estado: 'pronto', dia: 'SEG', feitos: 4, periodo: 'Hoje',
+    busca: '', log: [], exIdx: 0, serie: 0, descanso: 0, carga: 42, finTab: 'Caixa',
+    curtido: false, curtidas: 12, comentando: false, cesta: [],
+    alunoSel: 0, fichaTab: 'Dados', novoAberto: false, novoPasso: 0 };
+
+  componentDidMount() {
+    this._t = setInterval(() => {
+      if (this.state.descanso > 0) this.setState(s => ({ descanso: s.descanso - 1 }));
+    }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this._t); }
+
+  PLANO = {
+    SEG: { nome: 'Treino A · Peito e Tríceps', meta: 'Hipertrofia · 7 exercícios · ≈ 43 min', st: 'hoje',
+      ex: [['Supino Reto com Barra', '4 × 8'], ['Supino Inclinado', '4 × 8'], ['Crucifixo com Halteres', '3 × 10'], ['Tríceps Corda', '3 × 12']], total: 7 },
+    TER: { nome: 'Treino B · Costas e Bíceps', meta: 'Hipertrofia · 7 exercícios · ≈ 44 min', st: 'plan',
+      ex: [['Barra Fixa', '4 × 8'], ['Remada Curvada', '4 × 10'], ['Puxada Frontal', '3 × 12'], ['Rosca Direta', '3 × 12']], total: 7 },
+    QUA: { nome: 'Treino C · Pernas', meta: 'Força · 6 exercícios · ≈ 50 min', st: 'plan',
+      ex: [['Agachamento Livre', '5 × 5'], ['Leg Press', '4 × 10'], ['Cadeira Extensora', '3 × 12']], total: 6 },
+    QUI: { nome: 'Descanso', meta: 'Sem treino programado', st: 'off', ex: [], total: 0 },
+    SEX: { nome: 'Treino D · Ombros e Abdômen', meta: 'Hipertrofia · 6 exercícios · ≈ 38 min', st: 'plan',
+      ex: [['Desenvolvimento Militar', '4 × 8'], ['Elevação Lateral', '4 × 12'], ['Prancha', '3 × 60s']], total: 6 },
+    SAB: { nome: 'Treino A · Peito e Tríceps', meta: 'Repetição do A · ≈ 43 min', st: 'feito', ex: [['Supino Reto com Barra', '4 × 8'], ['Crucifixo com Halteres', '3 × 10']], total: 7 },
+    DOM: { nome: 'Descanso', meta: 'Sem treino programado', st: 'off', ex: [], total: 0 }
+  };
+
+  PERIODOS = {
+    Hoje: { barras: [2, 5, 9, 7, 4, 3, 3, 5, 6, 8, 12, 14, 9, 4], ret: '68%', retSub: '13 de 19 alunos', rot: 'hoje',
+      fin: [['Receita', 'R$ 480', '#8ab654'], ['Despesa', 'R$ 120', '#f87171'], ['Resultado', 'R$ 360', '#fff']],
+      insight: 'Das 18h às 20h entram 26 dos 47 check-ins do dia — 2 funcionários escalados para o pico.' },
+    Semana: { barras: [4, 8, 14, 11, 7, 5, 6, 9, 11, 16, 22, 26, 17, 8], ret: '71%', retSub: '14 de 19 alunos', rot: 'na semana',
+      fin: [['Receita', 'R$ 1.840', '#8ab654'], ['Despesa', 'R$ 990', '#f87171'], ['Resultado', 'R$ 850', '#fff']],
+      insight: 'Terça e quinta concentram 44% da semana. Quarta à tarde está vazia — janela para turma coletiva.' },
+    'Mês': { barras: [12, 22, 41, 33, 19, 15, 18, 26, 34, 47, 63, 71, 48, 21], ret: '64%', retSub: '12 de 19 alunos', rot: 'no mês',
+      fin: [['Receita', 'R$ 5.715', '#8ab654'], ['Despesa', 'R$ 5.716', '#f87171'], ['Resultado', '-R$ 1', '#f87171']],
+      insight: 'Resultado no zero: 11 mensalidades vencidas somam R$ 1.098 — cobrá-las vira o mês.' },
+    '6 meses': { barras: [61, 98, 172, 140, 84, 66, 79, 118, 151, 203, 268, 291, 205, 96], ret: '59%', retSub: '11 de 19 alunos', rot: 'em 6 meses',
+      fin: [['Receita', 'R$ 32.410', '#8ab654'], ['Despesa', 'R$ 30.980', '#f87171'], ['Resultado', 'R$ 1.430', '#8ab654']],
+      insight: 'Curva de check-ins cresce 18% ao semestre, mas a receita anda de lado: o ticket médio caiu R$ 7.' }
+  };
+
+  AUDITORIA = [
+    ['ALTO', '#b4342a', 'A tela em branco durante o carregamento', 'Hoje o Início fica vazio até os dados do Supabase voltarem — sensação de app travado. Skeletons com a forma exata dos cards (1a) fazem a espera parecer metade do tempo, e o estado real entra sem salto de layout.'],
+    ['ALTO', '#b4342a', '"Sem treino programado para hoje" é um beco sem saída', 'É a frase que o aluno mais vê e a que menos ajuda. Vire contexto + ação: onde ele está na semana, quando é o próximo treino, e um botão para adiantar (1a).'],
+    ['ALTO', '#b4342a', 'O dashboard responde "como vai a academia?" — não "o que eu faço agora?"', '23 alunos, 14 novos, 18 sumidos, 4 funcionários: quatro números do mesmo tamanho, nenhum acionável. Suba inadimplentes/sumidos/vencendo para o topo com o botão da ação na própria linha (1c).'],
+    ['MÉDIO', '#a35b16', 'Repasses de R$ 10 e R$ 25 ocupam o mesmo espaço da receita', 'Um card inteiro para R$ 35 desequilibra a hierarquia. Vira uma linha dentro do Financeiro; volta a card quando passar de X% da receita.'],
+    ['MÉDIO', '#a35b16', 'A aba Treinos mostra fichas, mas não a rotina', 'Cards iguais e empilhados: dois ABCD "Em andamento" ao mesmo tempo, sem saber onde parou. A semana como trilha com feito/hoje/planejado e retomada exata do exercício resolve (1b).'],
+    ['MÉDIO', '#a35b16', 'Chips de dia sem estado de progresso', 'SEG–DOM só filtram. Com um ponto de status cada chip vira mapa da semana e cria a sensação de sequência — o gancho de retenção mais barato que existe.'],
+    ['BAIXO', '#4a5568', 'O banner "Adicionar à tela inicial" rouba a dobra em toda visita', 'Ele aparece acima da saudação nas duas capturas. Mostre depois do 3º acesso, uma vez por semana, e no rodapé do Perfil.'],
+    ['BAIXO', '#4a5568', 'Tudo é card cinza com raio igual', 'A identidade verde só aparece em botões. Dê uma superfície própria ao "treino de hoje" (tinta verde + borda) e mantenha o resto neutro: um único destaque por tela é o que tira a cara de template.']
+  ];
+
+  tabs(ativa) {
+    return ['Início', 'Treinos', 'Comunidade', 'Acesso', 'Perfil'].map(l => ({
+      label: l,
+      bg: l === ativa ? 'rgba(138,182,84,.15)' : 'transparent',
+      fg: l === ativa ? '#8ab654' : '#94a3b8',
+      dot: l === ativa ? '#8ab654' : '#333849'
+    }));
+  }
+
+  CATRACA = [
+    ['19:42', 'Marcos Vinícius Rosa', 'Mensal · Direto', 'liberado', 'entrada nº 14 do mês'],
+    ['19:38', 'Patrícia Lemes', 'Trimestral · Gympass', 'liberado', 'repasse registrado'],
+    ['19:31', 'Rodrigo Antunes', 'Mensal · Direto', 'alerta', 'venceu há 6 dias · entrou devendo'],
+    ['19:27', 'Juliana Prado Neves', 'Anual · Direto', 'liberado', 'entrada nº 9 do mês'],
+    ['19:12', 'Wesley Camargo', 'Mensal · Direto', 'negado', 'venceu há 41 dias'],
+    ['18:58', 'Tainá Ribeiro', 'Mensal · TotalPass', 'liberado', 'repasse registrado']
+  ];
+
+  ALUNOS_BUSCA = [
+    ['Rodrigo Antunes', 'Mensal', 'atrasado', 'Venceu 23/08 · R$ 129,00', 'há 2 dias'],
+    ['Renata Vilela', 'Trimestral', 'em dia', 'Próxima 10/09', 'há 6 horas'],
+    ['Wesley Camargo', 'Mensal', 'bloqueado', 'Venceu 19/07 · R$ 258,00', 'há 41 dias']
+  ];
+
+  EXECUCAO = [
+    { nome: 'Supino Reto com Barra', series: 4, reps: '8', carga: 42, desc: 90, dica: 'Escápulas retraídas, barra na linha do mamilo.' },
+    { nome: 'Supino Inclinado com Halteres', series: 4, reps: '8-10', carga: 18, desc: 90, dica: 'Banco a 30°, sem travar o cotovelo no topo.' },
+    { nome: 'Crucifixo com Halteres', series: 3, reps: '10-12', carga: 12, desc: 60, dica: 'Cotovelo levemente flexionado durante todo o arco.' },
+    { nome: 'Tríceps Corda', series: 3, reps: '12', carga: 25, desc: 60, dica: 'Cotovelo fixo ao lado do corpo, abre a corda no final.' }
+  ];
+
+  FIN = {
+    Caixa: { titulo: 'Dinheiro que passou pelo caixa', nota: 'Agosto · o que realmente entrou e saiu da conta. É este número que paga as contas.',
+      linhas: [['Mensalidades recebidas', 'R$ 4.617', '#8ab654'], ['Vendas da loja', 'R$ 640', '#8ab654'], ['Repasses de parceiros', 'R$ 458', '#8ab654'], ['Despesas pagas', '-R$ 5.716', '#f87171']],
+      total: 'R$ -1', totalCor: '#f87171', totalRot: 'Saldo do mês', extra: 'Saldo registrado hoje: R$ 3.204 em conta.' },
+    'Competência': { titulo: 'Resultado gerado no período (DRE)', nota: 'Agosto · cada valor conta no mês a que se refere, pago ou não. Serve para saber se o mês fechou no lucro.',
+      linhas: [['Receita gerada', 'R$ 6.813', '#fff'], ['— já recebida', 'R$ 5.715', '#8ab654'], ['— ainda a receber', 'R$ 1.098', '#fbbf24'], ['Despesa gerada', 'R$ 5.716', '#f87171']],
+      total: 'R$ 1.097', totalCor: '#8ab654', totalRot: 'Lucro · margem 16%', extra: '11 mensalidades a receber são a diferença entre o caixa no zero e o lucro real.' }
+  };
+
+  PRODUTOS = [
+    ['Whey Protein 900g', 'Suplementos', 'R$ 149,90', '#2a3320'],
+    ['Camiseta Dry-Fit', 'Vestuário', 'R$ 69,90', '#2b2733'],
+    ['Garrafa Térmica 1L', 'Acessórios', 'R$ 54,00', '#20302f'],
+    ['Creatina 300g', 'Suplementos', 'R$ 119,00', '#332a20']
+  ];
+
+  PESO = [[ '02/06', 84.2 ], [ '16/06', 83.5 ], [ '30/06', 82.9 ], [ '14/07', 82.4 ], [ '28/07', 81.6 ], [ '11/08', 81.1 ], [ '25/08', 80.4 ]];
+  MEDIDAS = [['Peso', '80,4 kg', '-3,8 kg'], ['% Gordura', '18,2%', '-2,1 p.p.'], ['Peito', '104 cm', '+2 cm'], ['Cintura', '86 cm', '-5 cm'], ['Braço', '36 cm', '+1,5 cm'], ['Coxa', '58 cm', '+2 cm']];
+
+  FICHA = [
+    ['Marcos Vinícius Rosa', 'Mensal', 'ativa', 'em dia', 'Treino A · ABCD Avançado', '14 acessos no mês'],
+    ['Rodrigo Antunes', 'Mensal', 'ativa', 'atrasado', 'Treino B · ABC Iniciante', '2 acessos no mês'],
+    ['Patrícia Lemes', 'Trimestral', 'ativa', 'em dia', 'Sem treino atribuído', '9 acessos no mês'],
+    ['Wesley Camargo', 'Mensal', 'pendente', 'bloqueado', 'Treino A · ABCD Avançado', 'sem acesso há 41 dias'],
+    ['Tainá Ribeiro', 'Mensal', 'ativa', 'em dia', 'Treino C · Funcional', '11 acessos no mês']
+  ];
+
+  vals3() {
+    const s = this.state;
+    const pesos = this.PESO.map(p => p[1]);
+    const min = Math.min.apply(null, pesos) - 0.6, max = Math.max.apply(null, pesos) + 0.4;
+    const a = this.FICHA[s.alunoSel];
+    const CORF = { 'em dia': '#8ab654', atrasado: '#fbbf24', bloqueado: '#f87171' };
+    const abas = {
+      Dados: [['Nome', a[0]], ['Matrícula', 'AC-24' + (81 + s.alunoSel)], ['Telefone', '(31) 9 8' + (400 + s.alunoSel * 7) + '-2210'], ['Nascimento', '14/03/1994'], ['Aluno desde', 'fev 2023'], ['Origem', 'Direto']],
+      Plano: [['Plano atual', a[1]], ['Situação', a[3]], ['Valor', a[1] === 'Trimestral' ? 'R$ 339,00' : 'R$ 129,00'], ['Vencimento', 'dia 10'], ['Próxima cobrança', '10/09'], ['Histórico', '3 planos desde 2023']],
+      Treinos: [['Treino atual', a[4]], ['Atribuído por', 'Vinícius (instrutor)'], ['Última sessão', s.alunoSel === 3 ? 'há 41 dias' : 'ontem, 19:42'], ['Adesão 30 dias', s.alunoSel === 3 ? '0%' : '78%'], ['Objetivo', 'Hipertrofia'], ['Reavaliação', 'em 12 dias']],
+      Financeiro: [['Situação', a[3]], ['Em aberto', a[3] === 'em dia' ? 'R$ 0,00' : a[3] === 'atrasado' ? 'R$ 129,00' : 'R$ 258,00'], ['Pagas em 2026', '7 de 8'], ['Forma', 'Pix'], ['Última cobrança', a[3] === 'em dia' ? '—' : 'WhatsApp, há 3 dias'], ['Atraso médio', '4 dias']]
+    };
+    const passos3 = ['Identificação', 'Plano e vencimento', 'Treino inicial'];
+
+    return {
+      pesoBarras: this.PESO.map(p => ({
+        data: p[0], valor: String(p[1]).replace('.', ',') + ' kg',
+        h: Math.round((p[1] - min) / (max - min) * 100) + '%',
+        cor: p === this.PESO[this.PESO.length - 1] ? '#8ab654' : 'rgba(138,182,84,.3)'
+      })),
+      medidas: this.MEDIDAS.map(m => ({
+        k: m[0], v: m[1], d: m[2],
+        cor: m[2].indexOf('-') === 0 ? '#8ab654' : '#94a3b8'
+      })),
+      perfilLinks: ['Loja', 'Fale com a academia', 'Deixar feedback', 'Termos de Uso', 'Política de Privacidade'].map(l => ({ label: l })),
+
+      fichaLista: this.FICHA.map((f, i) => ({
+        nome: f[0], plano: f[1], nota: f[5],
+        cor: CORF[f[3]], rotulo: f[3],
+        bg: s.alunoSel === i ? 'rgba(138,182,84,.09)' : 'transparent',
+        bd: s.alunoSel === i ? 'rgba(120,160,72,.45)' : 'transparent',
+        go: () => this.setState({ alunoSel: i })
+      })),
+      fichaNome: a[0], fichaPlano: a[1] + ' · matrícula ' + a[2],
+      fichaCor: CORF[a[3]], fichaRotulo: a[3],
+      fichaIni: a[0].split(' ').map(w => w[0]).slice(0, 2).join(''),
+      fichaAbas: Object.keys(abas).map(k => ({
+        label: k, go: () => this.setState({ fichaTab: k }),
+        bg: s.fichaTab === k ? '#8ab654' : 'transparent',
+        fg: s.fichaTab === k ? '#07080d' : '#94a3b8'
+      })),
+      fichaCampos: abas[s.fichaTab].map(c => ({ k: c[0], v: c[1] })),
+      fichaAcoes: (s.fichaTab === 'Financeiro' ? ['Cobrar no WhatsApp', 'Marcar como pago'] :
+        s.fichaTab === 'Treinos' ? ['Atribuir modelo', 'Montar ficha do zero'] :
+        s.fichaTab === 'Plano' ? ['Trocar plano', 'Ver histórico'] : ['Editar cadastro', 'Gerar QR de acesso']).map(l => ({ label: l })),
+
+      novoAberto: s.novoAberto,
+      abrirNovo: () => this.setState({ novoAberto: true, novoPasso: 0 }),
+      fecharNovo: () => this.setState({ novoAberto: false }),
+      novoPassos: passos3.map((label, i) => ({
+        label, n: i + 1,
+        cor: i <= s.novoPasso ? '#8ab654' : '#242838',
+        fg: i <= s.novoPasso ? '#e2e8f0' : '#4b5468'
+      })),
+      novoTitulo: passos3[s.novoPasso],
+      novoCampos: [
+        [['Nome completo', 'Ex.: Ana Beatriz Correia'], ['Telefone / WhatsApp', '(31) 9 0000-0000'], ['Nascimento', 'dd/mm/aaaa'], ['CPF (opcional)', 'só para nota fiscal']],
+        [['Plano', 'Mensal · R$ 129,00'], ['Dia de vencimento', 'dia 10'], ['Primeira cobrança', '10/09/2026'], ['Forma de pagamento', 'Pix']],
+        [['Modelo de treino', 'ABCD Avançado · Vinícius'], ['Dias na semana', 'Seg, Ter, Qua, Sex'], ['Objetivo', 'Hipertrofia'], ['Instrutor responsável', 'Vinícius']]
+      ][s.novoPasso].map(c => ({ k: c[0], ph: c[1] })),
+      novoNota: [
+        'Só o nome é obrigatório. O resto a recepção completa depois sem travar a matrícula.',
+        'O vencimento gera as mensalidades automaticamente — nada de lançar mês a mês no Financeiro.',
+        'Pode deixar sem treino: o aluno já entra na catraca e o instrutor atribui depois.'
+      ][s.novoPasso],
+      novoCta: s.novoPasso === 2 ? 'Cadastrar e gerar acesso' : 'Continuar',
+      novoAvancar: () => s.novoPasso < 2 ? this.setState({ novoPasso: s.novoPasso + 1 }) : this.setState({ novoAberto: false }),
+      novoVoltar: () => this.setState({ novoPasso: Math.max(0, s.novoPasso - 1) }),
+      novoVisVoltar: s.novoPasso === 0 ? 'hidden' : 'visible'
+    };
+  }
+
+  vals2() {
+    const s = this.state;
+    const ex = this.EXECUCAO[s.exIdx];
+    const b = s.busca.trim().toLowerCase();
+    const achado = b.length > 1 ? this.ALUNOS_BUSCA.filter(a => a[0].toLowerCase().includes(b))[0] : null;
+    const STA = { liberado: ['#8ab654', 'rgba(138,182,84,.13)', 'rgba(120,160,72,.4)', 'Liberado'],
+      alerta: ['#fbbf24', 'rgba(251,191,36,.11)', 'rgba(251,191,36,.32)', 'Alerta'],
+      negado: ['#f87171', 'rgba(248,113,113,.11)', 'rgba(248,113,113,.32)', 'Negado'] };
+    const fin = this.FIN[s.finTab];
+    const total = ex.series;
+    const ultima = s.serie >= total;
+
+    return {
+      catraca: s.log.concat(this.CATRACA.map(c => ({ hora: c[0], nome: c[1], plano: c[2], st: c[3], nota: c[4] })))
+        .map(c => { const st = STA[c.st]; return Object.assign({}, c, { cor: st[0], bg: st[1], bd: st[2], rotulo: st[3] }); }),
+      statsRecepcao: [
+        ['Acessos hoje', String(47 + s.log.length), '44 permitidos · 3 negados', '#8ab654'],
+        ['Com alerta hoje', '5', 'entraram devendo', '#fbbf24'],
+        ['Alunos ativos', '19', '23 no total', '#cbd5e1'],
+        ['Pico de hoje', '19h', '14 acessos', '#cbd5e1']
+      ].map(x => ({ label: x[0], valor: x[1], hint: x[2], cor: x[3] })),
+      busca: s.busca, setBusca: (e) => this.setState({ busca: e.target.value }),
+      temAchado: !!achado, semAchado: b.length > 1 && !achado,
+      achNome: achado ? achado[0] : '', achPlano: achado ? achado[1] : '',
+      achFin: achado ? achado[3] : '', achUltimo: achado ? 'Último acesso ' + achado[4] : '',
+      achCor: achado ? (achado[2] === 'em dia' ? '#8ab654' : achado[2] === 'atrasado' ? '#fbbf24' : '#f87171') : '#8ab654',
+      achBg: achado ? (achado[2] === 'em dia' ? 'rgba(138,182,84,.12)' : achado[2] === 'atrasado' ? 'rgba(251,191,36,.1)' : 'rgba(248,113,113,.1)') : 'transparent',
+      achRotulo: achado ? achado[2] : '',
+      achBloqueado: achado ? achado[2] === 'bloqueado' : false,
+      achCta: achado ? (achado[2] === 'atrasado' ? 'Liberar com alerta' : 'Liberar entrada') : '',
+      liberar: () => {
+        if (!achado) return;
+        this.setState({
+          busca: '',
+          log: [{ hora: '19:4' + (5 + s.log.length), nome: achado[0], plano: achado[1] + ' · Direto',
+            st: achado[2] === 'atrasado' ? 'alerta' : 'liberado',
+            nota: achado[2] === 'atrasado' ? 'liberado manualmente pela recepção' : 'check-in pela recepção' }].concat(s.log)
+        });
+      },
+      exNome: ex.nome, exDica: ex.dica,
+      exPosicao: 'Exercício ' + (s.exIdx + 1) + ' de ' + this.EXECUCAO.length,
+      exReps: ex.reps + ' reps', exCarga: s.carga + ' kg',
+      exSerieRot: ultima ? 'Exercício concluído' : 'Série ' + (s.serie + 1) + ' de ' + total,
+      exSeries: Array.from({ length: total }, (_, i) => ({
+        n: 'S' + (i + 1), feito: i < s.serie,
+        bg: i < s.serie ? '#8ab654' : i === s.serie ? 'rgba(138,182,84,.12)' : '#12141d',
+        bd: i < s.serie ? '#8ab654' : i === s.serie ? 'rgba(120,160,72,.5)' : '#242838',
+        fg: i < s.serie ? '#07080d' : i === s.serie ? '#8ab654' : '#64748b',
+        peso: i < s.serie ? s.carga + ' kg × ' + ex.reps.split('-')[0] : '—'
+      })),
+      descansando: s.descanso > 0,
+      descansoTexto: Math.floor(s.descanso / 60) + ':' + String(s.descanso % 60).padStart(2, '0'),
+      descansoPct: Math.round(s.descanso / ex.desc * 100) + '%',
+      pularDescanso: () => this.setState({ descanso: 0 }),
+      concluirSerie: () => {
+        if (s.serie + 1 >= total) this.setState({ serie: total, descanso: 0 });
+        else this.setState({ serie: s.serie + 1, descanso: ex.desc });
+      },
+      exCta: ultima ? 'Próximo exercício' : s.descanso > 0 ? 'Iniciar série ' + (s.serie + 1) + ' agora' : 'Concluir série ' + (s.serie + 1),
+      exBtnBg: ultima ? '#8ab654' : s.descanso > 0 ? '#1a1d29' : '#8ab654',
+      exBtnFg: ultima ? '#07080d' : s.descanso > 0 ? '#e2e8f0' : '#07080d',
+      exAcao: () => {
+        if (ultima) {
+          const p = s.exIdx + 1 < this.EXECUCAO.length ? s.exIdx + 1 : 0;
+          return this.setState({ exIdx: p, serie: 0, descanso: 0, carga: this.EXECUCAO[p].carga });
+        }
+        if (s.descanso > 0) return this.setState({ descanso: 0 });
+        if (s.serie + 1 >= total) return this.setState({ serie: total, descanso: 0 });
+        this.setState({ serie: s.serie + 1, descanso: ex.desc });
+      },
+      exFinal: ultima,
+      proximoEx: this.EXECUCAO[s.exIdx + 1] ? 'A seguir: ' + this.EXECUCAO[s.exIdx + 1].nome : 'Último exercício do treino',
+      avancarEx: () => {
+        const p = s.exIdx + 1 < this.EXECUCAO.length ? s.exIdx + 1 : 0;
+        this.setState({ exIdx: p, serie: 0, descanso: 0, carga: this.EXECUCAO[p].carga });
+      },
+      maisCarga: () => this.setState({ carga: s.carga + 2 }),
+      menosCarga: () => this.setState({ carga: Math.max(2, s.carga - 2) }),
+      progressoTreino: Math.round((s.exIdx + s.serie / total) / this.EXECUCAO.length * 100) + '%',
+
+      finTabs: Object.keys(this.FIN).map(k => ({
+        label: k === 'Caixa' ? 'Caixa · dinheiro real' : 'Competência · DRE',
+        go: () => this.setState({ finTab: k }),
+        bg: s.finTab === k ? '#8ab654' : 'transparent',
+        fg: s.finTab === k ? '#07080d' : '#94a3b8'
+      })),
+      finTitulo: fin.titulo, finNota: fin.nota, finTotal: fin.total, finTotalCor: fin.totalCor,
+      finTotalRot: fin.totalRot, finExtra: fin.extra,
+      finLinhas: fin.linhas.map(l => ({ k: l[0], v: l[1], cor: l[2], recuo: l[0].indexOf('—') === 0 ? '14px' : '0' })),
+
+      curtido: s.curtido, curtidas: String(s.curtidas),
+      corCurtir: s.curtido ? '#e879a8' : '#94a3b8',
+      iconeCurtir: s.curtido ? '♥' : '♡',
+      curtir: () => this.setState({ curtido: !s.curtido, curtidas: s.curtidas + (s.curtido ? -1 : 1) }),
+      comentando: s.comentando,
+      abrirComentarios: () => this.setState({ comentando: !s.comentando }),
+      comentarios: [
+        ['Patrícia Lemes', 'há 2 h', 'Esse agachamento tá limpo, parabéns!'],
+        ['Rodrigo Antunes', 'há 1 h', 'Bora marcar o treino de perna de quinta 💪']
+      ].map(c => ({ nome: c[0], quando: c[1], texto: c[2],
+        ini: c[0].split(' ').map(w => w[0]).slice(0, 2).join('') })),
+
+      produtos: this.PRODUTOS.map((p, i) => ({
+        nome: p[0], cat: p[1], preco: p[2], bg: p[3],
+        naCesta: s.cesta.includes(i),
+        cta: s.cesta.includes(i) ? 'Interesse enviado' : 'Tenho interesse',
+        ctaBg: s.cesta.includes(i) ? 'rgba(138,182,84,.15)' : '#1a1d29',
+        ctaFg: s.cesta.includes(i) ? '#8ab654' : '#e2e8f0',
+        go: () => this.setState({ cesta: s.cesta.includes(i) ? s.cesta.filter(x => x !== i) : s.cesta.concat(i) })
+      })),
+      cestaTexto: s.cesta.length ? s.cesta.length + ' produto(s) — a academia recebe no WhatsApp' : 'Toque para falar com a academia'
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const dia = this.PLANO[s.dia];
+    const p = this.PERIODOS[s.periodo];
+    const maxB = Math.max.apply(null, p.barras);
+    const horas = ['6h', '7h', '8h', '9h', '10h', '11h', '12h', '14h', '16h', '17h', '18h', '19h', '20h', '21h'];
+    const estadoInicial = this.props.estadoInicial;
+    const est = estadoInicial && !this._tocou ? estadoInicial : s.estado;
+
+    return Object.assign({
+      estados: [['carregando', 'Carregando'], ['pronto', 'Com treino'], ['vazio', 'Dia sem treino']].map(([id, label]) => ({
+        label, go: () => { this._tocou = true; this.setState({ estado: id }); },
+        bg: est === id ? '#14161c' : '#fff', fg: est === id ? '#fff' : '#14161c',
+        bd: est === id ? '#14161c' : 'rgba(0,0,0,.14)'
+      })),
+      carregando: est === 'carregando', pronto: est !== 'carregando',
+      temTreino: est === 'pronto', vazio: est === 'vazio',
+      pct: Math.round(s.feitos / 7 * 100) + '%',
+      ctaTreino: s.feitos >= 7 ? 'Treino concluído · ver resumo' : 'Retomar de onde parei',
+      continuar: () => this.setState({ feitos: s.feitos >= 7 ? 4 : s.feitos + 1 }),
+      abas: this.tabs('Início'), abasTreino: this.tabs('Treinos'),
+
+      dias: Object.keys(this.PLANO).map(d => {
+        const st = this.PLANO[d].st, ativo = s.dia === d;
+        return {
+          label: d, go: () => this.setState({ dia: d }),
+          bg: ativo ? '#8ab654' : '#12141d',
+          bd: ativo ? '#8ab654' : '#242838',
+          fg: ativo ? '#07080d' : (st === 'off' ? '#64748b' : '#cbd5e1'),
+          dot: ativo ? 'rgba(7,8,13,.45)' : st === 'feito' ? '#cbd5e1' : st === 'hoje' ? '#8ab654' : st === 'off' ? '#242838' : '#333849'
+        };
+      }),
+      diaRotulo: dia.st === 'hoje' ? 'HOJE · ' + s.dia : dia.st === 'feito' ? 'CONCLUÍDO · ' + s.dia : dia.st === 'off' ? 'DESCANSO · ' + s.dia : 'PLANEJADO · ' + s.dia,
+      diaTag: dia.st === 'hoje' ? '#8ab654' : '#64748b',
+      diaBg: dia.st === 'hoje' ? 'linear-gradient(160deg,rgba(138,182,84,.16),rgba(138,182,84,.04))' : '#12141d',
+      diaBd: dia.st === 'hoje' ? 'rgba(120,160,72,.45)' : '#242838',
+      treinoNome: dia.nome, treinoMeta: dia.meta,
+      exercicios: dia.ex.map((e, i) => {
+        const feito = dia.st === 'feito' || (dia.st === 'hoje' && i < s.feitos);
+        return { nome: e[0], series: e[1], check: feito ? '✓' : '', fg: feito ? '#64748b' : '#e2e8f0',
+          bg: feito ? '#8ab654' : 'transparent', bd: feito ? '#8ab654' : '#333849' };
+      }),
+      maisExercicios: dia.total > dia.ex.length ? '+ ' + (dia.total - dia.ex.length) + ' exercícios' : '',
+      btnLabel: dia.st === 'hoje' ? 'Retomar no ' + (dia.ex[s.feitos] ? dia.ex[s.feitos][0] : 'resumo') : dia.st === 'feito' ? 'Ver resumo da sessão' : dia.st === 'off' ? 'Adiantar o Treino B' : 'Adiantar este treino',
+      btnBg: dia.st === 'hoje' ? '#8ab654' : '#1a1d29',
+      btnFg: dia.st === 'hoje' ? '#07080d' : '#e2e8f0',
+      outros: Object.keys(this.PLANO).filter(d => d !== s.dia && this.PLANO[d].st !== 'off')
+        .map(d => ({ dia: d, nome: this.PLANO[d].nome, meta: this.PLANO[d].st === 'feito' ? 'concluído' : this.PLANO[d].total + ' ex.' })),
+
+      periodos: Object.keys(this.PERIODOS).map(k => ({
+        label: k, go: () => this.setState({ periodo: k }),
+        bg: s.periodo === k ? '#8ab654' : 'transparent',
+        fg: s.periodo === k ? '#07080d' : '#94a3b8'
+      })),
+      acoes: [
+        ['11', 'inadimplentes', 'R$ 1.098 vencidos · 6 sem nenhuma cobrança enviada', 'Cobrar os 6 no WhatsApp', '#f87171', 'rgba(248,113,113,.35)', 'rgba(248,113,113,.1)'],
+        ['18', 'alunos sumidos', 'Sem acesso há 14+ dias · 4 passaram de 30 dias', 'Reativar em lote', '#fbbf24', 'rgba(251,191,36,.3)', 'rgba(251,191,36,.08)'],
+        ['4', 'vencem hoje', 'Mensalidades do dia · aviso automático desligado', 'Avisar antes de vencer', '#8ab654', 'rgba(120,160,72,.4)', 'rgba(138,182,84,.08)']
+      ].map(a => ({ n: a[0], titulo: a[1], sub: a[2], cta: a[3], cor: a[4], bd: a[5], btnBg: a[6], go: () => {} })),
+      barras: p.barras.map((v, i) => ({
+        h: Math.max(6, Math.round(v / maxB * 100)) + '%', hora: horas[i],
+        cor: v === maxB ? '#8ab654' : 'rgba(138,182,84,.32)'
+      })),
+      rotuloPeriodo: p.rot, insight: p.insight, retencao: p.ret, retencaoSub: p.retSub,
+      financeiro: p.fin.map(f => ({ k: f[0], v: f[1], cor: f[2] })),
+      auditoria: this.AUDITORIA.map(a => ({ sev: a[0], cor: a[1], titulo: a[2], texto: a[3] }))
+    }, this.vals2(), this.vals3());
+  }
+}
+</script>
+</body>
+</html>

@@ -156,6 +156,32 @@ export function sequenciaSemanalTreino(
   return { semanasSeguidas, treinosSemana };
 }
 
+/**
+ * Dias da semana (1=seg … 7=dom) em que o aluno JÁ treinou nesta semana —
+ * derivado dos acessos efetivos, para a "trilha da semana" da aba Treinos
+ * marcar cada dia como "feito" (auditoria de UX, item 6). Semana começa na
+ * segunda, no mesmo critério de `sequenciaSemanalTreino`. Compara data-
+ * calendário em SP; nunca conta um dia futuro.
+ */
+export function diasTreinadosNaSemana(
+  acessos: AcessoAlunoPublico[],
+  hoje: string = hojeSaoPaulo()
+): number[] {
+  const dias = new Set(
+    apenasEfetivos(acessos).map((a) => dataCalendarioSP(a.data_hora_entrada))
+  );
+  // Dia da semana (0=seg … 6=dom) de uma data-calendário.
+  const dowSeg0 = (iso: string): number =>
+    (new Date(`${iso}T00:00:00Z`).getUTCDay() + 6) % 7;
+  const inicioSemana = subtrairDias(hoje, dowSeg0(hoje));
+
+  const feitos = new Set<number>();
+  for (const d of dias) {
+    if (d >= inicioSemana && d <= hoje) feitos.add(dowSeg0(d) + 1);
+  }
+  return [...feitos].sort((a, b) => a - b);
+}
+
 /** true se a URL de foto é utilizável (perfil sem foto → avatar padrão). */
 export function temFotoValida(url: string | null | undefined): boolean {
   return !!url && url.trim().length > 0;

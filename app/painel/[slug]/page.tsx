@@ -1,6 +1,5 @@
 import Link from "next/link";
 import {
-  AlertTriangle,
   ArrowUpRight,
   Cake,
   CalendarClock,
@@ -31,6 +30,7 @@ import AlertasPainel, {
   AlertaInadimplente,
 } from "@/components/painel/AlertasPainel";
 import RepassesEstimadosCard from "@/components/painel/RepassesEstimadosCard";
+import PrecisaDeVoceHoje from "@/components/painel/PrecisaDeVoceHoje";
 import PrimeirosPassos from "@/components/painel/PrimeirosPassos";
 import { requireSessao } from "@/lib/auth";
 import {
@@ -259,6 +259,9 @@ export default async function DashboardOverviewPage({
     );
   }
 
+  // Total em aberto dos inadimplentes — alimenta o cartão de ação do topo.
+  const valorVencido = inadimplentes.reduce((soma, i) => soma + i.valorTotal, 0);
+
   // ---- KPIs financeiros (só para quem vê financeiro) ----
   // Regime de caixa (status=pago + data_pagamento no período), igual ao
   // Financeiro e ao gráfico "Receita x Despesa" logo abaixo — antes este
@@ -343,48 +346,19 @@ export default async function DashboardOverviewPage({
         )}
       </div>
 
-      {/* Ações de hoje — resumo de 1 linha antes dos números frios, montado só
-          com o que já foi buscado acima (nenhuma consulta nova). Pedido da
-          auditoria visual: dar uma resposta rápida a "o que preciso fazer
-          hoje" antes de qualquer gráfico ou card. */}
-      {(verFinanceiro || sumidos.length > 0 || aniversariantesComContato.length > 0) && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-ink-700 bg-ink-800/40 px-4 py-3 text-sm">
-          <span className="font-medium text-slate-300">Hoje</span>
-          {aniversariantesComContato.length > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-volt-300">
-              <Cake className="h-3.5 w-3.5" />
-              {aniversariantesComContato.length} aniversariante
-              {aniversariantesComContato.length > 1 ? "s" : ""}
-            </span>
-          )}
-          {verFinanceiro && venceHojeCount > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-slate-400">
-              <CalendarClock className="h-3.5 w-3.5" />
-              {venceHojeCount} cobrança{venceHojeCount > 1 ? "s" : ""} vence
-              {venceHojeCount > 1 ? "m" : ""} hoje
-            </span>
-          )}
-          {verFinanceiro && inadimplentes.length > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-red-400">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              {inadimplentes.length} inadimplente{inadimplentes.length > 1 ? "s" : ""}
-            </span>
-          )}
-          {sumidos.length > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-slate-400">
-              <UserX className="h-3.5 w-3.5" />
-              {sumidos.length} aluno{sumidos.length > 1 ? "s" : ""} sumido
-              {sumidos.length > 1 ? "s" : ""}
-            </span>
-          )}
-          {venceHojeCount === 0 &&
-            inadimplentes.length === 0 &&
-            sumidos.length === 0 &&
-            aniversariantesComContato.length === 0 && (
-              <span className="text-slate-500">Nada pendente por aqui. 🎉</span>
-            )}
-        </div>
-      )}
+      {/* PRECISA DE VOCÊ HOJE — o topo acionável (auditoria de UX, item 3):
+          o que exige ação sobe para o topo, com número grande na cor da
+          severidade e atalho direto, ANTES dos indicadores frios. Montado só
+          com o que já foi buscado acima (nenhuma consulta nova). */}
+      <PrecisaDeVoceHoje
+        slug={params.slug}
+        verFinanceiro={verFinanceiro}
+        inadimplentesCount={inadimplentes.length}
+        valorVencido={valorVencido}
+        sumidosCount={sumidos.length}
+        diasSumido={configRetencao.diasSumido}
+        venceHojeCount={venceHojeCount}
+      />
 
       {/* Primeiros passos (só o dono; some sozinho quando concluído). */}
       {progressoOnboarding && (
