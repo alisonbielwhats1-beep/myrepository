@@ -214,6 +214,42 @@ jobs:
         # dados de demonstração.
         run: npm run criar-demo
 
+      - name: Pré-condição do teste — um treino-modelo público
+        # O teste de "Gerenciar acesso" (treinos-acesso.spec.ts) procura, na
+        # biblioteca (/painel/<slug>/treinos), um card com o selo "Link ativo"
+        # (publico=true) E o menu "Mais ações". A biblioteca só mostra modelos
+        # (aluno_id null); os treinos públicos do seed são de ALUNO, então não
+        # aparecem lá. Aqui garantimos os modelos da academia e tornamos um
+        # deles público — determinístico, sem depender do estado acumulado que o
+        # antigo tenant hospedado tinha.
+        run: |
+          set -euo pipefail
+          psql "$SB_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare v_acad uuid; v_id uuid;
+          begin
+            select id into v_acad from public.academias where slug_url = 'demonstracao';
+            if v_acad is null then
+              raise exception 'Academia demo não encontrada (criar-demo rodou?)';
+            end if;
+            -- Idempotente: a função recria os modelos da própria academia.
+            perform public.seed_treinos_padrao(v_acad);
+            update public.treinos set publico = true
+            where id = (
+              select t.id from public.treinos t
+              where t.academia_id = v_acad and t.aluno_id is null and t.ativo = true
+              order by t.ordem, t.nome_treino
+              limit 1
+            )
+            returning id into v_id;
+            if v_id is null then
+              raise exception 'Nenhum treino-modelo da academia demo para publicar';
+            end if;
+            raise notice 'Treino-modelo % marcado como público para o e2e.', v_id;
+          end
+          $$;
+          SQL
+
       - name: Teste E2E autenticado (tenant demo local)
         env:
           CI: "true"
