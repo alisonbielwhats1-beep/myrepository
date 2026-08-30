@@ -148,7 +148,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Node 22 (não 20 como os outros jobs): o @supabase/supabase-js usado
+          # pelo criar-demo exige um WebSocket global, que só existe a partir do
+          # Node 22 ("native WebSocket not found" no Node 20).
+          node-version: "22"
           cache: npm
 
       - run: npm ci
