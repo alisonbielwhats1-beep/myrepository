@@ -3,7 +3,9 @@ import { diasTreinadosNaSemana, requireFichaAluno } from "@/lib/aluno-publico";
 import {
   getFrequenciaAlunoPublico,
   getRecordesAluno,
+  getResumoEvolucaoAluno,
   getSessoesAtivasTreino,
+  getUltimaCargaAluno,
 } from "@/lib/data";
 import { ROTULO_DIA_LONGO, diaSemanaHojeSaoPaulo } from "@/lib/dias-semana";
 import {
@@ -20,11 +22,14 @@ export default async function TreinosPage({
   params: { slug: string; token: string };
 }) {
   const ficha = await requireFichaAluno(params.slug, params.token);
-  const [sessoesAtivas, recordes, acessos] = await Promise.all([
-    getSessoesAtivasTreino(params.token, params.slug),
-    getRecordesAluno(params.token, params.slug),
-    getFrequenciaAlunoPublico(params.token, params.slug),
-  ]);
+  const [sessoesAtivas, recordes, acessos, ultimaCarga, evolucao] =
+    await Promise.all([
+      getSessoesAtivasTreino(params.token, params.slug),
+      getRecordesAluno(params.token, params.slug),
+      getFrequenciaAlunoPublico(params.token, params.slug),
+      getUltimaCargaAluno(params.token, params.slug),
+      getResumoEvolucaoAluno(params.token, params.slug),
+    ]);
 
   const hoje = diaSemanaHojeSaoPaulo();
   // Dias já treinados nesta semana — alimentam o status "feito" da trilha.
@@ -46,6 +51,8 @@ export default async function TreinosPage({
         treinos={ficha.treinos}
         sessoesAtivas={sessoesAtivas}
         recordes={recordes}
+        ultimaCarga={ultimaCarga}
+        evolucao={evolucao}
         diasFeitos={diasFeitos}
         iniciar={iniciarSessaoTreino.bind(null, params.slug, params.token)}
         salvarProgresso={salvarProgressoTreino.bind(null, params.slug, params.token)}

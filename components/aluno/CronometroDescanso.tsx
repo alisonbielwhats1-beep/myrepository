@@ -20,8 +20,15 @@ import { cn } from "@/lib/utils";
  */
 export default function CronometroDescanso({
   segundosPadrao,
+  dispararSinal = 0,
 }: {
   segundosPadrao: number;
+  /**
+   * Contador que, ao mudar para um valor maior, dispara o descanso
+   * automaticamente — usado quando o aluno marca a série como concluída. Zero
+   * (padrão) nunca dispara, então o comportamento antigo (só botão) é mantido.
+   */
+  dispararSinal?: number;
 }) {
   const base = segundosPadrao > 0 ? segundosPadrao : 60;
   const [restante, setRestante] = useState(base);
@@ -29,6 +36,7 @@ export default function CronometroDescanso({
   const [pausado, setPausado] = useState(false);
   const [terminou, setTerminou] = useState(false);
   const alvoRef = useRef(0); // timestamp (ms) em que a contagem zera
+  const ultimoSinalRef = useRef(dispararSinal);
 
   useEffect(() => {
     if (!rodando || pausado) return;
@@ -53,6 +61,20 @@ export default function CronometroDescanso({
     setPausado(false);
     setRodando(true);
   };
+
+  // Auto-início ao marcar a série: dispara só quando o sinal AUMENTA, e nunca
+  // atropela um descanso já em andamento (o aluno pode ter começado no botão).
+  useEffect(() => {
+    if (dispararSinal > ultimoSinalRef.current) {
+      ultimoSinalRef.current = dispararSinal;
+      if (!rodando) iniciar(base);
+    } else {
+      ultimoSinalRef.current = dispararSinal;
+    }
+    // `iniciar`/`base`/`rodando` são lidos no momento do disparo; depender só do
+    // sinal evita reiniciar o descanso a cada tick do cronômetro.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispararSinal]);
 
   const somar = (seg: number) => {
     alvoRef.current += seg * 1000;

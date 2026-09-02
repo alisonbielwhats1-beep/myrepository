@@ -2,7 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { CheckCircle2, Clock3, PlayCircle, RotateCcw, Target } from "lucide-react";
-import { FichaTreinoPublico, ProgressoExercicio, SessaoTreino } from "@/lib/types";
+import {
+  FichaTreinoPublico,
+  ProgressoExercicio,
+  ResumoEvolucaoAluno,
+  SessaoTreino,
+} from "@/lib/types";
 import CreditoVideosExercicios from "./CreditoVideosExercicios";
 import ExercicioCard from "./ExercicioCard";
 
@@ -25,6 +30,8 @@ export default function ExecucaoTreino({
   treino,
   sessaoInicial,
   recordes,
+  ultimaCarga = {},
+  evolucao,
   iniciar,
   salvarProgresso,
   finalizar,
@@ -32,6 +39,10 @@ export default function ExecucaoTreino({
   treino: FichaTreinoPublico;
   sessaoInicial: SessaoTreino | null;
   recordes: Record<string, number>;
+  /** Última carga (kg) por exercício — pré-preenchimento por card. */
+  ultimaCarga?: Record<string, number>;
+  /** Contadores de evolução — usados só para a comemoração de marcos. */
+  evolucao?: ResumoEvolucaoAluno;
 } & AcoesExecucao) {
   const [sessao, setSessao] = useState<SessaoTreino | null>(sessaoInicial);
   const [resumo, setResumo] = useState<SessaoTreino | null>(null);
@@ -64,6 +75,8 @@ export default function ExecucaoTreino({
       concluido: atual?.concluido ?? false,
       carga_realizada_kg: atual?.carga_realizada_kg ?? 0,
       repeticoes_realizadas: atual?.repeticoes_realizadas ?? "",
+      esforco: atual?.esforco ?? null,
+      nao_fez: atual?.nao_fez ?? false,
       ...patch,
     };
     const novoProgresso = [
@@ -116,17 +129,34 @@ export default function ExecucaoTreino({
         )
       : null;
 
+    // Número deste treino na jornada do aluno. `evolucao` é do carregamento da
+    // página (antes de finalizar), então somamos 1 para contar o recém-concluído.
+    const numeroTreino = (evolucao?.total_finalizados ?? 0) + 1;
+    const MARCOS = new Set([1, 5, 10, 25, 50, 100, 150, 200, 300, 500]);
+    const ehMarco = MARCOS.has(numeroTreino);
+    const tituloComemoracao =
+      numeroTreino === 1
+        ? "🎉 Seu primeiro treino!"
+        : ehMarco
+          ? `🏅 ${numeroTreino}º treino — que marco!`
+          : "Treino concluído";
+
     return (
       <div className="surface flex flex-col items-center gap-3 rounded-2xl p-8 text-center">
         <span className="grid h-14 w-14 place-items-center rounded-full bg-volt-500/15 text-volt-300">
           <CheckCircle2 className="h-7 w-7" />
         </span>
-        <h2 className="text-lg font-bold text-white">Treino concluído</h2>
+        <h2 className="text-lg font-bold text-white">{tituloComemoracao}</h2>
         <p className="text-sm text-slate-400">
           {totalConcluidos} de {exercicios.length} exercícios marcados como
           concluídos
           {duracaoMin != null && ` · ${duracaoMin} min`}
         </p>
+        {!ehMarco && numeroTreino > 1 && (
+          <p className="text-xs text-slate-500">
+            Este é o seu {numeroTreino}º treino registrado. Continue firme! 💪
+          </p>
+        )}
         <button onClick={() => setResumo(null)} className="btn-volt mt-2">
           Fazer este treino novamente
         </button>
@@ -199,6 +229,7 @@ export default function ExecucaoTreino({
             ex={ex}
             progresso={progressoPorExercicio.get(ex.id)}
             recorde={recordes[ex.id] ?? null}
+            ultimaCarga={ultimaCarga[ex.id] ?? null}
             onAlterar={(patch) => handleAlterar(ex.id, patch)}
           />
         ))}

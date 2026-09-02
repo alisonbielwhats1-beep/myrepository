@@ -734,6 +734,24 @@ export type LinhaRetencao = {
 /** Aluno com a classificação já aplicada, pronto para as telas. */
 export type AlunoRetencao = LinhaRetencao & ResultadoRetencao;
 
+/**
+ * Adesão aos treinos por aluno (migration 094) — quanto o aluno de fato executa
+ * as fichas prescritas, medido por sessoes_treino finalizadas. Diferente da
+ * retenção, que mede acesso à academia (catraca).
+ */
+export interface LinhaAdesaoTreino {
+  aluno_id: string;
+  nome: string;
+  /** Tem ao menos uma ficha ativa atribuída. */
+  tem_ficha: boolean;
+  /** Data da última sessão finalizada; null = nunca treinou pelo app. */
+  ultima_sessao: string | null;
+  /** Sessões finalizadas nos últimos N dias. */
+  sessoes_periodo: number;
+  /** Sessões finalizadas em toda a história. */
+  total_sessoes: number;
+}
+
 /** Mensalidade como chega do banco para a decisão de acesso (Fase 5). */
 export type MensalidadeParaAcesso = {
   id: string;
@@ -928,15 +946,33 @@ export interface PostModeracao {
 /** Status de uma sessão de execução de treino pelo aluno (Bloco 1). */
 export type StatusSessaoTreino = "ativa" | "finalizada";
 
+/** Percepção de esforço (RPE simplificado, 1 toque) que o aluno registra. */
+export type EsforcoTreino = "leve" | "medio" | "pesado";
+
 /**
  * Progresso REALIZADO de um exercício dentro de uma sessão — nunca a
  * prescrição original (que fica em ExercicioTreino, imutável por aqui).
+ *
+ * `esforco` e `nao_fez` são opcionais: sessões gravadas antes da migration 093
+ * não os têm, e a tela trata a ausência como "não informado" / "false".
  */
 export interface ProgressoExercicio {
   exercicio_id: string;
   concluido: boolean;
   carga_realizada_kg: number;
   repeticoes_realizadas: string;
+  esforco?: EsforcoTreino | null;
+  nao_fez?: boolean;
+}
+
+/**
+ * Contadores de evolução do aluno para o painel "Minha evolução" (migration
+ * 093). Campos sempre presentes; zeros quando ainda não há sessão finalizada.
+ */
+export interface ResumoEvolucaoAluno {
+  total_finalizados: number;
+  finalizados_mes: number;
+  dias_mes: number;
 }
 
 /** Sessão de execução de uma ficha de treino pelo aluno (tabela sessoes_treino). */
