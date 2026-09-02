@@ -25,6 +25,7 @@ import {
   FiltroAlunos,
   Funcionario,
   HistoricoPlano,
+  LinhaAdesaoTreino,
   LinhaRetencao,
   MensalidadeAlunoPublica,
   NotificacaoAluno,
@@ -39,6 +40,7 @@ import {
   ProdutoPublico,
   ProgressoAluno,
   Receita,
+  ResumoEvolucaoAluno,
   SessaoTreino,
   Treino,
   TreinoPublico,
@@ -1204,6 +1206,69 @@ export async function getRecordesAluno(
   return recordes;
 }
 
+/**
+ * Última carga (kg) registrada por exercício — a da sessão finalizada mais
+ * recente — via RPC `obter_ultima_carga_aluno` (migration 093). Alimenta o
+ * pré-preenchimento na tela de execução. Devolve mapa exercicio_id -> kg.
+ *
+ * Degradação graciosa: antes da migration 093 a RPC não existe; devolve vazio
+ * em vez de quebrar a tela (mesmo espírito de getRecordesAluno antes da 059).
+ */
+export async function getUltimaCargaAluno(
+  token: string,
+  slug: string
+): Promise<Record<string, number>> {
+  if (!tokenTemFormatoValido(token)) return {};
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_ultima_carga_aluno", {
+    p_token: token,
+    p_slug: slug,
+  });
+  if (error) return {};
+  const bruto = (data ?? {}) as Record<string, unknown>;
+  const cargas: Record<string, number> = {};
+  for (const [exercicioId, kg] of Object.entries(bruto)) {
+    const n = Number(kg);
+    if (Number.isFinite(n) && n > 0) cargas[exercicioId] = n;
+  }
+  return cargas;
+}
+
+/**
+ * Contadores de evolução do aluno (painel "Minha evolução") via RPC
+ * `obter_resumo_evolucao_aluno` (migration 093).
+ *
+ * Degradação graciosa: antes da migration 093 a RPC não existe; devolve zeros,
+ * e o painel simplesmente não aparece.
+ */
+export async function getResumoEvolucaoAluno(
+  token: string,
+  slug: string
+): Promise<ResumoEvolucaoAluno> {
+  const vazio: ResumoEvolucaoAluno = {
+    total_finalizados: 0,
+    finalizados_mes: 0,
+    dias_mes: 0,
+  };
+  if (!tokenTemFormatoValido(token)) return vazio;
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_resumo_evolucao_aluno", {
+    p_token: token,
+    p_slug: slug,
+  });
+  if (error || !data) return vazio;
+  const bruto = data as Record<string, unknown>;
+  const num = (v: unknown) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.trunc(n) : 0;
+  };
+  return {
+    total_finalizados: num(bruto.total_finalizados),
+    finalizados_mes: num(bruto.finalizados_mes),
+    dias_mes: num(bruto.dias_mes),
+  };
+}
+
 /** Treino compartilhado por QR (público) via RPC obter_treino_publico. */
 export async function getTreinoPublico(
   token: string
@@ -1645,6 +1710,26 @@ export async function getRetencaoAlunos(
   });
   if (error) throw new Error(`Falha ao carregar retenção: ${error.message}`);
   return (data as LinhaRetencao[]) ?? [];
+}
+
+/**
+ * Adesão aos treinos por aluno (migration 094) — quanto cada aluno de fato
+ * executa as fichas, via RPC `adesao_treinos_alunos`, isolada por academia do
+ * funcionário logado.
+ *
+ * Degradação graciosa: antes da migration 094 a RPC não existe; devolve []
+ * (a seção de adesão no painel simplesmente não aparece), sem derrubar a
+ * página de Treinos.
+ */
+export async function getAdesaoTreinos(
+  dias = 30
+): Promise<LinhaAdesaoTreino[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("adesao_treinos_alunos", {
+    p_dias: dias,
+  });
+  if (error) return [];
+  return (data as LinhaAdesaoTreino[]) ?? [];
 }
 
 export interface SecretsWebhook {

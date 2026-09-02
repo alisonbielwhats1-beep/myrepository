@@ -5,9 +5,9 @@ import type { EstadoAcao } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getAluno } from "@/lib/data";
+import { getAluno, getAlunosResumo, getPlanos } from "@/lib/data";
 import { Aluno, StatusMatricula } from "@/lib/types";
-import { hojeSaoPaulo } from "@/lib/utils";
+import { calcularIdade, hojeSaoPaulo } from "@/lib/utils";
 import { normalizarCpf, validarUrl } from "@/lib/validacoes";
 import {
   lerExerciciosDoFormulario,
@@ -276,6 +276,19 @@ function lerCpf(formData: FormData): { cpf: string | null } | { erro: string } {
 }
 
 
+/**
+ * Lê a data de nascimento do formulário (input type="date" → YYYY-MM-DD).
+ * Campo opcional: vazio vira null. Só aceita o formato de data-calendário;
+ * qualquer outra coisa também vira null (o input nativo já garante o formato,
+ * isto é a defesa do lado do servidor). A idade não é gravada — é sempre
+ * derivada desta data (ver calcularIdade), então nunca fica desatualizada.
+ */
+function lerDataNascimento(formData: FormData): string | null {
+  const raw = String(formData.get("data_nascimento") ?? "").trim();
+  if (!raw) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+}
+
 /** Campos de anamnese/saúde — nunca expostos na ficha pública do aluno. */
 function lerCamposSaude(formData: FormData) {
   return {
@@ -368,6 +381,7 @@ export async function criarAluno(
       cpf: cpf.cpf,
       email: normalizarEmail(formData.get("email") as string),
       telefone: normalizarTelefone(formData.get("telefone") as string),
+      data_nascimento: lerDataNascimento(formData),
       // Foto é enviada à parte, por atualizarFotoAlunoAdmin (upload real via
       // Storage) — este formulário não grava foto_perfil_url.
       status_matricula: statusInicial,
@@ -446,6 +460,61 @@ export async function criarAluno(
   revalidatePath(`/painel/${slug}/alunos`);
   revalidatePath(`/painel/${slug}`);
   return { ok: true, savedAt: Date.now(), id: novo?.id };
+}
+
+/**
+ * Monta os dados para exportar TODA a base de alunos em CSV. Roda no servidor
+ * (a listagem no cliente é paginada — só 20 por página), devolve cabeçalho +
+ * linhas já formatados, e o cliente dispara o download com `baixarCSV`
+ * (lib/csv.ts), o mesmo utilitário que o Financeiro usa. Idade é derivada da
+ * data de nascimento, nunca gravada. CPF sai formatado; datas em pt-BR.
+ */
+export async function exportarAlunosCsv(slug: string): Promise<
+  | { cabecalho: string[]; linhas: (string | number | null)[][]; nomeArquivo: string }
+  | { erro: string }
+> {
+  const sessao = await requireSecao(slug, "alunos");
+
+  try {
+    const [alunos, planos] = await Promise.all([
+      getAlunosResumo(sessao.academia.id),
+      getPlanos(sessao.academia.id),
+    ]);
+    const nomePlano = new Map(planos.map((p) => [p.id, p.nome]));
+
+    const formatarCpf = (cpf: string | null): string => {
+      const d = (cpf ?? "").replace(/\D/g, "");
+      if (d.length !== 11) return cpf ?? "";
+      return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+    };
+    const formatarData = (iso: string | null): string =>
+      iso ? new Date(iso.slice(0, 10) + "T00:00:00").toLocaleDateString("pt-BR") : "";
+
+    const cabecalho = [
+      "Matrícula", "Nome", "CPF", "E-mail", "Telefone", "Nascimento", "Idade",
+      "Status", "Plano", "Dia de vencimento", "Objetivo",
+    ];
+    const linhas = alunos.map((a) => {
+      const idade = calcularIdade(a.data_nascimento);
+      return [
+        a.matricula_codigo ?? "",
+        a.nome,
+        formatarCpf(a.cpf),
+        a.email ?? "",
+        a.telefone ?? "",
+        formatarData(a.data_nascimento),
+        idade ?? "",
+        a.status_matricula,
+        a.plano_id ? nomePlano.get(a.plano_id) ?? "" : "",
+        a.dia_vencimento ?? "",
+        a.objetivo ?? "",
+      ];
+    });
+
+    return { cabecalho, linhas, nomeArquivo: `alunos-${slug}-${hojeSaoPaulo()}.csv` };
+  } catch (error) {
+    return { erro: await erroAmigavel(error as Error, "exportar os alunos") };
+  }
 }
 
 export type ResultadoImportacao = {
@@ -598,6 +667,7 @@ export async function atualizarAluno(
       cpf: cpf.cpf,
       email: normalizarEmail(formData.get("email") as string),
       telefone: normalizarTelefone(formData.get("telefone") as string),
+      data_nascimento: lerDataNascimento(formData),
       // Foto é enviada à parte, por atualizarFotoAlunoAdmin — edição de dados
       // cadastrais não mexe em foto_perfil_url.
       status_matricula: novoStatus,

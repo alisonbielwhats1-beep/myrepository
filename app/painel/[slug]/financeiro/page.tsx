@@ -1,7 +1,6 @@
-import { ArrowDownCircle, ArrowUpCircle, Scale, Wallet } from "lucide-react";
 import Link from "next/link";
 import Ajuda from "@/components/ui/Ajuda";
-import StatTile from "@/components/painel/StatTile";
+import ResumoCaixaCompetencia from "@/components/painel/financeiro/ResumoCaixaCompetencia";
 import AvisoLancamentosSemData from "@/components/painel/financeiro/AvisoLancamentosSemData";
 import DREResumo from "@/components/painel/financeiro/DREResumo";
 import FormasPagamentoCard from "@/components/painel/financeiro/FormasPagamentoCard";
@@ -99,51 +98,25 @@ export default async function FinanceiroOverviewPage({
         despesasValor={incompletos.despesasValor}
       />
 
-      {/* ---------- Os quatro números que importam ---------- */}
-      <section>
-        <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-white">
-          Dinheiro que entrou e saiu · <span className="capitalize">{periodo.label}</span>
-          <Ajuda texto="Conta pela data em que o pagamento aconteceu. Uma mensalidade que venceu em julho mas foi paga em agosto aparece em agosto." />
-        </h2>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatTile
-            icon={ArrowUpCircle}
-            label="Receita recebida"
-            value={formatBRL(caixa.receitaRecebida, { compacto: true })}
-            hint="entrou"
-            accent="volt"
-            ajuda="Dinheiro que realmente entrou no período."
-          />
-          <StatTile
-            icon={ArrowDownCircle}
-            label="Despesa paga"
-            value={formatBRL(caixa.despesaPaga, { compacto: true })}
-            hint="saiu"
-            accent="red"
-            ajuda="Dinheiro que realmente saiu no período."
-          />
-          <StatTile
-            icon={Scale}
-            label="Resultado"
-            value={formatBRL(caixa.resultado, { compacto: true })}
-            hint="sobrou no período"
-            accent={caixa.resultado >= 0 ? "volt" : "red"}
-            ajuda="Receita recebida menos despesa paga, dentro do período selecionado."
-          />
-          <StatTile
-            icon={Wallet}
-            label="Saldo registrado"
-            value={formatBRL(saldo.saldo, { compacto: true })}
-            hint={
-              saldo.desde
-                ? `desde ${new Date(saldo.desde + "T00:00:00").toLocaleDateString("pt-BR")}`
-                : "no GestAcad"
-            }
-            accent="slate"
-            ajuda="O que o GestAcad conhece de caixa acumulado. Não é o saldo da sua conta no banco."
-          />
-        </div>
-      </section>
+      {/* ---------- Caixa × Competência em abas (auditoria de UX, item 7) ----------
+          As duas visões que antes conviviam soltas na tela, agora lado a lado
+          com uma faixa que liga uma à outra por número. Só apresentação — os
+          valores vêm prontos de lib/financeiro. */}
+      <ResumoCaixaCompetencia
+        periodo={periodo.label}
+        receitaRecebida={caixa.receitaRecebida}
+        despesaPaga={caixa.despesaPaga}
+        resultado={caixa.resultado}
+        saldoRegistrado={saldo.saldo}
+        saldoDesde={saldo.desde}
+        compReceita={dre.totalReceita}
+        compRecebida={dre.receitaRecebida}
+        compAReceber={dre.receitaAReceber}
+        compDespesa={dre.totalDespesa}
+        compAPagar={dre.despesaAPagar}
+        compLucro={dre.lucro}
+        compMargem={dre.margem}
+      />
 
       {/* ---------- O que está em atraso ---------- */}
       <section>

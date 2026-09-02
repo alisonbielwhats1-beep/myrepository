@@ -13,12 +13,12 @@
 --
 --   Cobre os cenários de segurança da auditoria:
 --     • instrutor A não vê o privado do instrutor B;
---     • recepção vê treino de EQUIPE e academia (migration 092), mas não o
+--     • recepção vê treino de EQUIPE e academia (migration 095), mas não o
 --       privado alheio;
 --     • dono/gerente veem tudo do próprio tenant;
 --     • academia A não vê nada da academia B (leitura e escrita);
 --     • atribuir aceita aluno 'ativa' e 'pendente', barra cross-tenant; recepção
---       também atribui (migration 092);
+--       também atribui (migration 095);
 --     • ficha do aluno: sem PII, só treinos do próprio tenant (hardening 075);
 --     • link público: liga/desliga/exclui, e nunca expõe dados do aluno.
 -- =============================================================================
@@ -157,7 +157,7 @@ begin
 end $$;
 
 -- =============================================================================
--- T2 — Recepção (migration 092, equipe técnica de treinos): vê ACADEMIA, EQUIPE
+-- T2 — Recepção (migration 095, equipe técnica de treinos): vê ACADEMIA, EQUIPE
 --       e plataforma; continua SEM ver o privado alheio (só autor/gestão).
 -- =============================================================================
 do $$
@@ -173,7 +173,7 @@ begin
   select count(*) into n from public.treinos where id = v_tacad;
   perform pg_temp.checar('recepção ve ACADEMIA', n, 1);
   select count(*) into n from public.treinos where id = v_tequ;
-  perform pg_temp.checar('recepção VE EQUIPE (migration 092)', n, 1);
+  perform pg_temp.checar('recepção VE EQUIPE (migration 095)', n, 1);
   select count(*) into n from public.treinos where id = v_tpriv;
   perform pg_temp.checar('recepção NÃO ve privado alheio', n, 0);
   select count(*) into n from public.treinos where id = v_tplat;
@@ -256,10 +256,10 @@ begin
   end;
   reset role;
 
-  -- Recepção agora ATRIBUI (migration 092): integra a equipe técnica de treinos.
+  -- Recepção agora ATRIBUI (migration 095): integra a equipe técnica de treinos.
   perform pg_temp.vira(v_recA);
   v_novo := public.atribuir_modelo_treino(v_tacad, v_alA, null);
-  perform pg_temp.checarb('recepção atribui treino (migration 092)', v_novo is not null, true);
+  perform pg_temp.checarb('recepção atribui treino (migration 095)', v_novo is not null, true);
   reset role;
 end $$;
 

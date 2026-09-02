@@ -60,7 +60,7 @@ export function podeAcessar(papel: Papel, secao: Secao): boolean {
  * Action / rota de API, evitando que uma delas divirja das outras.
  *
  * IMPORTANTE: a trava real também vive no banco (RLS + RPCs security-definer).
- * Esta função e a migration 092 (que libera a recepção no banco) andam JUNTAS —
+ * Esta função e a migration 095 (que libera a recepção no banco) andam JUNTAS —
  * sem a migration aplicada, a recepção veria os botões mas a RPC recusaria a
  * ação com "Seu perfil não pode atribuir treinos".
  */

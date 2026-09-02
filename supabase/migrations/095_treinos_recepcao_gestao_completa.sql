@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migração 092 — Recepção passa a GERENCIAR treinos (como a equipe técnica)
+-- Migração 095 — Recepção passa a GERENCIAR treinos (como a equipe técnica)
 --
 -- PEDIDO DO CLIENTE (02/09/2026)
 --   A academia pediu para "liberar os treinos para a Recepção". Até aqui a
@@ -394,7 +394,7 @@ end;
 $$;
 
 comment on function public.definir_dias_treino(uuid, smallint[]) is
-  'Define os dias da semana (1=seg … 7=dom) de uma ficha de aluno da própria academia. Cada dia é um slot exclusivo por aluno: gravar aqui tira o dia de qualquer outra ficha ativa do mesmo aluno que já o usava (devolvido em "realocados"). Papel dono/gerente/instrutor/recepcao (migration 092). Academia sempre da sessão.';
+  'Define os dias da semana (1=seg … 7=dom) de uma ficha de aluno da própria academia. Cada dia é um slot exclusivo por aluno: gravar aqui tira o dia de qualquer outra ficha ativa do mesmo aluno que já o usava (devolvido em "realocados"). Papel dono/gerente/instrutor/recepcao (migration 095). Academia sempre da sessão.';
 
 revoke all on function public.definir_dias_treino(uuid, smallint[]) from public, anon;
 grant execute on function public.definir_dias_treino(uuid, smallint[]) to authenticated;

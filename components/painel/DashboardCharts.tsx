@@ -21,19 +21,33 @@ import {
 } from "recharts";
 import { CORES_ORIGEM } from "@/lib/utils";
 
+/** Converte "#rrggbb" em "rgba(r, g, b, alpha)" — usado só para o fallback. */
+function rgbParaRgba(hex: string, alpha: number): string {
+  const m = hex.replace("#", "");
+  const r = parseInt(m.slice(0, 2), 16);
+  const g = parseInt(m.slice(2, 4), 16);
+  const b = parseInt(m.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 /**
- * Lê uma cor do tema (variável CSS "R G B") e a devolve como `rgb(...)`,
- * reagindo à troca de tema (data-theme) e ao tema do sistema. Assim os
- * gráficos usam o verde certo em cada tema (neon no escuro, profundo no claro).
+ * Lê uma cor do tema (variável CSS "R G B") e a devolve como `rgb(...)` (ou
+ * `rgba(...)` quando `alpha` é informado), reagindo à troca de tema
+ * (data-theme) e ao tema do sistema. Assim os gráficos usam o verde certo em
+ * cada tema (neon no escuro, profundo no claro).
  */
-function useCorTema(nomeVar: string, fallback: string): string {
-  const [cor, setCor] = useState(fallback);
+function useCorTema(nomeVar: string, fallback: string, alpha?: number): string {
+  const corFallback = alpha != null ? rgbParaRgba(fallback, alpha) : fallback;
+  const [cor, setCor] = useState(corFallback);
   useEffect(() => {
     const ler = () => {
       const v = getComputedStyle(document.documentElement)
         .getPropertyValue(nomeVar)
         .trim();
-      if (v) setCor(`rgb(${v})`);
+      if (!v) return;
+      setCor(
+        alpha != null ? `rgba(${v.split(/\s+/).join(", ")}, ${alpha})` : `rgb(${v})`
+      );
     };
     ler();
     const obs = new MutationObserver(ler);
@@ -47,7 +61,7 @@ function useCorTema(nomeVar: string, fallback: string): string {
       obs.disconnect();
       mq.removeEventListener("change", ler);
     };
-  }, [nomeVar]);
+  }, [nomeVar, alpha]);
   return cor;
 }
 
@@ -114,9 +128,26 @@ export function GraficoOrigem({ dados }: { dados: PontoOrigem[] }) {
   );
 }
 
-/** Barras: volume de acessos por faixa horária (horários de pico). */
-export function GraficoHorarios({ dados }: { dados: PontoHora[] }) {
+/**
+ * Barras: volume de acessos por faixa horária (horários de pico).
+ *
+ * `destacarPico`: opcional, desligado por padrão (mantém o Relatórios/BI
+ * exatamente como está). Quando ligado — Dashboard, auditoria de UX item 3
+ * — a barra de maior volume fica em volt-300 e as demais em volt-300/32,
+ * pra "onde é o pico" saltar aos olhos sem precisar ler o eixo.
+ */
+export function GraficoHorarios({
+  dados,
+  destacarPico = false,
+}: {
+  dados: PontoHora[];
+  destacarPico?: boolean;
+}) {
   const volt = useCorTema("--volt-300", "#adff42");
+  const voltFraco = useCorTema("--volt-300", "#adff42", 0.32);
+  const maxAcessos = destacarPico
+    ? Math.max(0, ...dados.map((d) => d.acessos))
+    : 0;
   return (
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={dados} margin={{ left: -20, right: 8, top: 8 }}>
@@ -136,7 +167,17 @@ export function GraficoHorarios({ dados }: { dados: PontoHora[] }) {
           contentStyle={tooltipStyle}
           cursor={{ fill: "rgba(120,120,120,0.08)" }}
         />
-        <Bar dataKey="acessos" radius={[6, 6, 0, 0]} fill={volt} />
+        <Bar dataKey="acessos" radius={[6, 6, 0, 0]} fill={volt}>
+          {destacarPico &&
+            dados.map((d, i) => (
+              <Cell
+                key={i}
+                fill={
+                  d.acessos === maxAcessos && maxAcessos > 0 ? volt : voltFraco
+                }
+              />
+            ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );

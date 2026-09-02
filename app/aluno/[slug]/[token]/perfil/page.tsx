@@ -45,51 +45,40 @@ export default async function PerfilPage({
         <h1 className="text-2xl font-bold text-white">Perfil</h1>
       </header>
 
-      {/* Card do aluno */}
-      <div className="surface rounded-3xl p-6 text-center">
-        <div className="mx-auto w-fit">
-          <AvatarAluno nome={aluno.nome} fotoUrl={aluno.foto_perfil_url} size={96} />
-        </div>
-        <h2 className="mt-4 text-xl font-bold text-white">{aluno.nome}</h2>
-        <span
-          className={cn(
-            "chip mt-2",
-            badgeStatusMatricula(aluno.status_matricula)
-          )}
-        >
-          <BadgeCheck className="h-3.5 w-3.5" />
-          Matrícula {aluno.status_matricula}
-        </span>
-        <p className="mt-2 text-xs text-slate-500">Na academia desde {alunoDesde}</p>
-      </div>
-
-      {/* Foto de perfil — único dado editável pelo aluno sem login */}
-      <FotoPerfilForm
-        nome={aluno.nome}
-        fotoAtual={aluno.foto_perfil_url}
-        atualizar={atualizarFotoAluno.bind(null, params.slug, params.token)}
-      />
-
-      {/* Plano */}
-      {aluno.plano_nome && (
-        <div className="surface rounded-2xl p-5">
-          <div className="flex items-center gap-2 text-slate-300">
-            <CreditCard className="h-4 w-4 text-volt-300" />
-            <span className="text-sm font-medium">Plano atual</span>
+      {/* Header compacto: identidade + foto num só bloco (auditoria de UX) —
+          antes eram dois cards separados (avatar centralizado de 96px +
+          FotoPerfilForm à parte). A foto é o único dado editável pelo aluno
+          sem login. */}
+      <div className="surface rounded-2xl p-5">
+        <div className="flex items-center gap-4">
+          <AvatarAluno nome={aluno.nome} fotoUrl={aluno.foto_perfil_url} size={56} />
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-lg font-bold text-white">{aluno.nome}</h2>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span
+                className={cn(
+                  "chip",
+                  badgeStatusMatricula(aluno.status_matricula)
+                )}
+              >
+                <BadgeCheck className="h-3.5 w-3.5" />
+                Matrícula {aluno.status_matricula}
+              </span>
+              <span className="text-xs text-slate-500">desde {alunoDesde}</span>
+            </div>
           </div>
-          <p className="mt-2 text-lg font-bold text-white">{aluno.plano_nome}</p>
         </div>
-      )}
-
-      {/* Identificação */}
-      <div className="surface space-y-3 rounded-2xl p-5">
-        <div className="flex items-center gap-3 text-sm text-slate-300">
-          <ShieldCheck className="h-4 w-4 text-slate-500" />
-          Matrícula {aluno.matricula_codigo ?? "—"}
+        <div className="mt-4 border-t border-ink-600/60 pt-4">
+          <FotoPerfilForm
+            nome={aluno.nome}
+            fotoAtual={aluno.foto_perfil_url}
+            atualizar={atualizarFotoAluno.bind(null, params.slug, params.token)}
+          />
         </div>
       </div>
 
-      {/* Evolução */}
+      {/* Evolução — sobe para o topo do conteúdo (auditoria de UX): é o que o
+          aluno quer ver, não pode ser o último de seis cards empilhados. */}
       {progresso.length > 0 && (
         <div className="surface rounded-2xl p-5">
           <div className="flex items-center gap-2 text-slate-300">
@@ -137,6 +126,25 @@ export default async function PerfilPage({
           </p>
         </div>
       )}
+
+      {/* Plano */}
+      {aluno.plano_nome && (
+        <div className="surface rounded-2xl p-5">
+          <div className="flex items-center gap-2 text-slate-300">
+            <CreditCard className="h-4 w-4 text-volt-300" />
+            <span className="text-sm font-medium">Plano atual</span>
+          </div>
+          <p className="mt-2 text-lg font-bold text-white">{aluno.plano_nome}</p>
+        </div>
+      )}
+
+      {/* Identificação */}
+      <div className="surface space-y-3 rounded-2xl p-5">
+        <div className="flex items-center gap-3 text-sm text-slate-300">
+          <ShieldCheck className="h-4 w-4 text-slate-500" />
+          Matrícula {aluno.matricula_codigo ?? "—"}
+        </div>
+      </div>
 
       {/* Mais — itens secundários (rotas preservadas, só saíram da barra
           inferior fixa no Bloco 2) e documentos legais do piloto. */}

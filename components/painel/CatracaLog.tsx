@@ -13,11 +13,12 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { Aluno, DecisaoAcesso, Plano, StatusFinanceiro } from "@/lib/types";
+import { AcessoCatraca, Aluno, DecisaoAcesso, Plano, StatusFinanceiro } from "@/lib/types";
 import {
   badgeStatusFinanceiro,
   rotuloStatusFinanceiro,
   badgeStatusMatricula,
+  calcularIdade,
   cn,
   formatBRL,
   timeAgo,
@@ -31,12 +32,15 @@ export default function CatracaLog({
   statusFinanceiroMap,
   ultimosAcessos,
   slug,
+  onRegistrado,
 }: {
   alunos: Aluno[];
   planos: Plano[];
   statusFinanceiroMap: Record<string, StatusFinanceiro>;
   ultimosAcessos: Record<string, string>;
   slug: string;
+  /** Chamado com o acesso recém-registrado, para prepend otimista no log. */
+  onRegistrado?: (acesso: AcessoCatraca) => void;
 }) {
   const [mostrarForm, setMostrarForm] = useState(false);
 
@@ -69,6 +73,7 @@ export default function CatracaLog({
           statusFinanceiroMap={statusFinanceiroMap}
           ultimosAcessos={ultimosAcessos}
           onSalvo={() => setMostrarForm(false)}
+          onRegistrado={onRegistrado}
         />
       ) : (
         <p className="px-5 py-4 text-sm text-slate-400">
@@ -90,6 +95,24 @@ function apenasDigitos(s: string): string {
   return s.replace(/\D/g, "");
 }
 
+/**
+ * Selo de "menor de idade" para a recepção — academia costuma exigir termo de
+ * responsável para quem tem menos de 18. Só aparece quando a data de
+ * nascimento está preenchida e a idade calculada é menor que 18.
+ */
+function SeloMenorIdade({ dataNascimento }: { dataNascimento: string | null }) {
+  const idade = calcularIdade(dataNascimento);
+  if (idade == null || idade >= 18) return null;
+  return (
+    <span
+      title="Menor de idade — verifique o termo de responsável"
+      className="inline-flex flex-none items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300"
+    >
+      Menor · {idade}a
+    </span>
+  );
+}
+
 function FormularioAcesso({
   slug,
   alunos,
@@ -97,6 +120,7 @@ function FormularioAcesso({
   statusFinanceiroMap,
   ultimosAcessos,
   onSalvo,
+  onRegistrado,
 }: {
   slug: string;
   alunos: Aluno[];
@@ -104,6 +128,7 @@ function FormularioAcesso({
   statusFinanceiroMap: Record<string, StatusFinanceiro>;
   ultimosAcessos: Record<string, string>;
   onSalvo: () => void;
+  onRegistrado?: (acesso: AcessoCatraca) => void;
 }) {
   const acao = registrarAcesso.bind(null, slug);
   const [estado, formAction] = useFormState(acao, {});
@@ -119,11 +144,33 @@ function FormularioAcesso({
   useEffect(() => {
     if (!estado.savedAt) return;
     setChave(gerarChave());
+    // Prepend otimista no log: o servidor já inseriu a linha (mesmo em
+    // "alerta"/"bloqueado" — ambos ficam no histórico) e devolveu o registro
+    // completo, exceto `aluno`, que montamos aqui com o aluno já selecionado
+    // (evita mais uma consulta só pra isso).
+    if (estado.ok && estado.acessoRegistrado && alunoSelecionado) {
+      onRegistrado?.({
+        ...estado.acessoRegistrado,
+        valor_repasse: null,
+        aluno: {
+          id: alunoSelecionado.id,
+          nome: alunoSelecionado.nome,
+          foto_perfil_url: alunoSelecionado.foto_perfil_url,
+        },
+      });
+    }
     if (estado.ok && estado.decisao?.resultado === "liberado") onSalvo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado.savedAt]);
 
   const alunoSelecionado = alunos.find((a) => a.id === alunoId) ?? null;
+  // Situação financeira do aluno escolhido — faz o CTA e o aviso mudarem antes
+  // mesmo de registrar (auditoria de UX): "Liberar entrada" vs "Liberar com
+  // alerta". A decisão final (e o bloqueio por política) continua no servidor.
+  const statusSelecionado = alunoSelecionado
+    ? statusFinanceiroMap[alunoSelecionado.id]
+    : undefined;
+  const liberarComAlerta = statusSelecionado === "inadimplente";
 
   const resultados = useMemo(() => {
     const termo = busca.trim();
@@ -198,7 +245,10 @@ function FormularioAcesso({
                   >
                     <FotoAluno aluno={a} tamanho={36} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-white">{a.nome}</p>
+                      <p className="flex items-center gap-1.5 text-sm font-medium text-white">
+                        <span className="truncate">{a.nome}</span>
+                        <SeloMenorIdade dataNascimento={a.data_nascimento} />
+                      </p>
                       <p className="truncate text-xs text-slate-500">
                         {a.matricula_codigo ?? "sem matrícula"}
                         {a.telefone ? ` · ${a.telefone}` : ""}
@@ -215,6 +265,14 @@ function FormularioAcesso({
         </div>
       )}
 
+      {liberarComAlerta && (
+        <p className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-none" />
+          Aluno com mensalidade vencida. Confirme com o gestor antes de liberar —
+          o registro fica no histórico.
+        </p>
+      )}
+
       <div className="flex flex-wrap items-end gap-3">
         <label>
           <span className="mb-1 block text-xs font-medium text-slate-400">Origem</span>
@@ -224,7 +282,7 @@ function FormularioAcesso({
             <option value="TotalPass">TotalPass</option>
           </select>
         </label>
-        <BotaoRegistrar disabled={!alunoId} />
+        <BotaoRegistrar disabled={!alunoId} alerta={liberarComAlerta} />
       </div>
     </form>
   );
@@ -272,13 +330,23 @@ function CartaoAlunoSelecionado({
   ultimoAcesso?: string;
   onTrocar: () => void;
 }) {
+  const idadeAluno = calcularIdade(aluno.data_nascimento);
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-ink-600 bg-ink-800/60 px-4 py-3">
       <FotoAluno aluno={aluno} tamanho={44} />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-white">{aluno.nome}</p>
+        <p className="flex items-center gap-1.5 font-medium text-white">
+          <span className="truncate">{aluno.nome}</span>
+          <SeloMenorIdade dataNascimento={aluno.data_nascimento} />
+        </p>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
           <span>{plano?.nome ?? "sem plano"}</span>
+          {idadeAluno != null && (
+            <>
+              <span className="text-slate-600">·</span>
+              <span>{idadeAluno} anos</span>
+            </>
+          )}
           <span className="text-slate-600">·</span>
           <span className={cn("chip text-[10px]", badgeStatusMatricula(aluno.status_matricula))}>
             {aluno.status_matricula}
@@ -392,16 +460,37 @@ function PainelDecisao({ decisao }: { decisao: DecisaoAcesso }) {
   );
 }
 
-function BotaoRegistrar({ disabled }: { disabled: boolean }) {
+function BotaoRegistrar({
+  disabled,
+  alerta = false,
+}: {
+  disabled: boolean;
+  alerta?: boolean;
+}) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={disabled || pending} className="btn-volt disabled:opacity-50">
+    <button
+      type="submit"
+      disabled={disabled || pending}
+      className={cn(
+        "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50",
+        alerta
+          ? "border border-amber-500/40 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25"
+          : "btn-volt"
+      )}
+    >
       {pending ? (
         <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
       ) : (
         <Plus className="h-4 w-4" />
       )}
-      {pending ? "Registrando..." : "Registrar"}
+      {pending
+        ? "Registrando..."
+        : disabled
+          ? "Liberar entrada"
+          : alerta
+            ? "Liberar com alerta"
+            : "Liberar entrada"}
     </button>
   );
 }

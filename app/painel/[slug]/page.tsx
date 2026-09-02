@@ -1,19 +1,20 @@
 import Link from "next/link";
 import {
-  AlertTriangle,
   ArrowUpRight,
+  Cake,
   CalendarClock,
   ChevronDown,
+  Clock,
   DollarSign,
   HeartPulse,
   Lock,
+  MessageCircle,
   Scale,
   Target,
   TrendingUp,
   UserPlus,
   UserRound,
   Users,
-  UserX,
   Zap,
 } from "lucide-react";
 import Ajuda from "@/components/ui/Ajuda";
@@ -23,12 +24,15 @@ import BotaoCobrancaWhats from "@/components/painel/BotaoCobrancaWhats";
 import {
   GraficoEvolucaoAlunos,
   GraficoFinanceiroMensal,
+  GraficoHorarios,
   PontoEvolucaoAlunos,
+  PontoHora,
 } from "@/components/painel/DashboardCharts";
 import AlertasPainel, {
   AlertaInadimplente,
 } from "@/components/painel/AlertasPainel";
 import RepassesEstimadosCard from "@/components/painel/RepassesEstimadosCard";
+import PrecisaDeVoceHoje from "@/components/painel/PrecisaDeVoceHoje";
 import PrimeirosPassos from "@/components/painel/PrimeirosPassos";
 import { requireSessao } from "@/lib/auth";
 import {
@@ -37,6 +41,7 @@ import {
   getDespesas,
   getReceitasJanela,
   getDespesasJanela,
+  getAcessosPeriodo,
   getContagemAlunos,
   getTelefonesDosAlunos,
   getContagemAlunosCriadosEntre,
@@ -46,7 +51,9 @@ import {
   getFuncionarios,
   getRepassesParceirosFinanceiro,
   getProgressoOnboarding,
+  getAlunosAniversariantes,
 } from "@/lib/data";
+import { linkWhats, mensagemAniversario } from "@/lib/whats";
 import { agruparFinanceiro, calcularCaixaPeriodo, ultimosMeses } from "@/lib/financeiro";
 import { resolverJanelaDashboard } from "@/lib/periodo";
 import {
@@ -55,6 +62,7 @@ import {
   configRetencaoDe,
   formatBRL,
   hojeSaoPaulo,
+  horaSaoPaulo,
 } from "@/lib/utils";
 import { planoPodeAcessar } from "@/lib/planos";
 
@@ -118,6 +126,13 @@ export default async function DashboardOverviewPage({
     return new Date(Date.UTC(ano, mes, 1)).toISOString().slice(0, 10);
   });
 
+  // Limites ISO da janela do filtro do topo, para o gráfico "Movimento por
+  // hora" abaixo — mesma convenção (imprecisa, mas já usada) do Relatórios/BI:
+  // dia final vai até agora quando é hoje, senão até o fim do dia.
+  const desdeIsoJanela = `${janela.desde}T00:00:00.000Z`;
+  const ateIsoJanela =
+    janela.ate === hojeIso ? new Date().toISOString() : `${janela.ate}T23:59:59.999Z`;
+
   // Fase 13: nada de carregar a base inteira de alunos/receitas/despesas para
   // somar em memória. Cada consulta abaixo já vem do banco recortada pelo
   // período que ela realmente precisa (ver comentários em lib/data.ts).
@@ -136,6 +151,8 @@ export default async function DashboardOverviewPage({
     vencidas,
     proximosVencimentosRows,
     repassesParceiros,
+    aniversariantesMes,
+    acessosPeriodo,
   ] = await Promise.all([
     getContagemAlunos(sessao.academia.id),
     verFinanceiro ? getFuncionarios(sessao.academia.id) : Promise.resolve([]),
@@ -157,7 +174,31 @@ export default async function DashboardOverviewPage({
     // gerente/recepção/instrutor. A RPC repasses_parceiros_resumo também se
     // protege por dentro (migration 049) — dupla trava.
     verDono ? getRepassesParceirosFinanceiro(janela.desde, janela.ate) : Promise.resolve([]),
+    // Aniversariantes do mês (RPC agregada no banco) — filtramos o dia de hoje
+    // abaixo. Visível para todo papel que vê o Dashboard: é relacionamento, não
+    // financeiro. mesJs é 0-11 (Date#getMonth); hojeIso está em SP.
+    getAlunosAniversariantes(Number(hojeIso.slice(5, 7)) - 1),
+    // Movimento por hora (auditoria de UX, item 3): visível a todo papel que
+    // vê o Dashboard, não só quem vê financeiro — recepção e instrutor também
+    // se beneficiam de saber o horário de pico.
+    getAcessosPeriodo(sessao.academia.id, desdeIsoJanela, ateIsoJanela),
   ]);
+
+  // Aniversariantes de HOJE: mesmo dia/mês da data de nascimento, comparado em
+  // America/Sao_Paulo (hojeIso). A RPC já recortou o mês.
+  const mmddHoje = hojeIso.slice(5, 10); // MM-DD
+  const aniversariantesHoje = aniversariantesMes.filter(
+    (a) => a.data_nascimento.slice(5, 10) === mmddHoje
+  );
+  const telefonesAniversario = await getTelefonesDosAlunos(
+    sessao.academia.id,
+    aniversariantesHoje.map((a) => a.id)
+  );
+  const aniversariantesComContato = aniversariantesHoje.map((a) => ({
+    id: a.id,
+    nome: a.nome,
+    telefone: telefonesAniversario.get(a.id) ?? null,
+  }));
 
   // Mesma consulta agregada e mesma função de classificação da tela de Retenção.
   // O card "Alunos sumidos" conta somente a classificação "sumido".
@@ -234,6 +275,9 @@ export default async function DashboardOverviewPage({
     );
   }
 
+  // Total em aberto dos inadimplentes — alimenta o cartão de ação do topo.
+  const valorVencido = inadimplentes.reduce((soma, i) => soma + i.valorTotal, 0);
+
   // ---- KPIs financeiros (só para quem vê financeiro) ----
   // Regime de caixa (status=pago + data_pagamento no período), igual ao
   // Financeiro e ao gráfico "Receita x Despesa" logo abaixo — antes este
@@ -287,6 +331,48 @@ export default async function DashboardOverviewPage({
 
   const hintPeriodo = janela.custom ? "no período" : janela.label.toLowerCase();
 
+  // ---- Movimento por hora (auditoria de UX, item 3) ----
+  // Só entradas efetivamente liberadas contam, mesmo critério de
+  // "permitidosHoje" da Recepção — um "negado" não é movimento de gente
+  // entrando na academia. Faixa mostrada = só as horas com algum acesso no
+  // período (evita 24 barras vazias fora do horário de funcionamento).
+  const contagemHora = new Map<number, number>();
+  for (const a of acessosPeriodo) {
+    if (a.status_liberacao !== "liberado" && a.status_liberacao !== "alerta") continue;
+    const h = horaSaoPaulo(a.data_hora_entrada);
+    contagemHora.set(h, (contagemHora.get(h) ?? 0) + 1);
+  }
+  const horasComMovimento = Array.from(contagemHora.keys());
+  const horaMin = horasComMovimento.length ? Math.min(...horasComMovimento) : 0;
+  const horaMax = horasComMovimento.length ? Math.max(...horasComMovimento) : -1;
+  const dadosHora: PontoHora[] = [];
+  for (let h = horaMin; h <= horaMax; h++) {
+    dadosHora.push({ hora: `${h}h`, acessos: contagemHora.get(h) ?? 0 });
+  }
+  const totalMovimento = dadosHora.reduce((soma, p) => soma + p.acessos, 0);
+
+  // Melhor janela contígua de até 2 horas — vira a frase de insight acima do
+  // gráfico, pra "que horas eu preciso de mais gente" não depender de ler o
+  // eixo barra a barra.
+  let insightMovimento: string | null = null;
+  if (totalMovimento > 0) {
+    let melhorIdx = 0;
+    let melhorSoma = -1;
+    let melhorSpan = 1;
+    for (let i = 0; i < dadosHora.length; i++) {
+      const temSeguinte = i + 1 < dadosHora.length;
+      const soma = dadosHora[i].acessos + (temSeguinte ? dadosHora[i + 1].acessos : 0);
+      if (soma > melhorSoma) {
+        melhorSoma = soma;
+        melhorIdx = i;
+        melhorSpan = temSeguinte ? 2 : 1;
+      }
+    }
+    const horaInicio = horaMin + melhorIdx;
+    const horaFim = horaInicio + melhorSpan;
+    insightMovimento = `Das ${horaInicio}h às ${horaFim}h entram ${melhorSoma} dos ${totalMovimento} check-ins ${hintPeriodo}.`;
+  }
+
   const evolucaoAlunos: PontoEvolucaoAlunos[] = ultimosMeses(6).map(({ label }, i) => ({
     mes: label,
     alunos: evolucaoCounts[i] ?? 0,
@@ -318,46 +404,30 @@ export default async function DashboardOverviewPage({
         )}
       </div>
 
-      {/* Ações de hoje — resumo de 1 linha antes dos números frios, montado só
-          com o que já foi buscado acima (nenhuma consulta nova). Pedido da
-          auditoria visual: dar uma resposta rápida a "o que preciso fazer
-          hoje" antes de qualquer gráfico ou card. */}
-      {(verFinanceiro || sumidos.length > 0) && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-ink-700 bg-ink-800/40 px-4 py-3 text-sm">
-          <span className="font-medium text-slate-300">Hoje</span>
-          {verFinanceiro && venceHojeCount > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-slate-400">
-              <CalendarClock className="h-3.5 w-3.5" />
-              {venceHojeCount} cobrança{venceHojeCount > 1 ? "s" : ""} vence
-              {venceHojeCount > 1 ? "m" : ""} hoje
-            </span>
-          )}
-          {verFinanceiro && inadimplentes.length > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-red-400">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              {inadimplentes.length} inadimplente{inadimplentes.length > 1 ? "s" : ""}
-            </span>
-          )}
-          {sumidos.length > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-slate-400">
-              <UserX className="h-3.5 w-3.5" />
-              {sumidos.length} aluno{sumidos.length > 1 ? "s" : ""} sumido
-              {sumidos.length > 1 ? "s" : ""}
-            </span>
-          )}
-          {venceHojeCount === 0 && inadimplentes.length === 0 && sumidos.length === 0 && (
-            <span className="text-slate-500">Nada pendente por aqui. 🎉</span>
-          )}
-        </div>
-      )}
+      {/* PRECISA DE VOCÊ HOJE — o topo acionável (auditoria de UX, item 3):
+          o que exige ação sobe para o topo, com número grande na cor da
+          severidade e atalho direto, ANTES dos indicadores frios. Montado só
+          com o que já foi buscado acima (nenhuma consulta nova). */}
+      <PrecisaDeVoceHoje
+        slug={params.slug}
+        verFinanceiro={verFinanceiro}
+        inadimplentesCount={inadimplentes.length}
+        valorVencido={valorVencido}
+        sumidosCount={sumidos.length}
+        diasSumido={configRetencao.diasSumido}
+        venceHojeCount={venceHojeCount}
+      />
 
       {/* Primeiros passos (só o dono; some sozinho quando concluído). */}
       {progressoOnboarding && (
         <PrimeirosPassos slug={params.slug} progresso={progressoOnboarding} />
       )}
 
-      {/* KPIs — linha 1 */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {/* KPIs — linha 1. "Alunos sumidos" não repete aqui: já aparece com bem
+          mais destaque (e um CTA) no card de ação de "Precisa de você hoje"
+          acima quando há algum. 3 colunas de propósito — mesma contagem da
+          fileira de "Precisa de você hoje", pra as duas fileiras alinharem. */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatTile
           icon={Users}
           label="Alunos"
@@ -372,13 +442,6 @@ export default async function DashboardOverviewPage({
           hint={hintPeriodo}
           accent="slate"
           delta={{ pct: variacao(novosAlunos, novosAlunosAnt) }}
-        />
-        <StatTile
-          icon={UserX}
-          label="Alunos sumidos"
-          value={String(sumidos.length)}
-          hint={`sem acesso há ${configRetencao.diasSumido}+ dias`}
-          accent="slate"
         />
         {verFinanceiro && (
           <StatTile
@@ -519,6 +582,43 @@ export default async function DashboardOverviewPage({
         />
       )}
 
+      {/* Aniversariantes de hoje — relacionamento, visível a todo papel. O
+          botão de WhatsApp usa a mesma mensagem do alerta de aniversário. */}
+      {aniversariantesComContato.length > 0 && (
+        <div className="surface rounded-2xl p-5">
+          <h2 className="flex items-center gap-2 font-semibold text-white">
+            <Cake className="h-4 w-4 text-volt-300" /> Aniversariantes de hoje
+          </h2>
+          <ul className="mt-3 divide-y divide-ink-700/70">
+            {aniversariantesComContato.map((a) => {
+              const href = sessao.academia.is_demo
+                ? null
+                : linkWhats(a.telefone, mensagemAniversario(a.nome, sessao.academia.nome_fantasia));
+              return (
+                <li key={a.id} className="flex items-center justify-between gap-2 py-2.5">
+                  <span className="min-w-0 truncate text-sm text-white">🎂 {a.nome}</span>
+                  {href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Parabenizar no WhatsApp"
+                      className="inline-flex flex-none items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20"
+                    >
+                      <MessageCircle className="h-4 w-4" /> Parabenizar
+                    </a>
+                  ) : (
+                    <span className="flex-none text-xs text-slate-500">
+                      {sessao.academia.is_demo ? "indisponível na demo" : "sem telefone"}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {/* Alertas */}
       <AlertasPainel
         slug={params.slug}
@@ -530,6 +630,23 @@ export default async function DashboardOverviewPage({
 
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-6">
+          {/* Movimento por hora (auditoria de UX, item 3): visível a todo
+              papel, não só quem vê financeiro. */}
+          <div className="surface rounded-2xl p-5">
+            <h2 className="flex items-center gap-2 font-semibold text-white">
+              <Clock className="h-4 w-4 text-volt-300" /> Movimento por hora
+            </h2>
+            <p className="mb-2 text-xs text-slate-500">
+              {insightMovimento ?? `Volume de acessos por horário ${hintPeriodo}`}
+            </p>
+            {dadosHora.length > 0 ? (
+              <GraficoHorarios dados={dadosHora} destacarPico />
+            ) : (
+              <p className="py-10 text-center text-sm text-slate-500">
+                Nenhum acesso registrado {hintPeriodo}.
+              </p>
+            )}
+          </div>
           {verFinanceiro && (
             <div className="surface rounded-2xl p-5">
               <h2 className="font-semibold text-white">Receita x Despesa</h2>

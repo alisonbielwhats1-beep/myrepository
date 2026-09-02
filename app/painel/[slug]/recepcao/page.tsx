@@ -1,7 +1,6 @@
 import { Clock3, DoorOpen, ShieldAlert, UserCheck } from "lucide-react";
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
-import CatracaLog from "@/components/painel/CatracaLog";
-import HistoricoAcessos from "@/components/painel/HistoricoAcessos";
+import RecepcaoPainel from "@/components/painel/RecepcaoPainel";
 import StatTile from "@/components/painel/StatTile";
 import { requireSecao } from "@/lib/auth";
 import {
@@ -115,6 +114,17 @@ export default async function RecepcaoPage({
     }
   }
 
+  // Prepend otimista no log (RecepcaoPainel): só na visão padrão do
+  // histórico — página 1, sem nenhum filtro — pra não inserir uma linha que
+  // os filtros ativos escondiam de propósito.
+  const podeAnexarOtimista =
+    pagina === 1 &&
+    !searchParams.de &&
+    !searchParams.ate &&
+    !resultado &&
+    !origem &&
+    !searchParams.alunoId;
+
   return (
     <div className="space-y-6">
       <Breadcrumbs slug={params.slug} items={[{ label: "Recepção / Catraca" }]} />
@@ -160,22 +170,18 @@ export default async function RecepcaoPage({
         />
       </div>
 
-      <CatracaLog
+      <RecepcaoPainel
+        slug={params.slug}
+        papel={sessao.papel}
         alunos={alunos}
         planos={planos}
         statusFinanceiroMap={statusFinanceiroMap}
         ultimosAcessos={ultimosAcessos}
-        slug={params.slug}
-      />
-
-      <HistoricoAcessos
-        slug={params.slug}
-        papel={sessao.papel}
-        acessos={historico.acessos}
-        total={historico.total}
+        historicoAcessos={historico.acessos}
+        historicoTotal={historico.total}
         pagina={pagina}
         tamanhoPagina={TAMANHO_PAGINA}
-        alunos={alunos}
+        podeAnexarOtimista={podeAnexarOtimista}
       />
     </div>
   );

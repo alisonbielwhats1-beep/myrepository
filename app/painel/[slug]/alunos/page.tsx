@@ -1,6 +1,7 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import GestaoAlunos from "@/components/painel/GestaoAlunos";
 import ImportarAlunos from "@/components/painel/ImportarAlunos";
+import BotaoExportarAlunos from "@/components/painel/BotaoExportarAlunos";
 import { requireSessao } from "@/lib/auth";
 import { podeAcessar, podeGerenciarTreinos } from "@/lib/permissoes";
 import {
@@ -93,7 +94,13 @@ export default async function AlunosPage({
           </p>
         </div>
         {podeAcessar(sessao.papel, "alunos") && (
-          <ImportarAlunos slug={params.slug} planos={planos} />
+          <div className="flex flex-wrap items-center gap-2">
+            <BotaoExportarAlunos
+              slug={params.slug}
+              totalAlunos={alunosPaginados.total}
+            />
+            <ImportarAlunos slug={params.slug} planos={planos} />
+          </div>
         )}
       </div>
 
