@@ -22,6 +22,7 @@ import {
   sequenciaSemanalTreino,
 } from "@/lib/aluno-publico";
 import {
+  getAcademiaPublica,
   getFeedComunidade,
   getFrequenciaAlunoPublico,
   getMensalidadesAlunoPublico,
@@ -107,16 +108,25 @@ export default async function AlunoHome({
   const ficha = await requireFichaAluno(params.slug, params.token);
   const { aluno, academia, treinos } = ficha;
 
-  const [mensalidades, acessos, politicaAcesso, recordes, avisos, feed, sessoes] =
-    await Promise.all([
-      getMensalidadesAlunoPublico(params.token, params.slug),
-      getFrequenciaAlunoPublico(params.token, params.slug),
-      getPoliticaAcessoAlunoPublico(params.token, params.slug),
-      getRecordesAluno(params.token, params.slug),
-      getNotificacoesAluno(params.token, params.slug),
-      getFeedComunidade(params.token, params.slug, 3),
-      getSessoesAtivasTreino(params.token, params.slug),
-    ]);
+  const [
+    mensalidades,
+    acessos,
+    politicaAcesso,
+    recordes,
+    avisos,
+    feed,
+    sessoes,
+    academiaPublica,
+  ] = await Promise.all([
+    getMensalidadesAlunoPublico(params.token, params.slug),
+    getFrequenciaAlunoPublico(params.token, params.slug),
+    getPoliticaAcessoAlunoPublico(params.token, params.slug),
+    getRecordesAluno(params.token, params.slug),
+    getNotificacoesAluno(params.token, params.slug),
+    getFeedComunidade(params.token, params.slug, 3),
+    getSessoesAtivasTreino(params.token, params.slug),
+    getAcademiaPublica(params.slug),
+  ]);
 
   const base = `/aluno/${params.slug}/${params.token}`;
   const primeiroNome = aluno.nome.split(" ")[0];
@@ -172,13 +182,25 @@ export default async function AlunoHome({
 
   return (
     <div className="space-y-6">
-      {/* Saudação */}
+      {/* Saudação — com a marca da academia (logo) quando houver */}
       <header className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm text-slate-400">{academia.nome_fantasia}</p>
-          <h1 className="truncate text-2xl font-bold text-white">
-            Olá, {primeiroNome} 👋
-          </h1>
+        <div className="flex min-w-0 items-center gap-2.5">
+          {academiaPublica?.logo_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={academiaPublica.logo_url}
+              alt={academia.nome_fantasia}
+              className="h-10 w-10 flex-none rounded-xl border border-ink-600 bg-ink-800 object-contain p-0.5"
+            />
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-sm text-slate-400">
+              {academia.nome_fantasia}
+            </p>
+            <h1 className="truncate text-2xl font-bold text-white">
+              Olá, {primeiroNome} 👋
+            </h1>
+          </div>
         </div>
         <AvatarAluno nome={aluno.nome} fotoUrl={aluno.foto_perfil_url} size={48} />
       </header>
