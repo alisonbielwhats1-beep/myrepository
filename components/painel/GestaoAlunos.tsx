@@ -25,6 +25,7 @@ import {
   Treino,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { podeGerenciarTreinos } from "@/lib/permissoes";
 import ProgressoAluno from "@/components/painel/ProgressoAluno";
 import HistoricoPlanoAluno from "@/components/painel/HistoricoPlanoAluno";
 import AcessoAlunoCard from "@/components/painel/AcessoAlunoCard";
@@ -563,7 +564,7 @@ export default function GestaoAlunos({
             </p>
           ) : (
             <>
-              {papel !== "recepcao" && (
+              {podeGerenciarTreinos(papel) && (
                 <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-ink-600 bg-ink-900/40 p-3">
                   <UsarModeloTreino
                     slug={slug}

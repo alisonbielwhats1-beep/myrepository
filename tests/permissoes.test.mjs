@@ -97,15 +97,15 @@ console.log("\n5. removeriaUltimoDono — guarda do último proprietário ativo"
 
 console.log("\n6. podeGerenciarTreinos — gerenciar treinos (atribuir/compartilhar/visibilidade)");
 {
-  // Dono, gerente e instrutor gerenciam treinos.
-  for (const papel of ["dono", "gerente", "instrutor"]) {
+  // Desde o pedido do cliente (02/09/2026) a recepção também gerencia treinos:
+  // dono, gerente, instrutor E recepção — todo papel que acessa a seção.
+  for (const papel of ["dono", "gerente", "instrutor", "recepcao"]) {
     check(`${papel} pode gerenciar treinos`, podeGerenciarTreinos(papel) === true);
   }
-  // Recepção VÊ a seção de treinos, mas NÃO gerencia (atribuir/compartilhar/etc).
   check("recepcao vê a seção de treinos", podeAcessar("recepcao", "treinos") === true);
   check(
-    "recepcao NÃO gerencia treinos (não atribui/compartilha)",
-    podeGerenciarTreinos("recepcao") === false
+    "recepcao gerencia treinos (atribui/compartilha) como a equipe técnica",
+    podeGerenciarTreinos("recepcao") === true
   );
 }
 

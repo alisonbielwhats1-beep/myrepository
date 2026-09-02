@@ -3,7 +3,7 @@ import GestaoAlunos from "@/components/painel/GestaoAlunos";
 import ImportarAlunos from "@/components/painel/ImportarAlunos";
 import BotaoExportarAlunos from "@/components/painel/BotaoExportarAlunos";
 import { requireSessao } from "@/lib/auth";
-import { podeAcessar } from "@/lib/permissoes";
+import { podeAcessar, podeGerenciarTreinos } from "@/lib/permissoes";
 import {
   getAlunosPaginado,
   getCatalogoExercicios,
@@ -55,9 +55,9 @@ export default async function AlunosPage({
     }),
     getPlanos(sessao.academia.id),
     getCatalogoExercicios(sessao.academia.id),
-    sessao.papel === "recepcao"
-      ? Promise.resolve([])
-      : getTreinosBiblioteca(sessao.academia.id),
+    podeGerenciarTreinos(sessao.papel)
+      ? getTreinosBiblioteca(sessao.academia.id)
+      : Promise.resolve([]),
   ]);
 
   // Treinos, progresso, histórico e mensalidades só dos alunos da página
