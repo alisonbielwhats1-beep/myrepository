@@ -702,7 +702,8 @@ export async function definirVisibilidadeTreino(
  * Liga/desliga o compartilhamento público (QR) de um TREINO-MODELO da academia.
  *
  * Restrições de segurança (defesa em profundidade além do RLS):
- *   • recepção não publica treinos (mesma regra de atribuir/visibilidade);
+ *   • só quem gerencia treinos publica (podeGerenciarTreinos — hoje inclui a
+ *     recepção; mesma regra de atribuir/visibilidade);
  *   • só treino-modelo (aluno_id IS NULL): a ficha individual de um aluno NUNCA
  *     é exposta num link sem login — o nome da ficha costuma conter o nome do
  *     aluno, e a UI só oferece o QR para modelos da biblioteca;

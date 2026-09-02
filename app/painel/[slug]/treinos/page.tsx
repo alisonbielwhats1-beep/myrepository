@@ -1,6 +1,7 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import GestaoTreinos from "@/components/painel/GestaoTreinos";
 import { requireSecao } from "@/lib/auth";
+import { podeGerenciarTreinos } from "@/lib/permissoes";
 import {
   getCatalogoExercicios,
   getInstrutores,
@@ -36,7 +37,7 @@ export default async function TreinosPage({
         treinosIniciais={treinos}
         catalogo={catalogo}
         instrutores={instrutores}
-        podeAtribuir={sessao.papel !== "recepcao"}
+        podeAtribuir={podeGerenciarTreinos(sessao.papel)}
         userId={sessao.userId}
         papel={sessao.papel}
       />
