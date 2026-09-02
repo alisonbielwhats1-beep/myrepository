@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Loader2, X } from "lucide-react";
+import { Camera, Loader2, SwitchCamera, X } from "lucide-react";
 
 /**
  * Captura de foto pela webcam (getUserMedia) — abre a câmera do próprio
@@ -12,8 +12,10 @@ import { Camera, Loader2, X } from "lucide-react";
  *
  * Requer contexto seguro (HTTPS) — garantido em produção (Vercel) e em
  * localhost. O stream é sempre encerrado ao fechar (nenhuma luz de câmera fica
- * acesa depois). O preview é espelhado (efeito espelho, mais natural), mas o
- * arquivo salvo sai na orientação real.
+ * acesa depois). Começa na câmera frontal; em aparelhos com mais de uma câmera
+ * (celular) há o botão "Virar câmera" para alternar com a traseira. O preview é
+ * espelhado só na frontal (efeito selfie); o arquivo salvo sai sempre na
+ * orientação real.
  */
 export default function CapturaWebcam({
   onCapturar,
@@ -28,7 +30,14 @@ export default function CapturaWebcam({
   const streamRef = useRef<MediaStream | null>(null);
   const [pronto, setPronto] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Qual câmera usar: 'user' (frontal/selfie) ou 'environment' (traseira). No
+  // celular a recepção costuma querer a traseira para fotografar o aluno.
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  // Só oferece "Virar câmera" se o aparelho realmente tiver mais de uma —
+  // num desktop com uma webcam só, virar não faria nada.
+  const [multiCam, setMultiCam] = useState(false);
 
+  // Reabre o stream sempre que a câmera escolhida muda (facingMode).
   useEffect(() => {
     let cancelado = false;
 
@@ -37,9 +46,17 @@ export default function CapturaWebcam({
         setErro("Este navegador não permite usar a câmera. Use o Chrome ou o Edge.");
         return;
       }
+      setPronto(false);
+      setErro(null);
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          // `ideal` (não `exact`): num aparelho com uma câmera só, usa a que
+          // houver em vez de falhar quando a traseira não existe.
+          video: {
+            facingMode: { ideal: facingMode },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
           audio: false,
         });
         if (cancelado) {
@@ -52,6 +69,17 @@ export default function CapturaWebcam({
           await videoRef.current.play().catch(() => {});
         }
         setPronto(true);
+        // enumerateDevices só lista/rotula tudo DEPOIS da permissão concedida —
+        // por isso conta as câmeras aqui, com o stream já aberto.
+        try {
+          const dispositivos = await navigator.mediaDevices.enumerateDevices();
+          if (!cancelado) {
+            const cameras = dispositivos.filter((d) => d.kind === "videoinput");
+            setMultiCam(cameras.length > 1);
+          }
+        } catch {
+          // Best-effort: sem a contagem, só não mostra o botão de virar.
+        }
       } catch (e) {
         const nome = (e as DOMException)?.name;
         if (nome === "NotAllowedError" || nome === "SecurityError") {
@@ -72,7 +100,7 @@ export default function CapturaWebcam({
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, []);
+  }, [facingMode]);
 
   // Fecha no Esc.
   useEffect(() => {
@@ -132,12 +160,16 @@ export default function CapturaWebcam({
         </div>
 
         <div className="relative aspect-square w-full bg-ink-900">
-          {/* Espelha só o preview (efeito espelho), não a foto salva. */}
+          {/* Espelha o preview só na câmera frontal (efeito selfie); na traseira
+              mostra a imagem real. A foto salva nunca é espelhada. */}
           <video
             ref={videoRef}
             playsInline
             muted
-            className="h-full w-full object-cover [transform:scaleX(-1)]"
+            className={
+              "h-full w-full object-cover" +
+              (facingMode === "user" ? " [transform:scaleX(-1)]" : "")
+            }
           />
           {!pronto && !erro && (
             <div className="absolute inset-0 grid place-items-center text-slate-400">
@@ -153,18 +185,34 @@ export default function CapturaWebcam({
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-ink-700 px-4 py-3">
-          <button type="button" onClick={onFechar} className="btn-ghost !py-2 text-sm">
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={capturar}
-            disabled={!pronto || !!erro}
-            className="btn-volt !py-2 text-sm disabled:opacity-50"
-          >
-            <Camera className="h-4 w-4" /> Capturar
-          </button>
+        <div className="flex items-center justify-between gap-2 border-t border-ink-700 px-4 py-3">
+          {multiCam ? (
+            <button
+              type="button"
+              onClick={() =>
+                setFacingMode((m) => (m === "user" ? "environment" : "user"))
+              }
+              className="btn-ghost !py-2 text-sm"
+              title="Alternar entre a câmera frontal e a traseira"
+            >
+              <SwitchCamera className="h-4 w-4" /> Virar câmera
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onFechar} className="btn-ghost !py-2 text-sm">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={capturar}
+              disabled={!pronto || !!erro}
+              className="btn-volt !py-2 text-sm disabled:opacity-50"
+            >
+              <Camera className="h-4 w-4" /> Capturar
+            </button>
+          </div>
         </div>
       </div>
     </div>
