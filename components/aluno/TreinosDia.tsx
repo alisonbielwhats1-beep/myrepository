@@ -1,8 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowLeft, ChevronRight, Dumbbell } from "lucide-react";
-import type { FichaTreinoPublico, SessaoTreino } from "@/lib/types";
+import { ArrowLeft, ChevronRight, Dumbbell, Flame, Trophy } from "lucide-react";
+import type {
+  FichaTreinoPublico,
+  ResumoEvolucaoAluno,
+  SessaoTreino,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   DIAS_SEMANA,
@@ -46,12 +50,18 @@ export default function TreinosDia({
   treinos,
   sessoesAtivas,
   recordes,
+  ultimaCarga = {},
+  evolucao,
   diasFeitos = [],
   ...acoes
 }: {
   treinos: FichaTreinoPublico[];
   sessoesAtivas: SessaoTreino[];
   recordes: Record<string, number>;
+  /** Última carga (kg) por exercício — pré-preenchimento da execução. */
+  ultimaCarga?: Record<string, number>;
+  /** Contadores do painel "Minha evolução". Ausente = painel não aparece. */
+  evolucao?: ResumoEvolucaoAluno;
   /** Dias (1=seg…7=dom) já treinados nesta semana — para o status "feito". */
   diasFeitos?: number[];
 } & AcoesExecucao) {
@@ -103,6 +113,8 @@ export default function TreinosDia({
           treino={treinoAberto}
           sessaoInicial={sessaoDe(treinoAberto.id)}
           recordes={recordes}
+          ultimaCarga={ultimaCarga}
+          evolucao={evolucao}
           {...acoes}
         />
       </div>
@@ -130,8 +142,51 @@ export default function TreinosDia({
     planejado: "Adiantar este treino",
   };
 
+  // Painel "Minha evolução": só aparece quando há algo a comemorar (pelo menos
+  // um treino finalizado ou um recorde) — nunca uma fileira de zeros no primeiro
+  // acesso, que desanima quem está começando.
+  const qtdRecordes = Object.keys(recordes).length;
+  const mostrarEvolucao =
+    !!evolucao && (evolucao.total_finalizados > 0 || qtdRecordes > 0);
+
   return (
     <div className="space-y-5">
+      {mostrarEvolucao && evolucao && (
+        <section
+          aria-label="Minha evolução"
+          className="surface rounded-2xl p-4"
+        >
+          <p className="label-muted flex items-center gap-1.5">
+            <Flame className="h-3.5 w-3.5 text-volt-300" /> Minha evolução
+          </p>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl bg-ink-800/60 py-3">
+              <p className="text-2xl font-bold tabular-nums text-white">
+                {evolucao.total_finalizados}
+              </p>
+              <p className="mt-0.5 text-[11px] text-slate-400">
+                {evolucao.total_finalizados === 1 ? "treino" : "treinos"}
+              </p>
+            </div>
+            <div className="rounded-xl bg-ink-800/60 py-3">
+              <p className="text-2xl font-bold tabular-nums text-volt-300">
+                {evolucao.dias_mes}
+              </p>
+              <p className="mt-0.5 text-[11px] text-slate-400">dias este mês</p>
+            </div>
+            <div className="rounded-xl bg-ink-800/60 py-3">
+              <p className="flex items-center justify-center gap-1 text-2xl font-bold tabular-nums text-amber-300">
+                {qtdRecordes > 0 && <Trophy className="h-4 w-4" />}
+                {qtdRecordes}
+              </p>
+              <p className="mt-0.5 text-[11px] text-slate-400">
+                {qtdRecordes === 1 ? "recorde" : "recordes"}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Régua de 7 dias com ponto de status */}
       <div
         className="grid grid-cols-7 gap-1.5"

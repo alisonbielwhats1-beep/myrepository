@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import {
   AlertCircle,
+  Ban,
   Check,
   Dumbbell,
+  History,
   Loader2,
   PlayCircle,
   RotateCcw,
   Timer,
   Weight,
 } from "lucide-react";
-import { ExercicioTreino, ProgressoExercicio } from "@/lib/types";
+import { EsforcoTreino, ExercicioTreino, ProgressoExercicio } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import CronometroDescanso from "./CronometroDescanso";
 
@@ -20,7 +22,15 @@ const PROGRESSO_VAZIO: Omit<ProgressoExercicio, "exercicio_id"> = {
   concluido: false,
   carga_realizada_kg: 0,
   repeticoes_realizadas: "",
+  esforco: null,
+  nao_fez: false,
 };
+
+const OPCOES_ESFORCO: { valor: EsforcoTreino; rotulo: string }[] = [
+  { valor: "leve", rotulo: "Leve" },
+  { valor: "medio", rotulo: "Médio" },
+  { valor: "pesado", rotulo: "Pesado" },
+];
 
 // GIF não é formato de vídeo — a tag <video> não reproduz .gif. Um GIF já
 // anima sozinho, então é exibido como imagem e dispensa player.
@@ -176,23 +186,60 @@ export default function ExercicioCard({
   ex,
   progresso,
   recorde,
+  ultimaCarga,
   onAlterar,
 }: {
   ex: ExercicioTreino;
   progresso?: ProgressoExercicio;
   /** Maior carga já registrada neste exercício (kg). null/0 = ainda sem recorde. */
   recorde?: number | null;
+  /** Carga (kg) da última vez que fez este exercício. null/0 = sem histórico. */
+  ultimaCarga?: number | null;
   onAlterar?: (patch: Partial<Omit<ProgressoExercicio, "exercicio_id">>) => void;
 }) {
   const realizado = progresso ?? { exercicio_id: ex.id, ...PROGRESSO_VAZIO };
   const temRecorde = recorde != null && recorde > 0;
   const novoRecorde = temRecorde && realizado.carga_realizada_kg > recorde;
+  const naoFez = realizado.nao_fez ?? false;
+  const temUltima = ultimaCarga != null && ultimaCarga > 0;
+
+  // Ref do campo de carga: permite preencher a última carga com um toque sem
+  // tornar o input controlado (o padrão da tela é uncontrolled + onBlur).
+  const cargaRef = useRef<HTMLInputElement>(null);
+  // Sinal que dispara o cronômetro de descanso ao concluir a série.
+  const [sinalDescanso, setSinalDescanso] = useState(0);
+
+  const usarUltimaCarga = () => {
+    if (!temUltima || !onAlterar) return;
+    if (cargaRef.current) cargaRef.current.value = String(ultimaCarga);
+    onAlterar({ carga_realizada_kg: ultimaCarga! });
+  };
+
+  const alternarConcluido = () => {
+    if (!onAlterar) return;
+    const vai = !realizado.concluido;
+    // Concluir e "não consegui" são mutuamente exclusivos.
+    onAlterar(vai ? { concluido: true, nao_fez: false } : { concluido: false });
+    if (vai) setSinalDescanso((s) => s + 1); // auto-inicia o descanso
+  };
+
+  const alternarNaoFez = () => {
+    if (!onAlterar) return;
+    const vai = !naoFez;
+    onAlterar(vai ? { nao_fez: true, concluido: false } : { nao_fez: false });
+  };
+
+  const definirEsforco = (valor: EsforcoTreino) => {
+    if (!onAlterar) return;
+    onAlterar({ esforco: realizado.esforco === valor ? null : valor });
+  };
 
   return (
     <div
       className={cn(
         "surface overflow-hidden rounded-2xl transition",
-        realizado.concluido && "border-volt-500/40 bg-volt-500/[0.06]"
+        realizado.concluido && "border-volt-500/40 bg-volt-500/[0.06]",
+        naoFez && "border-amber-500/30 bg-amber-500/[0.04] opacity-90"
       )}
     >
       {/* Mídia nativa do movimento — sem retângulo de fundo poluindo a mídia */}
@@ -244,6 +291,7 @@ export default function ExercicioCard({
                   Carga realizada (kg)
                 </span>
                 <input
+                  ref={cargaRef}
                   type="number"
                   inputMode="decimal"
                   min={0}
@@ -252,7 +300,7 @@ export default function ExercicioCard({
                   onBlur={(e) =>
                     onAlterar({ carga_realizada_kg: Number(e.target.value) || 0 })
                   }
-                  placeholder="0"
+                  placeholder={temUltima ? String(ultimaCarga) : "0"}
                   className="inp !py-1.5 text-sm"
                 />
               </label>
@@ -272,6 +320,19 @@ export default function ExercicioCard({
               </label>
             </div>
 
+            {/* Última carga (migration 093): tira do aluno o trabalho de
+                lembrar. Um toque preenche o campo. Some quando não há histórico. */}
+            {temUltima && (
+              <button
+                type="button"
+                onClick={usarUltimaCarga}
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-cyanx-400 transition hover:opacity-80"
+              >
+                <History className="h-3.5 w-3.5" />
+                Última vez: {ultimaCarga} kg — usar
+              </button>
+            )}
+
             {/* Recorde de carga (migration 059). Antes dela, `recorde` chega
                 sempre null e nada é mostrado — a tela não depende do recurso. */}
             {temRecorde && (
@@ -287,13 +348,44 @@ export default function ExercicioCard({
               </p>
             )}
 
+            {/* Percepção de esforço (RPE de 1 toque, migration 093). */}
+            <div className="mt-3">
+              <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                Como foi o esforço?
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                {OPCOES_ESFORCO.map((op) => {
+                  const ativo = realizado.esforco === op.valor;
+                  return (
+                    <button
+                      key={op.valor}
+                      type="button"
+                      onClick={() => definirEsforco(op.valor)}
+                      aria-pressed={ativo}
+                      className={cn(
+                        "rounded-xl border px-2 py-1.5 text-xs font-semibold transition active:scale-[0.98]",
+                        ativo
+                          ? "border-volt-500/50 bg-volt-500/15 text-volt-300"
+                          : "border-ink-600 bg-ink-700/60 text-slate-300 hover:bg-ink-700"
+                      )}
+                    >
+                      {op.rotulo}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Cronômetro de descanso — puramente client-side, usa o descanso
-                prescrito como padrão. Só aparece no modo sessão (aqui dentro do
-                onAlterar), nunca na ficha pública read-only. */}
-            <CronometroDescanso segundosPadrao={ex.descanso_segundos ?? 0} />
+                prescrito como padrão. Auto-inicia ao concluir a série (sinal).
+                Só aparece no modo sessão, nunca na ficha pública read-only. */}
+            <CronometroDescanso
+              segundosPadrao={ex.descanso_segundos ?? 0}
+              dispararSinal={sinalDescanso}
+            />
 
             <button
-              onClick={() => onAlterar({ concluido: !realizado.concluido })}
+              onClick={alternarConcluido}
               className={cn(
                 "mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98]",
                 realizado.concluido
@@ -303,6 +395,23 @@ export default function ExercicioCard({
             >
               <Check className="h-4 w-4" />
               {realizado.concluido ? "Desfazer" : "Marcar como concluído"}
+            </button>
+
+            {/* Estado "não consegui / substituí": evita o tudo-ou-nada que
+                desanima o iniciante quando faltou o aparelho ou a disposição. */}
+            <button
+              type="button"
+              onClick={alternarNaoFez}
+              aria-pressed={naoFez}
+              className={cn(
+                "mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-medium transition active:scale-[0.98]",
+                naoFez
+                  ? "border border-amber-500/40 bg-amber-500/10 text-amber-300"
+                  : "text-slate-500 hover:text-slate-300"
+              )}
+            >
+              <Ban className="h-3.5 w-3.5" />
+              {naoFez ? "Marquei: não consegui hoje" : "Não consegui fazer"}
             </button>
           </>
         )}

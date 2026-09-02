@@ -928,15 +928,33 @@ export interface PostModeracao {
 /** Status de uma sessão de execução de treino pelo aluno (Bloco 1). */
 export type StatusSessaoTreino = "ativa" | "finalizada";
 
+/** Percepção de esforço (RPE simplificado, 1 toque) que o aluno registra. */
+export type EsforcoTreino = "leve" | "medio" | "pesado";
+
 /**
  * Progresso REALIZADO de um exercício dentro de uma sessão — nunca a
  * prescrição original (que fica em ExercicioTreino, imutável por aqui).
+ *
+ * `esforco` e `nao_fez` são opcionais: sessões gravadas antes da migration 093
+ * não os têm, e a tela trata a ausência como "não informado" / "false".
  */
 export interface ProgressoExercicio {
   exercicio_id: string;
   concluido: boolean;
   carga_realizada_kg: number;
   repeticoes_realizadas: string;
+  esforco?: EsforcoTreino | null;
+  nao_fez?: boolean;
+}
+
+/**
+ * Contadores de evolução do aluno para o painel "Minha evolução" (migration
+ * 093). Campos sempre presentes; zeros quando ainda não há sessão finalizada.
+ */
+export interface ResumoEvolucaoAluno {
+  total_finalizados: number;
+  finalizados_mes: number;
+  dias_mes: number;
 }
 
 /** Sessão de execução de uma ficha de treino pelo aluno (tabela sessoes_treino). */
