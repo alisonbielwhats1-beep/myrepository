@@ -8,13 +8,16 @@ import {
   Check,
   Dumbbell,
   History,
+  Lightbulb,
   Loader2,
   PlayCircle,
   RotateCcw,
+  Target,
   Timer,
   Weight,
 } from "lucide-react";
 import { EsforcoTreino, ExercicioTreino, ProgressoExercicio } from "@/lib/types";
+import { guiaDoExercicio } from "@/lib/guia-exercicios";
 import { cn } from "@/lib/utils";
 import CronometroDescanso from "./CronometroDescanso";
 
@@ -202,6 +205,9 @@ export default function ExercicioCard({
   const novoRecorde = temRecorde && realizado.carga_realizada_kg > recorde;
   const naoFez = realizado.nao_fez ?? false;
   const temUltima = ultimaCarga != null && ultimaCarga > 0;
+  // Guia (músculo + dica) resolvido pelo nome — apoio ao iniciante. Vale
+  // também na ficha pública read-only (não depende de onAlterar).
+  const guia = guiaDoExercicio(ex.nome_exercicio);
 
   // Ref do campo de carga: permite preencher a última carga com um toque sem
   // tornar o input controlado (o padrão da tela é uncontrolled + onBlur).
@@ -252,7 +258,20 @@ export default function ExercicioCard({
           {ex.nome_exercicio}
         </h3>
 
-        <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        {guia && (
+          <div className="mt-2 flex flex-col gap-1.5">
+            <span className="inline-flex w-fit items-center gap-1 rounded-full border border-cyanx-500/30 bg-cyanx-400/10 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-cyanx-400">
+              <Target className="h-3 w-3" />
+              {guia.grupo}
+            </span>
+            <p className="flex items-start gap-1.5 text-xs leading-snug text-slate-400">
+              <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-none text-amber-300/80" />
+              <span>{guia.dica}</span>
+            </p>
+          </div>
+        )}
+
+        <p className="mt-3 text-[11px] font-medium uppercase tracking-wide text-slate-500">
           Prescrito pelo professor
         </p>
         <div className="mt-1.5 flex flex-wrap gap-2">
