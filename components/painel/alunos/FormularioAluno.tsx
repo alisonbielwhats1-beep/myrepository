@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormState } from "react-dom";
 import { useRouter } from "next/navigation";
-import { HeartPulse, UserPlus } from "lucide-react";
+import Image from "next/image";
+import {
+  Camera,
+  HeartPulse,
+  ImagePlus,
+  Loader2,
+  UserPlus,
+  UserRound,
+} from "lucide-react";
 import { Aluno, FORMAS_PAGAMENTO, Plano } from "@/lib/types";
 import {
   calcularIdade,
@@ -12,9 +20,12 @@ import {
   formatDataISO,
   hojeSaoPaulo,
 } from "@/lib/utils";
+import { prepararFotoParaEnvio } from "@/lib/imagem-cliente";
+import CapturaWebcam from "@/components/ui/CapturaWebcam";
 import FormActions from "@/components/ui/FormActions";
 import {
   atualizarAluno,
+  atualizarFotoAlunoAdmin,
   criarAluno,
 } from "@/app/painel/[slug]/alunos/actions";
 import {
@@ -79,11 +90,59 @@ export default function FormularioAluno({
   const hoje = hojeSaoPaulo();
   const [dataPagamento, setDataPagamento] = useState(hoje);
 
-  useEffect(() => {
-    if (estado.ok) {
-      router.refresh();
-      onSalvo(estado.id ?? alunoExistente?.id ?? "");
+  // Foto de perfil capturada no próprio formulário (câmera ou arquivo). O envio
+  // real depende do id do aluno, que só existe DEPOIS de salvar — então a foto
+  // fica retida aqui e sobe no efeito de sucesso, logo abaixo.
+  const [fotoBlob, setFotoBlob] = useState<Blob | null>(null);
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [fotoErro, setFotoErro] = useState<string | null>(null);
+  const [mostrarWebcam, setMostrarWebcam] = useState(false);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const galeriaRef = useRef<HTMLInputElement>(null);
+  const fotoExibida = fotoPreview ?? alunoExistente?.foto_perfil_url ?? null;
+
+  const escolherFoto = async (file: File | undefined) => {
+    if (!file) return;
+    setFotoErro(null);
+    const resultado = await prepararFotoParaEnvio(file);
+    if ("erro" in resultado) {
+      setFotoErro(resultado.erro);
+      return;
     }
+    if (fotoPreview) URL.revokeObjectURL(fotoPreview);
+    setFotoBlob(resultado.blob);
+    setFotoPreview(resultado.previewUrl);
+  };
+
+  const descartarFoto = () => {
+    if (fotoPreview) URL.revokeObjectURL(fotoPreview);
+    setFotoBlob(null);
+    setFotoPreview(null);
+    setFotoErro(null);
+  };
+
+  useEffect(() => {
+    if (!estado.ok) return;
+    const id = estado.id ?? alunoExistente?.id ?? "";
+    const finalizar = () => {
+      router.refresh();
+      onSalvo(id);
+    };
+    // Foto opcional: sobe agora que o aluno já tem id. Uma falha aqui NÃO
+    // desfaz o cadastro — o aluno já existe e a foto pode ser refeita na ficha.
+    if (fotoBlob && id) {
+      setEnviandoFoto(true);
+      (async () => {
+        const fd = new FormData();
+        fd.append("foto", fotoBlob, "foto.jpg");
+        const r = await atualizarFotoAlunoAdmin(slug, id, {}, fd);
+        setEnviandoFoto(false);
+        if (r.erro) setFotoErro(r.erro);
+        finalizar();
+      })();
+      return;
+    }
+    finalizar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado.savedAt]);
 
@@ -110,6 +169,69 @@ export default function FormularioAluno({
           {estado.erro}
         </p>
       )}
+
+      {/* Foto de perfil: câmera (webcam/celular) ou arquivo, direto no cadastro/
+          edição. O upload em si acontece após salvar (depende do id). */}
+      <div className="mt-4 flex items-center gap-4 rounded-xl border border-ink-600 bg-ink-800/50 p-3">
+        <div className="relative h-16 w-16 flex-none overflow-hidden rounded-full ring-1 ring-ink-600">
+          {fotoExibida ? (
+            <Image
+              src={fotoExibida}
+              alt="Foto do aluno"
+              fill
+              sizes="64px"
+              className="media-native object-cover"
+            />
+          ) : (
+            <div className="grid h-full place-items-center bg-ink-700 text-slate-500">
+              <UserRound className="h-7 w-7" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="text-xs font-medium text-slate-300">
+            Foto de perfil{" "}
+            <span className="font-normal text-slate-500">(opcional)</span>
+          </p>
+          {fotoErro && (
+            <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-xs text-red-300">
+              {fotoErro}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setMostrarWebcam(true)}
+              className="btn-ghost !py-1.5 text-xs"
+            >
+              <Camera className="h-3.5 w-3.5" /> Tirar foto
+            </button>
+            <button
+              type="button"
+              onClick={() => galeriaRef.current?.click()}
+              className="btn-ghost !py-1.5 text-xs"
+            >
+              <ImagePlus className="h-3.5 w-3.5" /> Enviar arquivo
+            </button>
+            {fotoBlob && (
+              <button
+                type="button"
+                onClick={descartarFoto}
+                className="btn-ghost !py-1.5 text-xs text-slate-400"
+              >
+                Descartar
+              </button>
+            )}
+          </div>
+          <input
+            ref={galeriaRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => escolherFoto(e.target.files?.[0])}
+          />
+        </div>
+      </div>
 
       <div className="mt-4 space-y-3">
         <Field label="Nome completo">
@@ -346,11 +468,6 @@ export default function FormularioAluno({
           </div>
         )}
 
-        <p className="rounded-lg border border-ink-600 bg-ink-800/50 px-3 py-2 text-xs text-slate-400">
-          {alunoExistente
-            ? "A foto de perfil se envia direto na ficha do aluno, logo acima."
-            : "Depois de salvar, a foto de perfil se envia na ficha do aluno recém-cadastrado."}
-        </p>
       </div>
 
       <div className="mt-5 border-t border-ink-700 pt-4">
@@ -399,11 +516,25 @@ export default function FormularioAluno({
         </div>
       </div>
 
+      {enviandoFoto && (
+        <p className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Enviando a foto…
+        </p>
+      )}
+
       <FormActions
         onCancelar={onCancelar}
         salvarLabel={alunoExistente ? "Salvar alterações" : "Adicionar aluno"}
         className="mt-4"
       />
+
+      {mostrarWebcam && (
+        <CapturaWebcam
+          titulo="Foto do aluno"
+          onCapturar={(file) => escolherFoto(file)}
+          onFechar={() => setMostrarWebcam(false)}
+        />
+      )}
     </form>
   );
 }
