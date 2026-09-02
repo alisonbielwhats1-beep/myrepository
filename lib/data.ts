@@ -25,6 +25,7 @@ import {
   FiltroAlunos,
   Funcionario,
   HistoricoPlano,
+  LinhaAdesaoTreino,
   LinhaRetencao,
   MensalidadeAlunoPublica,
   NotificacaoAluno,
@@ -1709,6 +1710,26 @@ export async function getRetencaoAlunos(
   });
   if (error) throw new Error(`Falha ao carregar retenção: ${error.message}`);
   return (data as LinhaRetencao[]) ?? [];
+}
+
+/**
+ * Adesão aos treinos por aluno (migration 094) — quanto cada aluno de fato
+ * executa as fichas, via RPC `adesao_treinos_alunos`, isolada por academia do
+ * funcionário logado.
+ *
+ * Degradação graciosa: antes da migration 094 a RPC não existe; devolve []
+ * (a seção de adesão no painel simplesmente não aparece), sem derrubar a
+ * página de Treinos.
+ */
+export async function getAdesaoTreinos(
+  dias = 30
+): Promise<LinhaAdesaoTreino[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("adesao_treinos_alunos", {
+    p_dias: dias,
+  });
+  if (error) return [];
+  return (data as LinhaAdesaoTreino[]) ?? [];
 }
 
 export interface SecretsWebhook {
