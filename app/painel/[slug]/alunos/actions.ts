@@ -6,8 +6,18 @@ import { revalidatePath } from "next/cache";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getAluno, getAlunosResumo, getPlanos } from "@/lib/data";
-import { Aluno, StatusMatricula } from "@/lib/types";
-import { calcularIdade, hojeSaoPaulo } from "@/lib/utils";
+import {
+  Aluno,
+  ORIGENS_ACESSO_ALUNO,
+  OrigemAcessoAluno,
+  StatusMatricula,
+} from "@/lib/types";
+import {
+  calcularIdade,
+  hojeSaoPaulo,
+  origemExigePlanoDaAcademia,
+  resolverStatusMatricula,
+} from "@/lib/utils";
 import { normalizarCpf, validarUrl } from "@/lib/validacoes";
 import {
   lerExerciciosDoFormulario,
@@ -289,6 +299,29 @@ function lerDataNascimento(formData: FormData): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
 }
 
+/**
+ * Origem do acesso + nome do convênio (migration 096).
+ *
+ * Valor desconhecido cai em "plano_academia", que é o comportamento de antes
+ * da coluna existir — um formulário antigo em cache nunca vira uma origem
+ * inventada. O nome do convênio só é gravado para "outro_convenio"; nas outras
+ * origens vai null, como o CHECK do banco exige.
+ */
+function lerOrigemAcesso(formData: FormData): {
+  origem: OrigemAcessoAluno;
+  parceiroExterno: string | null;
+} {
+  const bruta = String(formData.get("origem_acesso") ?? "").trim();
+  const origem = ORIGENS_ACESSO_ALUNO.some((o) => o.value === bruta)
+    ? (bruta as OrigemAcessoAluno)
+    : "plano_academia";
+  const parceiroExterno =
+    origem === "outro_convenio"
+      ? String(formData.get("parceiro_externo") ?? "").trim().slice(0, 80) || null
+      : null;
+  return { origem, parceiroExterno };
+}
+
 /** Campos de anamnese/saúde — nunca expostos na ficha pública do aluno. */
 function lerCamposSaude(formData: FormData) {
   return {
@@ -357,13 +390,16 @@ export async function criarAluno(
   // protege quando o CPF é preenchido).
   const chaveIdempotencia = String(formData.get("chave_idempotencia") ?? "").trim() || null;
 
+  const { origem, parceiroExterno } = lerOrigemAcesso(formData);
   const planoId = String(formData.get("plano_id") ?? "").trim() || null;
 
-  // Sem plano → sempre "pendente", independentemente do que o formulário enviou.
-  // Com plano → respeita o select de status (default "ativa").
-  const statusInicial: StatusMatricula = planoId === null
-    ? "pendente"
-    : ((formData.get("status") as StatusMatricula) || "ativa");
+  // A trava "sem plano → pendente" vale só para a origem "Plano da academia" —
+  // ver resolverStatusMatricula (lib/utils.ts) para o porquê.
+  const statusInicial = resolverStatusMatricula(
+    origem,
+    planoId,
+    (formData.get("status") as StatusMatricula) || "ativa"
+  );
 
   // Dia de vencimento (1 a 31): usa o campo do formulário; sem valor válido,
   // cai no dia de hoje. O dia de hoje nunca precisa de limite — se hoje é 31,
@@ -386,6 +422,8 @@ export async function criarAluno(
       // Storage) — este formulário não grava foto_perfil_url.
       status_matricula: statusInicial,
       plano_id: planoId,
+      origem_acesso: origem,
+      parceiro_externo: parceiroExterno,
       dia_vencimento: diaVencimento,
       chave_idempotencia: chaveIdempotencia,
       ...lerCamposSaude(formData),
@@ -412,7 +450,9 @@ export async function criarAluno(
     return { erro: await erroAmigavel(error, "cadastrar o aluno") };
   }
 
-  if (planoId && novo) {
+  // Mesma trava da edição: origem de parceiro/avulso não abre ciclo de plano
+  // nem gera cobrança, mesmo que um plano tenha chegado no formulário.
+  if (planoId && novo && origemExigePlanoDaAcademia(origem)) {
     // Lê campos de pagamento inicial (somente relevantes na criação de novos alunos).
     const pagamentoInicial = String(formData.get("pagamento_inicial") ?? "a_pagar").trim();
     const formaPagamento = String(formData.get("forma_pagamento") ?? "").trim() || undefined;
@@ -637,21 +677,31 @@ export async function atualizarAluno(
   const cpf = lerCpf(formData);
   if ("erro" in cpf) return { erro: cpf.erro };
 
-  const planoId = String(formData.get("plano_id") ?? "").trim() || null;
+  const { origem, parceiroExterno } = lerOrigemAcesso(formData);
   const statusDoForm = (formData.get("status") as StatusMatricula) || "ativa";
 
-  // Sem plano + status "ativa" → forçar "pendente" no servidor.
-  // Trancado, cancelado ou inativo sem plano são estados válidos (admin escolheu explicitamente).
-  const novoStatus: StatusMatricula =
-    planoId === null && statusDoForm === "ativa" ? "pendente" : statusDoForm;
-
-  // Lê estado atual para detectar transições relevantes.
+  // Lê estado atual ANTES de decidir o plano: é dele que sai o vínculo a
+  // preservar quando o formulário não traz o campo (ver abaixo).
   const { data: atual } = await supabase
     .from("alunos")
     .select("plano_id, status_matricula, dia_vencimento")
     .eq("id", alunoId)
     .eq("academia_id", sessao.academia.id)
     .maybeSingle();
+
+  // PROTEÇÃO DE DADO: este update grava `plano_id` direto do formulário. Se um
+  // formulário qualquer deixar de enviar o campo (é o caso das origens de
+  // parceiro, onde o select de plano não aparece), `plano_id` viraria null e o
+  // vínculo do aluno com o plano dele — Mensal, Trimestral, o que for — seria
+  // apagado em silêncio. Campo ausente passa a significar "não mexer";
+  // desvincular exige enviar o campo vazio de propósito.
+  const planoId = formData.has("plano_id")
+    ? String(formData.get("plano_id") ?? "").trim() || null
+    : (atual?.plano_id ?? null);
+
+  // A trava "sem plano → pendente" vale só para a origem "Plano da academia" —
+  // ver resolverStatusMatricula (lib/utils.ts).
+  const novoStatus = resolverStatusMatricula(origem, planoId, statusDoForm);
 
   // Sem valor válido no formulário, mantém o dia que o aluno já tinha — trocar
   // silenciosamente o vencimento de quem já é cliente seria pior que ignorar.
@@ -672,6 +722,8 @@ export async function atualizarAluno(
       // cadastrais não mexe em foto_perfil_url.
       status_matricula: novoStatus,
       plano_id: planoId,
+      origem_acesso: origem,
+      parceiro_externo: parceiroExterno,
       dia_vencimento: diaVencimento,
       ...lerCamposSaude(formData),
     })
@@ -683,6 +735,12 @@ export async function atualizarAluno(
   const statusAnterior = atual?.status_matricula ?? "ativa";
   const trocouPlano = planoId && planoId !== (atual?.plano_id ?? null);
   const reativando = novoStatus === "ativa" && statusAnterior !== "ativa";
+
+  // Ciclo de plano e cobrança pertencem SÓ a quem paga plano da academia. Sem
+  // esta trava, um aluno de parceiro que ainda carrega o plano-fantasma
+  // preservado pela migration 096 geraria mensalidade daquele plano ao ser
+  // reativado — cobrança indevida de quem o parceiro já paga.
+  const gerenciaPlanoDaAcademia = origemExigePlanoDaAcademia(origem);
 
   await registrarAuditoria({
     academiaId: sessao.academia.id,
@@ -711,14 +769,14 @@ export async function atualizarAluno(
     });
   }
 
-  if (reativando && trocouPlano && planoId) {
+  if (gerenciaPlanoDaAcademia && reativando && trocouPlano && planoId) {
     // Reativação com troca de plano: fecha ciclo anterior, abre novo e gera cobrança.
     await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId, "Troca de plano na reativação");
     const errHist = await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId, spHojeISO());
     if (errHist) return { erro: errHist };
     const errCob = await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, planoId, diaVencimento, spCompetencia());
     if (errCob) return { erro: errCob };
-  } else if (reativando && planoId) {
+  } else if (gerenciaPlanoDaAcademia && reativando && planoId) {
     const vigente = await cicloVigente(supabase, sessao.academia.id, alunoId);
     if (!vigente) {
       // Ciclo encerrado (ou inexistente): abre um novo ciclo e cobra.
@@ -733,7 +791,7 @@ export async function atualizarAluno(
       const errCob = await gerarCobrancaInicial(supabase, sessao.academia.id, alunoId, planoId, diaVencimento, spCompetencia());
       if (errCob) return { erro: errCob };
     }
-  } else if (trocouPlano && planoId) {
+  } else if (gerenciaPlanoDaAcademia && trocouPlano && planoId) {
     // Troca de plano sem reativação: registra histórico, sem gerar cobrança.
     await fecharHistoricoVigente(supabase, sessao.academia.id, alunoId, "Troca de plano");
     const errHist = await registrarHistoricoPlano(supabase, sessao.academia.id, alunoId, planoId, spHojeISO());

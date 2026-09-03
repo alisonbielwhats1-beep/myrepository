@@ -13,13 +13,21 @@ import {
   UserPlus,
   UserRound,
 } from "lucide-react";
-import { Aluno, FORMAS_PAGAMENTO, Plano } from "@/lib/types";
+import {
+  Aluno,
+  FORMAS_PAGAMENTO,
+  ORIGENS_ACESSO_ALUNO,
+  OrigemAcessoAluno,
+  Plano,
+} from "@/lib/types";
 import {
   calcularIdade,
   cn,
   diaDoMesSaoPaulo,
   formatDataISO,
   hojeSaoPaulo,
+  origemExigePlanoDaAcademia,
+  rotuloRecorrencia,
 } from "@/lib/utils";
 import { prepararFotoParaEnvio } from "@/lib/imagem-cliente";
 import CapturaWebcam from "@/components/ui/CapturaWebcam";
@@ -66,6 +74,21 @@ export default function FormularioAluno({
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`
   );
 
+  // ORIGEM DO ACESSO (migration 096) — de onde vem o direito de entrar. É um
+  // eixo separado da periodicidade: só "Plano da academia" tem mensal,
+  // trimestral, semestral. Antes as duas coisas dividiam o mesmo select, e a
+  // academia precisava criar um plano-fantasma "Wellhub" para o aluno de
+  // parceiro não ficar preso em "pendente".
+  const [origemAcesso, setOrigemAcesso] = useState<OrigemAcessoAluno>(
+    alunoExistente?.origem_acesso ?? "plano_academia"
+  );
+  const [parceiroExterno, setParceiroExterno] = useState(
+    alunoExistente?.parceiro_externo ?? ""
+  );
+  const exigePlano = origemExigePlanoDaAcademia(origemAcesso);
+  const ajudaOrigem =
+    ORIGENS_ACESSO_ALUNO.find((o) => o.value === origemAcesso)?.ajuda ?? "";
+
   // Controle do plano selecionado (para exibir info de ciclo e pagamento).
   const [planoSelecionadoId, setPlanoSelecionadoId] = useState(
     alunoExistente?.plano_id ?? ""
@@ -73,9 +96,19 @@ export default function FormularioAluno({
   const planoSelecionado = planos.find((p) => p.id === planoSelecionadoId) ?? null;
   const exibirPagamento =
     !alunoExistente &&
+    exigePlano &&
     !!planoSelecionado &&
     planoSelecionado.cobranca_recorrente &&
     planoSelecionado.valor_mensal > 0;
+
+  // Aluno de parceiro que ainda carrega o plano-fantasma criado antes desta
+  // mudança. O vínculo é PRESERVADO por padrão (a migração não apagou nada) e
+  // só sai daqui se o dono marcar a caixa de desvincular — decisão dele.
+  const [desvincularPlano, setDesvincularPlano] = useState(false);
+  const planoLegado =
+    !exigePlano && alunoExistente?.plano_id
+      ? planos.find((p) => p.id === alunoExistente.plano_id) ?? null
+      : null;
 
   // Data de nascimento controlada só para derivar a idade ao vivo — o valor
   // vai pro servidor pelo próprio `name="data_nascimento"` do input.
@@ -333,25 +366,100 @@ export default function FormularioAluno({
             />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Plano">
-            <select
-              name="plano_id"
-              value={planoSelecionadoId}
-              onChange={(e) => {
-                setPlanoSelecionadoId(e.target.value);
-                setPagamentoInicial("a_pagar");
-              }}
+        {/* ORIGEM DO ACESSO — sempre visível, e é ela que decide se a
+            periodicidade (o plano) faz sentido para este aluno. */}
+        <Field label="Origem do acesso">
+          <select
+            name="origem_acesso"
+            value={origemAcesso}
+            onChange={(e) => {
+              setOrigemAcesso(e.target.value as OrigemAcessoAluno);
+              setPagamentoInicial("a_pagar");
+              setDesvincularPlano(false);
+            }}
+            className="inp"
+          >
+            {ORIGENS_ACESSO_ALUNO.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          {ajudaOrigem && (
+            <p className="mt-1 text-xs text-slate-400">{ajudaOrigem}</p>
+          )}
+        </Field>
+
+        {origemAcesso === "outro_convenio" && (
+          <Field label="Nome do convênio">
+            <input
+              name="parceiro_externo"
+              value={parceiroExterno}
+              onChange={(e) => setParceiroExterno(e.target.value)}
+              placeholder="Ex: Sesc, convênio da empresa X"
+              maxLength={80}
               className="inp"
-            >
-              <option value="">Nenhum</option>
-              {planos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome}
-                </option>
-              ))}
-            </select>
+            />
           </Field>
+        )}
+
+        {/* Plano-fantasma herdado: o vínculo continua gravado, agora à vista.
+            Sem este input oculto o campo não iria no envio e o servidor
+            manteria o valor atual — o oculto existe para o "desvincular"
+            conseguir enviar vazio de propósito. */}
+        {!exigePlano && (
+          <input
+            type="hidden"
+            name="plano_id"
+            value={desvincularPlano ? "" : alunoExistente?.plano_id ?? ""}
+          />
+        )}
+        {planoLegado && (
+          <div className="rounded-xl border border-ink-600 bg-ink-800/60 px-3 py-2.5 text-xs">
+            <p className="text-slate-300">
+              Este aluno ainda está vinculado ao plano{" "}
+              <strong className="text-white">{planoLegado.nome}</strong> (
+              {rotuloRecorrencia(planoLegado.recorrencia_meses)}), criado quando
+              não havia campo de origem. O vínculo foi <strong>preservado</strong>{" "}
+              e não atrapalha o acesso pelo parceiro.
+            </p>
+            <label className="mt-2 flex min-h-11 cursor-pointer items-center gap-2 text-slate-400">
+              <input
+                type="checkbox"
+                checked={desvincularPlano}
+                onChange={(e) => setDesvincularPlano(e.target.checked)}
+                className="h-4 w-4 flex-none accent-volt-300"
+              />
+              Desvincular deste plano ao salvar (opcional — não apaga o plano
+              nem o histórico).
+            </label>
+          </div>
+        )}
+
+        {/* Plano + vencimento só existem para quem paga plano da academia.
+            Aluno de parceiro não tem mensalidade, então um "dia de
+            vencimento" ali seria campo morto. Escondido não é apagado: o
+            servidor mantém o dia que o aluno já tinha. */}
+        {exigePlano && (
+        <div className="grid grid-cols-2 gap-3">
+            <Field label="Plano e periodicidade">
+              <select
+                name="plano_id"
+                value={planoSelecionadoId}
+                onChange={(e) => {
+                  setPlanoSelecionadoId(e.target.value);
+                  setPagamentoInicial("a_pagar");
+                }}
+                className="inp"
+              >
+                <option value="">Nenhum</option>
+                {planos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome} — {rotuloRecorrencia(p.recorrencia_meses)}
+                  </option>
+                ))}
+              </select>
+            </Field>
           <Field label="Dia de vencimento">
             <input
               name="dia_vencimento"
@@ -387,11 +495,12 @@ export default function FormularioAluno({
             )}
           </Field>
         </div>
+        )}
 
         {/* Trava suave: ao CRIAR (não ao editar) um aluno sem plano, avisa a
             consequência em vez de deixar virar "pendente" silenciosamente. O
             "Nenhum" continua disponível — é escape consciente, não bloqueio. */}
-        {!alunoExistente && planoSelecionadoId === "" && planos.length > 0 && (
+        {!alunoExistente && exigePlano && planoSelecionadoId === "" && planos.length > 0 && (
           <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
             <strong>Sem plano</strong>, a matrícula é criada como{" "}
             <strong>pendente</strong>: o aluno <strong>não libera na catraca</strong>{" "}

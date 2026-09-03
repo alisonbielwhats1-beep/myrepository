@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useFormState } from "react-dom";
 import { CreditCard, Pencil, Plus, RefreshCw, Tag } from "lucide-react";
 import { Plano } from "@/lib/types";
-import { cn, formatBRL } from "@/lib/utils";
+import { cn, formatBRL, rotuloRecorrencia } from "@/lib/utils";
 import FormActions from "@/components/ui/FormActions";
 import ConfirmButton from "@/components/ui/ConfirmButton";
 import {
@@ -12,12 +12,6 @@ import {
   criarPlano,
   excluirPlano,
 } from "@/app/painel/[slug]/planos/actions";
-
-function periodoLabel(meses: number): string {
-  if (meses === 1) return "mensal";
-  if (meses === 12) return "anual";
-  return `a cada ${meses} meses`;
-}
 
 export default function GestaoPlanos({
   slug,
@@ -82,7 +76,7 @@ export default function GestaoPlanos({
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-white">{p.nome}</p>
                     <p className="text-xs text-slate-500">
-                      {periodoLabel(p.recorrencia_meses)}
+                      {rotuloRecorrencia(p.recorrencia_meses)}
                       {!p.ativo && " · inativo"}
                     </p>
                   </div>

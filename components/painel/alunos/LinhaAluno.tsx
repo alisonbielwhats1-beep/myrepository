@@ -11,7 +11,7 @@ import {
   QrCode,
   UserRound,
 } from "lucide-react";
-import { Aluno, StatusFinanceiro } from "@/lib/types";
+import { Aluno, ORIGENS_ACESSO_ALUNO, StatusFinanceiro } from "@/lib/types";
 import {
   badgeStatusFinanceiro,
   rotuloStatusFinanceiro,
@@ -138,6 +138,16 @@ export default function LinhaAluno({
           >
             {aluno.status_matricula}
           </span>
+          {/* Origem só aparece quando NÃO é o plano da academia: marcar o caso
+              comum em toda linha seria ruído. O que a recepção precisa ver de
+              relance é justamente quem entra por parceiro. */}
+          {aluno.origem_acesso && aluno.origem_acesso !== "plano_academia" && (
+            <span className="chip border-ink-600 bg-ink-700/60 text-[10px] text-slate-300">
+              {aluno.parceiro_externo ||
+                ORIGENS_ACESSO_ALUNO.find((o) => o.value === aluno.origem_acesso)
+                  ?.label}
+            </span>
+          )}
           {statusFinanceiro && statusFinanceiro !== "em_dia" && (
             <button
               type="button"

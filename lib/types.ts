@@ -14,6 +14,55 @@ export type StatusFinanceiro =
 export type OrigemAcesso = "Direto" | "Gympass" | "TotalPass" | "qr";
 export type StatusLiberacao = "liberado" | "negado" | "pendente" | "alerta";
 
+/**
+ * De ONDE vem o direito de acesso do aluno (migration 096).
+ *
+ * NÃO confundir com `OrigemAcesso` acima, que descreve UMA ENTRADA na catraca
+ * ("por onde essa pessoa passou agora"), nem com a PERIODICIDADE, que continua
+ * vivendo em `Plano.recorrencia_meses`. Origem e periodicidade são dois eixos
+ * separados: só "Plano da academia" tem periodicidade — Wellhub e TotalPass
+ * não são "mensal" nem "trimestral", são a fonte do acesso.
+ */
+export type OrigemAcessoAluno =
+  | "plano_academia"
+  | "wellhub"
+  | "totalpass"
+  | "avulso"
+  | "outro_convenio";
+
+export const ORIGENS_ACESSO_ALUNO: {
+  value: OrigemAcessoAluno;
+  label: string;
+  /** Explicação curta exibida abaixo do campo, no formulário do aluno. */
+  ajuda: string;
+}[] = [
+  {
+    value: "plano_academia",
+    label: "Plano da academia",
+    ajuda: "O aluno paga um plano seu. A periodicidade vem do plano escolhido.",
+  },
+  {
+    value: "wellhub",
+    label: "Wellhub/Gympass",
+    ajuda: "Acesso pago pelo parceiro. A academia não cobra mensalidade deste aluno.",
+  },
+  {
+    value: "totalpass",
+    label: "TotalPass",
+    ajuda: "Acesso pago pelo parceiro. A academia não cobra mensalidade deste aluno.",
+  },
+  {
+    value: "avulso",
+    label: "Sem plano / Avulso",
+    ajuda: "Sem vínculo recorrente — diária, cortesia ou pagamento por uso.",
+  },
+  {
+    value: "outro_convenio",
+    label: "Outro convênio",
+    ajuda: "Convênio de empresa, clube ou parceiro fora do Wellhub/TotalPass.",
+  },
+];
+
 /** Como a academia trata o acesso de aluno com mensalidade vencida (Fase 5). */
 export type PoliticaInadimplencia = "liberar" | "alertar" | "bloquear";
 
@@ -251,6 +300,11 @@ export interface Aluno {
   data_nascimento: string | null;
   status_matricula: StatusMatricula;
   plano_id: string | null;
+  /** Migration 096 — fonte do acesso. `plano_id` continua sendo o plano da
+   *  academia; as duas informações coexistem e nenhuma substitui a outra. */
+  origem_acesso: OrigemAcessoAluno;
+  /** Nome do convênio quando `origem_acesso` é "outro_convenio". */
+  parceiro_externo: string | null;
   matricula_codigo: string | null;
   dia_vencimento: number | null;
   objetivo: string | null;

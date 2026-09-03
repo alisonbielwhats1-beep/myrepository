@@ -134,7 +134,7 @@ export async function getAlunosPaginado(
   let query = supabase
     .from("alunos")
     .select(
-      "id, academia_id, nome, telefone, foto_perfil_url, status_matricula, plano_id, matricula_codigo, dia_vencimento, condicoes_medicas, token_acesso_publico, criado_em",
+      "id, academia_id, nome, telefone, foto_perfil_url, status_matricula, plano_id, origem_acesso, parceiro_externo, matricula_codigo, dia_vencimento, condicoes_medicas, token_acesso_publico, criado_em",
       { count: "exact" }
     )
     .eq("academia_id", academiaId);
@@ -167,7 +167,7 @@ export async function getAlunosResumo(academiaId: string): Promise<Aluno[]> {
   const { data, error } = await supabase
     .from("alunos")
     .select(
-      "id, academia_id, nome, cpf, email, telefone, foto_perfil_url, data_nascimento, status_matricula, plano_id, matricula_codigo, dia_vencimento, objetivo, condicoes_medicas, contato_emergencia_nome, contato_emergencia_telefone, token_acesso_publico, criado_em, atualizado_em"
+      "id, academia_id, nome, cpf, email, telefone, foto_perfil_url, data_nascimento, status_matricula, plano_id, origem_acesso, parceiro_externo, matricula_codigo, dia_vencimento, objetivo, condicoes_medicas, contato_emergencia_nome, contato_emergencia_telefone, token_acesso_publico, criado_em, atualizado_em"
     )
     .eq("academia_id", academiaId)
     .order("nome", { ascending: true });
