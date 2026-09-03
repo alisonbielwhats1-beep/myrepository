@@ -1021,7 +1021,7 @@ export async function atualizarTreino(
   const { data: anteriores } = await supabase
     .from("exercicios_treino")
     .select(
-      "nome_exercicio, series, repeticoes, carga_kg, descanso_segundos, observacoes, imagem_demonstracao_url, video_demonstracao_url, ordem"
+      "nome_exercicio, series, repeticoes, carga_kg, descanso_segundos, observacoes, imagem_demonstracao_url, video_demonstracao_url, catalogo_exercicio_id, ordem"
     )
     .eq("treino_id", treinoId)
     .order("ordem", { ascending: true });

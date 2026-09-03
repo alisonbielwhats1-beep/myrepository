@@ -331,6 +331,10 @@ export interface ExercicioTreino {
   descanso_segundos: number | null;
   imagem_demonstracao_url: string | null;
   video_demonstracao_url: string | null;
+  /** Vínculo com o exercício da biblioteca (migração 098). A imagem exibida é
+   *  a própria do exercício ou, se vazia, a da biblioteca — resolvido na
+   *  leitura, sem duplicar arquivo. */
+  catalogo_exercicio_id?: string | null;
   observacoes: string | null;
   configuracao?: Record<string, unknown>;
   ordem: number;

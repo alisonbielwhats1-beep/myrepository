@@ -42,6 +42,9 @@ export default function FormularioEdicaoTreino({
     observacoes: ex.observacoes ?? "",
     imagem_demonstracao_url: ex.imagem_demonstracao_url ?? "",
     video_demonstracao_url: ex.video_demonstracao_url ?? "",
+    // Preserva o vínculo com a biblioteca ao editar. Sem isto, salvar uma
+    // edição apagaria a ligação e o exercício perderia a imagem herdada.
+    catalogo_exercicio_id: ex.catalogo_exercicio_id ?? "",
   }));
 
   return (

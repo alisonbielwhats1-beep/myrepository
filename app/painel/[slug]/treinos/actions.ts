@@ -12,6 +12,7 @@ import { podeGerenciarTreinos } from "@/lib/permissoes";
 import {
   lerExerciciosDoFormulario,
   montarLinhasExercicio,
+  normalizarNomeExercicio,
 } from "@/lib/exercicios-treino";
 import {
   analisarLinhasTreino,
@@ -118,6 +119,13 @@ export async function criarExercicioCatalogo(
   const repeticoes =
     String(formData.get("repeticoes_padrao") ?? "12").trim() || "12";
 
+  // Mídia gravada com trim-or-null e SEM passar por validarUrl(): o valor
+  // legítimo aqui é o data: URL que o ImageUpload produz ao comprimir a foto
+  // no navegador, e aquela função só aceita https:// absoluta (mesma razão
+  // documentada em lib/exercicios-treino.ts).
+  const imagem =
+    String(formData.get("imagem_demonstracao_url") ?? "").trim() || null;
+
   const { error } = await supabase.from("catalogo_exercicios").insert({
     academia_id: sessao.academia.id,
     criado_por: sessao.userId,
@@ -126,6 +134,7 @@ export async function criarExercicioCatalogo(
     nome,
     series_padrao: series,
     repeticoes_padrao: repeticoes,
+    imagem_demonstracao_url: imagem,
     aliases: [],
     metadados: { profissional: sessao.nome, origem: "manual" },
   });
@@ -799,7 +808,7 @@ export async function editarTreinoBiblioteca(
   const { data: anteriores } = await supabase
     .from("exercicios_treino")
     .select(
-      "nome_exercicio, series, repeticoes, carga_kg, descanso_segundos, observacoes, imagem_demonstracao_url, video_demonstracao_url, ordem"
+      "nome_exercicio, series, repeticoes, carga_kg, descanso_segundos, observacoes, imagem_demonstracao_url, video_demonstracao_url, catalogo_exercicio_id, ordem"
     )
     .eq("treino_id", treinoId)
     .order("ordem", { ascending: true });
@@ -855,7 +864,7 @@ export async function duplicarTreino(
   const { data: origem, error: erroLeitura } = await supabase
     .from("treinos")
     .select(
-      "nome_treino, objetivo, modalidade, nivel, publico_alvo, exercicios:exercicios_treino(nome_exercicio, series, repeticoes, carga_kg, descanso_segundos, observacoes, imagem_demonstracao_url, video_demonstracao_url, configuracao, ordem)"
+      "nome_treino, objetivo, modalidade, nivel, publico_alvo, exercicios:exercicios_treino(nome_exercicio, series, repeticoes, carga_kg, descanso_segundos, observacoes, imagem_demonstracao_url, video_demonstracao_url, catalogo_exercicio_id, configuracao, ordem)"
     )
     .eq("id", treinoId)
     .is("aluno_id", null)
@@ -907,6 +916,7 @@ export async function duplicarTreino(
     observacoes: string | null;
     imagem_demonstracao_url: string | null;
     video_demonstracao_url: string | null;
+    catalogo_exercicio_id: string | null;
     configuracao: Record<string, unknown> | null;
     ordem: number;
   };
@@ -925,6 +935,9 @@ export async function duplicarTreino(
       observacoes: ex.observacoes,
       imagem_demonstracao_url: ex.imagem_demonstracao_url,
       video_demonstracao_url: ex.video_demonstracao_url,
+      // Preserva o vínculo com a biblioteca: sem ele a cópia nasceria sem a
+      // imagem herdada, mesmo o original exibindo uma (migração 098).
+      catalogo_exercicio_id: ex.catalogo_exercicio_id,
       // Preserva a configuração por exercício (mesma fidelidade do atribuir).
       configuracao: ex.configuracao ?? {},
       ordem: i + 1,
@@ -1001,6 +1014,28 @@ export async function importarTreinosBiblioteca(
     .is("aluno_id", null);
   let ordem = count ?? 0;
 
+  // Índice nome-normalizado -> id do exercício da biblioteca, para ligar cada
+  // linha da planilha ao item correspondente. Uma consulta só, fora do laço.
+  // Catálogo da academia vence o de sistema quando os dois têm o mesmo nome.
+  const { data: itensCatalogo } = await supabase
+    .from("catalogo_exercicios")
+    .select("id, nome, aliases, academia_id")
+    .or(`academia_id.is.null,academia_id.eq.${sessao.academia.id}`);
+  const catalogoPorNome = new Map<string, string>();
+  for (const item of (itensCatalogo ?? []) as {
+    id: string;
+    nome: string;
+    aliases: string[] | null;
+    academia_id: string | null;
+  }[]) {
+    const daAcademia = item.academia_id !== null;
+    for (const rotulo of [item.nome, ...(item.aliases ?? [])]) {
+      const chave = normalizarNomeExercicio(rotulo);
+      if (!chave) continue;
+      if (!catalogoPorNome.has(chave) || daAcademia) catalogoPorNome.set(chave, item.id);
+    }
+  }
+
   let criados = 0;
   const errosLinha = [...analise.erros];
 
@@ -1034,6 +1069,11 @@ export async function importarTreinosBiblioteca(
       continue;
     }
 
+    // A planilha não traz mídia — e antes isto gravava `imagem_demonstracao_url:
+    // ""` mesmo quando o nome batia com um item da biblioteca que TEM foto,
+    // que era a terceira causa de treino sem imagem. Agora, em vez de mídia, o
+    // que se grava é o VÍNCULO com a biblioteca, resolvido pelo nome
+    // normalizado (fallback de importação — o vínculo corrente é por id).
     const linhas = montarLinhasExercicio(
       treino.id,
       t.exercicios.map((e) => ({
@@ -1045,6 +1085,8 @@ export async function importarTreinosBiblioteca(
         observacoes: e.observacoes ?? "",
         imagem_demonstracao_url: "",
         video_demonstracao_url: "",
+        catalogo_exercicio_id:
+          catalogoPorNome.get(normalizarNomeExercicio(e.nome_exercicio)) ?? "",
       }))
     );
     const { error: erroEx } = await supabase.from("exercicios_treino").insert(linhas);

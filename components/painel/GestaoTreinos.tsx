@@ -34,6 +34,7 @@ import {
 import { nivelDoTreino, type NivelTreino } from "@/lib/treinos";
 import { cn } from "@/lib/utils";
 import FormActions from "@/components/ui/FormActions";
+import ImageUpload from "@/components/ui/ImageUpload";
 import ExercicioBuilder, {
   type LinhaExercicio,
 } from "@/components/painel/ExercicioBuilder";
@@ -1003,6 +1004,9 @@ function FormularioEdicaoTreinoModelo({
     observacoes: ex.observacoes ?? "",
     imagem_demonstracao_url: ex.imagem_demonstracao_url ?? "",
     video_demonstracao_url: ex.video_demonstracao_url ?? "",
+    // Preserva o vínculo com a biblioteca ao editar. Sem isto, salvar uma
+    // edição apagaria a ligação e o exercício perderia a imagem herdada.
+    catalogo_exercicio_id: ex.catalogo_exercicio_id ?? "",
   }));
 
   return (
@@ -1257,6 +1261,11 @@ function FormularioExercicioCatalogo({
 }) {
   const acao = criarExercicioCatalogo.bind(null, slug);
   const [estado, formAction] = useFormState(acao, {});
+  // Sem este campo, todo exercício criado pela academia nascia SEM imagem —
+  // e como o treino herda a foto da biblioteca (migração 098), a academia que
+  // montasse o próprio catálogo ficava com todos os treinos no placeholder.
+  // Era a segunda causa do problema das imagens.
+  const [imagem, setImagem] = useState("");
 
   useEffect(() => {
     if (estado.ok) onSalvo();
@@ -1329,6 +1338,16 @@ function FormularioExercicioCatalogo({
             <input name="repeticoes_padrao" defaultValue="12" className="inp" />
           </label>
         </div>
+      </div>
+
+      <div className="mt-3 max-w-xs">
+        <input type="hidden" name="imagem_demonstracao_url" value={imagem} />
+        <ImageUpload
+          value={imagem}
+          onChange={setImagem}
+          aspect="aspect-[4/3]"
+          hint="Imagem do movimento (opcional) — aparece em todo treino que usar este exercício"
+        />
       </div>
 
       <FormActions salvarLabel="Salvar no catálogo" className="mt-4" />

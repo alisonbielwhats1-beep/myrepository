@@ -16,6 +16,10 @@ export type LinhaExercicio = {
   observacoes: string;
   imagem_demonstracao_url: string;
   video_demonstracao_url: string;
+  /** Vínculo com a biblioteca (migração 098). A imagem passa a ser resolvida
+   *  por este id, em vez de copiada — assim ela aparece sozinha no treino e
+   *  acompanha a biblioteca se a foto for adicionada depois. */
+  catalogo_exercicio_id: string;
 };
 
 const VAZIO: LinhaExercicio = {
@@ -27,6 +31,7 @@ const VAZIO: LinhaExercicio = {
   observacoes: "",
   imagem_demonstracao_url: "",
   video_demonstracao_url: "",
+  catalogo_exercicio_id: "",
 };
 
 /**
@@ -75,8 +80,14 @@ export default function ExercicioBuilder({
       carga_kg: 0,
       descanso_segundos: 60,
       observacoes: "",
-      imagem_demonstracao_url: item.imagem_demonstracao_url ?? "",
-      video_demonstracao_url: item.video_demonstracao_url ?? "",
+      // Mídia NÃO é copiada: guarda-se o vínculo e a imagem é resolvida na
+      // leitura. Copiar por valor era a causa de o treino nascer sem foto
+      // quando a biblioteca ainda não tinha uma — e de nunca ganhar depois.
+      // Os campos abaixo ficam livres para uma foto/vídeo PRÓPRIOS deste
+      // exercício, que vencem os da biblioteca quando preenchidos.
+      imagem_demonstracao_url: "",
+      video_demonstracao_url: "",
+      catalogo_exercicio_id: item.id,
     });
   };
 
