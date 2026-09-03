@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Portal from "@/components/ui/Portal";
 
 /**
  * Captura de foto pela webcam (getUserMedia) — abre a câmera do próprio
@@ -248,6 +249,10 @@ export default function CapturaWebcam({
   const emRevisao = modo === "revisao";
 
   return (
+    // Portal obrigatório: os dois componentes que abrem esta janela têm
+    // `.surface` na raiz (backdrop-filter), que ancoraria o `fixed` no card e
+    // deixaria a câmera cortada dentro dele. Ver components/ui/Portal.tsx.
+    <Portal>
     <div
       className="fixed inset-0 z-50 flex justify-center overflow-y-auto overscroll-contain bg-ink-950/80 p-4 backdrop-blur-sm"
       role="dialog"
@@ -416,5 +421,6 @@ export default function CapturaWebcam({
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
