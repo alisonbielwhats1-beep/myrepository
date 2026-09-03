@@ -39,7 +39,9 @@ export const ORIGENS_ACESSO_ALUNO: {
   {
     value: "plano_academia",
     label: "Plano da academia",
-    ajuda: "O aluno paga um plano seu. A periodicidade vem do plano escolhido.",
+    ajuda:
+      "O aluno paga um plano seu. Pode ficar sem plano definido enquanto você " +
+      "decide — a matrícula fica pendente até o plano ser escolhido.",
   },
   {
     value: "wellhub",
@@ -53,8 +55,10 @@ export const ORIGENS_ACESSO_ALUNO: {
   },
   {
     value: "avulso",
-    label: "Sem plano / Avulso",
-    ajuda: "Sem vínculo recorrente — diária, cortesia ou pagamento por uso.",
+    label: "Avulso / diária",
+    ajuda:
+      "Só para quem NÃO vai ter plano: diária, cortesia ou uso pontual. Se o " +
+      "plano ainda vai ser definido, mantenha \"Plano da academia\".",
   },
   {
     value: "outro_convenio",

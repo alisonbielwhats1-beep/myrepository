@@ -503,15 +503,21 @@ export default function FormularioAluno({
         </div>
         )}
 
-        {/* Trava suave: ao CRIAR (não ao editar) um aluno sem plano, avisa a
-            consequência em vez de deixar virar "pendente" silenciosamente. O
-            "Nenhum" continua disponível — é escape consciente, não bloqueio. */}
-        {!alunoExistente && exigePlano && planoSelecionadoId === "" && planos.length > 0 && (
+        {/* Trava suave: aluno de plano da academia SEM plano escolhido avisa a
+            consequência em vez de virar "pendente" silenciosamente. O "Nenhum"
+            continua disponível — é escape consciente, não bloqueio.
+            Passou a valer também na EDIÇÃO: é o estado de boa parte da base
+            (cadastro iniciado na recepção com o plano para depois), e sem o
+            aviso aqui o dono abre a ficha e não descobre por que aquele aluno
+            não libera na catraca. */}
+        {exigePlano && planoSelecionadoId === "" && planos.length > 0 && (
           <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-            <strong>Sem plano</strong>, a matrícula é criada como{" "}
-            <strong>pendente</strong>: o aluno <strong>não libera na catraca</strong>{" "}
-            até você definir um plano. Você já pode montar e atribuir treinos, mas
-            o ideal é escolher o plano agora.
+            <strong>Sem plano</strong>, a matrícula {alunoExistente ? "fica" : "é criada"}{" "}
+            como <strong>pendente</strong>: o aluno{" "}
+            <strong>não libera na catraca</strong> até você definir um plano. Você
+            já pode montar e atribuir treinos, mas o ideal é escolher o plano
+            agora. Se este aluno realmente não vai ter plano, troque a origem
+            para <strong>Avulso / diária</strong>.
           </p>
         )}
 
