@@ -86,7 +86,13 @@ begin
     from public.exercicios_treino e
     join public.treinos t on t.id = e.treino_id
     where t.academia_id is null
-      and t.visibilidade = 'plataforma'
+      -- `origem_tipo = 'gestacad'`, NÃO `visibilidade = 'plataforma'`: a
+      -- migração 077 aposentou esse valor de `visibilidade` (reescreveu os
+      -- treinos de plataforma para 'academia') e passou a coerência da
+      -- plataforma para `origem_tipo`, com CHECK garantindo
+      -- gestacad <=> academia_id NULL. Filtrar pelo valor antigo casaria
+      -- ZERO linhas e a promoção não faria nada — em silêncio.
+      and t.origem_tipo = 'gestacad'
       and coalesce(e.imagem_demonstracao_url, '') <> ''
       -- nome que já exista no catálogo de sistema não vira linha nova
       and not exists (
@@ -122,6 +128,27 @@ begin
     returning 1
   )
   select count(*) into v_promovidos from inseridos;
+
+  -- Promover ZERO é quase sempre sintoma de filtro errado, não de "não há o
+  -- que promover" (foi o que aconteceu com `visibilidade='plataforma'`).
+  -- Numa base que TEM biblioteca padrão com foto e mesmo assim não promove
+  -- nada nem tem nada promovido de antes, aborta em vez de seguir calado.
+  if v_promovidos = 0
+     and exists (
+       select 1 from public.exercicios_treino e
+       join public.treinos t on t.id = e.treino_id
+       where t.academia_id is null
+         and coalesce(e.imagem_demonstracao_url, '') <> ''
+     )
+     and not exists (
+       select 1 from public.catalogo_exercicios
+       where metadados->>'origem' = 'biblioteca-padrao-gestacad'
+     ) then
+    raise exception
+      'MIGRAÇÃO 100 ABORTADA: existe biblioteca padrão com foto, mas nada foi '
+      'promovido. Provável filtro errado (origem_tipo/academia_id). Nenhuma '
+      'alteração foi mantida.';
+  end if;
 
   -- ---------------------------------------------------------------------
   -- 2. Refaz o casamento da 098 para o que continua sem vínculo. Mesma
