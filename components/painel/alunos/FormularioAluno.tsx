@@ -6,19 +6,29 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   Camera,
+  Check,
   HeartPulse,
   ImagePlus,
   Loader2,
   UserPlus,
   UserRound,
 } from "lucide-react";
-import { Aluno, FORMAS_PAGAMENTO, Plano } from "@/lib/types";
+import {
+  Aluno,
+  FORMAS_PAGAMENTO,
+  ORIGENS_ACESSO_ALUNO,
+  OrigemAcessoAluno,
+  Plano,
+} from "@/lib/types";
 import {
   calcularIdade,
   cn,
   diaDoMesSaoPaulo,
+  formatBRL,
   formatDataISO,
   hojeSaoPaulo,
+  origemExigePlanoDaAcademia,
+  rotuloRecorrencia,
 } from "@/lib/utils";
 import { prepararFotoParaEnvio } from "@/lib/imagem-cliente";
 import CapturaWebcam from "@/components/ui/CapturaWebcam";
@@ -65,6 +75,21 @@ export default function FormularioAluno({
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`
   );
 
+  // ORIGEM DO ACESSO (migration 096) — de onde vem o direito de entrar. É um
+  // eixo separado da periodicidade: só "Plano da academia" tem mensal,
+  // trimestral, semestral. Antes as duas coisas dividiam o mesmo select, e a
+  // academia precisava criar um plano-fantasma "Wellhub" para o aluno de
+  // parceiro não ficar preso em "pendente".
+  const [origemAcesso, setOrigemAcesso] = useState<OrigemAcessoAluno>(
+    alunoExistente?.origem_acesso ?? "plano_academia"
+  );
+  const [parceiroExterno, setParceiroExterno] = useState(
+    alunoExistente?.parceiro_externo ?? ""
+  );
+  const exigePlano = origemExigePlanoDaAcademia(origemAcesso);
+  const ajudaOrigem =
+    ORIGENS_ACESSO_ALUNO.find((o) => o.value === origemAcesso)?.ajuda ?? "";
+
   // Controle do plano selecionado (para exibir info de ciclo e pagamento).
   const [planoSelecionadoId, setPlanoSelecionadoId] = useState(
     alunoExistente?.plano_id ?? ""
@@ -72,9 +97,19 @@ export default function FormularioAluno({
   const planoSelecionado = planos.find((p) => p.id === planoSelecionadoId) ?? null;
   const exibirPagamento =
     !alunoExistente &&
+    exigePlano &&
     !!planoSelecionado &&
     planoSelecionado.cobranca_recorrente &&
     planoSelecionado.valor_mensal > 0;
+
+  // Aluno de parceiro que ainda carrega o plano-fantasma criado antes desta
+  // mudança. O vínculo é PRESERVADO por padrão (a migração não apagou nada) e
+  // só sai daqui se o dono marcar a caixa de desvincular — decisão dele.
+  const [desvincularPlano, setDesvincularPlano] = useState(false);
+  const planoLegado =
+    !exigePlano && alunoExistente?.plano_id
+      ? planos.find((p) => p.id === alunoExistente.plano_id) ?? null
+      : null;
 
   // Data de nascimento controlada só para derivar a idade ao vivo — o valor
   // vai pro servidor pelo próprio `name="data_nascimento"` do input.
@@ -101,17 +136,28 @@ export default function FormularioAluno({
   const galeriaRef = useRef<HTMLInputElement>(null);
   const fotoExibida = fotoPreview ?? alunoExistente?.foto_perfil_url ?? null;
 
-  const escolherFoto = async (file: File | undefined) => {
-    if (!file) return;
-    setFotoErro(null);
+  /**
+   * Recorta/comprime e guarda a foto. Devolve a mensagem de erro (ou null) em
+   * vez de só gravar no estado: é esse retorno que a janela da câmera usa para
+   * mostrar a falha nela mesma, sem fechar e sem mandar o usuário procurar o
+   * aviso atrás do modal.
+   */
+  const processarFoto = async (file: File): Promise<string | null> => {
     const resultado = await prepararFotoParaEnvio(file);
-    if ("erro" in resultado) {
-      setFotoErro(resultado.erro);
-      return;
-    }
+    if ("erro" in resultado) return resultado.erro;
     if (fotoPreview) URL.revokeObjectURL(fotoPreview);
     setFotoBlob(resultado.blob);
     setFotoPreview(resultado.previewUrl);
+    setFotoErro(null);
+    return null;
+  };
+
+  // Caminho do "Enviar arquivo": sem modal, o erro aparece no próprio cartão.
+  const escolherFoto = async (file: File | undefined) => {
+    if (!file) return;
+    setFotoErro(null);
+    const erro = await processarFoto(file);
+    if (erro) setFotoErro(erro);
   };
 
   const descartarFoto = () => {
@@ -198,18 +244,27 @@ export default function FormularioAluno({
               {fotoErro}
             </p>
           )}
+          {/* Estado explícito depois de confirmar a foto na janela da câmera:
+              aqui o envio ainda não aconteceu (depende do id do aluno), e sem
+              essa linha o usuário fica sem saber se a foto "pegou". */}
+          {fotoBlob && !fotoErro && (
+            <p className="flex items-center gap-1.5 text-xs text-volt-300">
+              <Check className="h-3.5 w-3.5 flex-none" />
+              Foto pronta — será salva ao concluir o cadastro.
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setMostrarWebcam(true)}
-              className="btn-ghost !py-1.5 text-xs"
+              className="btn-ghost min-h-11 text-xs"
             >
               <Camera className="h-3.5 w-3.5" /> Tirar foto
             </button>
             <button
               type="button"
               onClick={() => galeriaRef.current?.click()}
-              className="btn-ghost !py-1.5 text-xs"
+              className="btn-ghost min-h-11 text-xs"
             >
               <ImagePlus className="h-3.5 w-3.5" /> Enviar arquivo
             </button>
@@ -217,7 +272,7 @@ export default function FormularioAluno({
               <button
                 type="button"
                 onClick={descartarFoto}
-                className="btn-ghost !py-1.5 text-xs text-slate-400"
+                className="btn-ghost min-h-11 text-xs text-slate-400"
               >
                 Descartar
               </button>
@@ -312,25 +367,105 @@ export default function FormularioAluno({
             />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Plano">
-            <select
-              name="plano_id"
-              value={planoSelecionadoId}
-              onChange={(e) => {
-                setPlanoSelecionadoId(e.target.value);
-                setPagamentoInicial("a_pagar");
-              }}
+        {/* ORIGEM DO ACESSO — sempre visível, e é ela que decide se a
+            periodicidade (o plano) faz sentido para este aluno. */}
+        <Field label="Origem do acesso">
+          <select
+            name="origem_acesso"
+            value={origemAcesso}
+            onChange={(e) => {
+              setOrigemAcesso(e.target.value as OrigemAcessoAluno);
+              setPagamentoInicial("a_pagar");
+              setDesvincularPlano(false);
+            }}
+            className="inp"
+          >
+            {ORIGENS_ACESSO_ALUNO.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          {ajudaOrigem && (
+            <p className="mt-1 text-xs text-slate-400">{ajudaOrigem}</p>
+          )}
+        </Field>
+
+        {origemAcesso === "outro_convenio" && (
+          <Field label="Nome do convênio">
+            <input
+              name="parceiro_externo"
+              value={parceiroExterno}
+              onChange={(e) => setParceiroExterno(e.target.value)}
+              placeholder="Ex: Sesc, convênio da empresa X"
+              maxLength={80}
               className="inp"
-            >
-              <option value="">Nenhum</option>
-              {planos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome}
-                </option>
-              ))}
-            </select>
+            />
           </Field>
+        )}
+
+        {/* Plano-fantasma herdado: o vínculo continua gravado, agora à vista.
+            Sem este input oculto o campo não iria no envio e o servidor
+            manteria o valor atual — o oculto existe para o "desvincular"
+            conseguir enviar vazio de propósito. */}
+        {!exigePlano && (
+          <input
+            type="hidden"
+            name="plano_id"
+            value={desvincularPlano ? "" : alunoExistente?.plano_id ?? ""}
+          />
+        )}
+        {planoLegado && (
+          <div className="rounded-xl border border-ink-600 bg-ink-800/60 px-3 py-2.5 text-xs">
+            <p className="text-slate-300">
+              Este aluno ainda está vinculado ao plano{" "}
+              <strong className="text-white">{planoLegado.nome}</strong> (
+              {rotuloRecorrencia(planoLegado.recorrencia_meses)}), criado quando
+              não havia campo de origem. O vínculo foi <strong>preservado</strong>{" "}
+              e não atrapalha o acesso pelo parceiro.
+            </p>
+            <label className="mt-2 flex min-h-11 cursor-pointer items-center gap-2 text-slate-400">
+              <input
+                type="checkbox"
+                checked={desvincularPlano}
+                onChange={(e) => setDesvincularPlano(e.target.checked)}
+                className="h-4 w-4 flex-none accent-volt-300"
+              />
+              Desvincular deste plano ao salvar (opcional — não apaga o plano
+              nem o histórico).
+            </label>
+          </div>
+        )}
+
+        {/* Plano + vencimento só existem para quem paga plano da academia.
+            Aluno de parceiro não tem mensalidade, então um "dia de
+            vencimento" ali seria campo morto. Escondido não é apagado: o
+            servidor mantém o dia que o aluno já tinha. */}
+        {exigePlano && (
+        <div className="grid grid-cols-2 gap-3">
+            <Field label="Plano e periodicidade">
+              <select
+                name="plano_id"
+                value={planoSelecionadoId}
+                onChange={(e) => {
+                  setPlanoSelecionadoId(e.target.value);
+                  setPagamentoInicial("a_pagar");
+                }}
+                className="inp"
+              >
+                <option value="">Nenhum</option>
+                {/* Nome + periodicidade + valor. A academia mantém versões de
+                    preço com o MESMO nome (três "Mensal", dois "Trimestral"),
+                    então só o nome não distingue uma opção da outra — e a
+                    periodicidade sozinha também não. */}
+                {planos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome} — {rotuloRecorrencia(p.recorrencia_meses)} ·{" "}
+                    {formatBRL(p.valor_mensal)}
+                  </option>
+                ))}
+              </select>
+            </Field>
           <Field label="Dia de vencimento">
             <input
               name="dia_vencimento"
@@ -366,16 +501,23 @@ export default function FormularioAluno({
             )}
           </Field>
         </div>
+        )}
 
-        {/* Trava suave: ao CRIAR (não ao editar) um aluno sem plano, avisa a
-            consequência em vez de deixar virar "pendente" silenciosamente. O
-            "Nenhum" continua disponível — é escape consciente, não bloqueio. */}
-        {!alunoExistente && planoSelecionadoId === "" && planos.length > 0 && (
+        {/* Trava suave: aluno de plano da academia SEM plano escolhido avisa a
+            consequência em vez de virar "pendente" silenciosamente. O "Nenhum"
+            continua disponível — é escape consciente, não bloqueio.
+            Passou a valer também na EDIÇÃO: é o estado de boa parte da base
+            (cadastro iniciado na recepção com o plano para depois), e sem o
+            aviso aqui o dono abre a ficha e não descobre por que aquele aluno
+            não libera na catraca. */}
+        {exigePlano && planoSelecionadoId === "" && planos.length > 0 && (
           <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-            <strong>Sem plano</strong>, a matrícula é criada como{" "}
-            <strong>pendente</strong>: o aluno <strong>não libera na catraca</strong>{" "}
-            até você definir um plano. Você já pode montar e atribuir treinos, mas
-            o ideal é escolher o plano agora.
+            <strong>Sem plano</strong>, a matrícula {alunoExistente ? "fica" : "é criada"}{" "}
+            como <strong>pendente</strong>: o aluno{" "}
+            <strong>não libera na catraca</strong> até você definir um plano. Você
+            já pode montar e atribuir treinos, mas o ideal é escolher o plano
+            agora. Se este aluno realmente não vai ter plano, troque a origem
+            para <strong>Avulso / diária</strong>.
           </p>
         )}
 
@@ -531,7 +673,7 @@ export default function FormularioAluno({
       {mostrarWebcam && (
         <CapturaWebcam
           titulo="Foto do aluno"
-          onCapturar={(file) => escolherFoto(file)}
+          onCapturar={processarFoto}
           onFechar={() => setMostrarWebcam(false)}
         />
       )}

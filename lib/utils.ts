@@ -9,6 +9,7 @@ import {
   ResultadoRetencao,
   StatusFinanceiro,
   StatusMatricula,
+  OrigemAcessoAluno,
 } from "./types";
 
 /** Formata um número como moeda brasileira (BRL).
@@ -583,4 +584,61 @@ export function cn(...parts: Array<string | false | null | undefined>): string {
 export function mascarar(secret: string | null | undefined): string {
   if (!secret) return "";
   return "••••••••" + secret.slice(-4).toUpperCase();
+}
+
+
+// ---------------------------------------------------------------------------
+// Origem de acesso do aluno (migration 096)
+// ---------------------------------------------------------------------------
+
+/**
+ * Só o plano da academia traz periodicidade e mensalidade. Wellhub, TotalPass,
+ * avulso e outros convênios são fontes de acesso: quem paga é o parceiro (ou
+ * ninguém, no avulso), então cobrar um plano da academia deles não faz sentido.
+ *
+ * É esta função que decide se o campo de plano aparece no formulário e se a
+ * trava de status abaixo se aplica.
+ */
+export function origemExigePlanoDaAcademia(origem: OrigemAcessoAluno): boolean {
+  return origem === "plano_academia";
+}
+
+/**
+ * Status de matrícula que realmente vai ao banco.
+ *
+ * A trava "sem plano → pendente" existe desde a Fase 4 por um bom motivo: um
+ * aluno de plano da academia sem plano nenhum não pode liberar na catraca, e
+ * deixá-lo "ativa" seria mentir para a recepção. O erro era aplicá-la a TODO
+ * mundo — inclusive a quem entra por Wellhub/TotalPass, que por definição não
+ * tem plano da academia. Era isso que obrigava a academia a criar um
+ * plano-fantasma "Wellhub" só para o aluno não ficar preso em "pendente", e
+ * era esse plano-fantasma que aparecia no mesmo select de "Mensal"/"Trimestral".
+ *
+ * Agora a trava vale só para a origem "Plano da academia". Nenhuma outra regra
+ * de acesso muda: `decidirAcesso` continua olhando só status + mensalidades, e
+ * aluno de parceiro simplesmente não tem mensalidade a vencer.
+ */
+export function resolverStatusMatricula(
+  origem: OrigemAcessoAluno,
+  planoId: string | null,
+  statusEscolhido: StatusMatricula
+): StatusMatricula {
+  if (!origemExigePlanoDaAcademia(origem)) return statusEscolhido;
+  // Trancada, cancelada ou inativa sem plano são estados válidos — o admin
+  // escolheu explicitamente. Só "ativa" sem plano é que não pode existir.
+  if (planoId === null && statusEscolhido === "ativa") return "pendente";
+  return statusEscolhido;
+}
+
+/**
+ * Periodicidade do plano em palavra, do jeito que a academia fala. Usada no
+ * select de plano (para deixar explícito que ali é periodicidade, não origem)
+ * e no cartão de planos.
+ */
+export function rotuloRecorrencia(meses: number): string {
+  if (meses === 1) return "mensal";
+  if (meses === 3) return "trimestral";
+  if (meses === 6) return "semestral";
+  if (meses === 12) return "anual";
+  return `a cada ${meses} meses`;
 }

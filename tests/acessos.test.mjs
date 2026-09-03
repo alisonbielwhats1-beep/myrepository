@@ -5,7 +5,14 @@
  * Mesmo esquema dos outros testes do projeto: compila lib/utils.ts +
  * lib/types.ts para .test-build/ e roda com Node puro, sem framework.
  */
-import { decidirAcesso, statusLiberacaoDe, hojeSaoPaulo } from "../.test-build/utils.js";
+import {
+  decidirAcesso,
+  statusLiberacaoDe,
+  hojeSaoPaulo,
+  origemExigePlanoDaAcademia,
+  resolverStatusMatricula,
+  rotuloRecorrencia,
+} from "../.test-build/utils.js";
 
 let passou = 0;
 let falhou = 0;
@@ -94,6 +101,86 @@ console.log("\n5. statusLiberacaoDe alimenta a retenção corretamente (migratio
   check("liberado -> liberado", statusLiberacaoDe("liberado") === "liberado");
   check("alerta -> alerta", statusLiberacaoDe("alerta") === "alerta");
   check("bloqueado -> negado (fora da retenção)", statusLiberacaoDe("bloqueado") === "negado");
+}
+
+console.log("\n6. Origem de acesso do aluno separada da periodicidade (migration 096)");
+{
+  // Só o plano da academia exige plano — é o que libera Wellhub/TotalPass do
+  // plano-fantasma que a academia era obrigada a criar.
+  check("plano da academia exige plano", origemExigePlanoDaAcademia("plano_academia") === true);
+  check("wellhub não exige plano", origemExigePlanoDaAcademia("wellhub") === false);
+  check("totalpass não exige plano", origemExigePlanoDaAcademia("totalpass") === false);
+  check("avulso não exige plano", origemExigePlanoDaAcademia("avulso") === false);
+  check("outro convênio não exige plano", origemExigePlanoDaAcademia("outro_convenio") === false);
+
+  // A trava histórica continua valendo onde sempre fez sentido.
+  check(
+    "plano da academia SEM plano + ativa -> pendente (regra da Fase 4 intacta)",
+    resolverStatusMatricula("plano_academia", null, "ativa") === "pendente"
+  );
+  check(
+    "plano da academia COM plano + ativa -> ativa",
+    resolverStatusMatricula("plano_academia", "plano-1", "ativa") === "ativa"
+  );
+  check(
+    "plano da academia SEM plano + trancada -> trancada (escolha explícita do admin)",
+    resolverStatusMatricula("plano_academia", null, "trancada") === "trancada"
+  );
+
+  // O ponto do pedido: aluno de parceiro fica ativo sem plano da academia.
+  check(
+    "wellhub sem plano + ativa -> ativa (não vira pendente)",
+    resolverStatusMatricula("wellhub", null, "ativa") === "ativa"
+  );
+  check(
+    "totalpass sem plano + ativa -> ativa",
+    resolverStatusMatricula("totalpass", null, "ativa") === "ativa"
+  );
+  check(
+    "avulso sem plano + ativa -> ativa",
+    resolverStatusMatricula("avulso", null, "ativa") === "ativa"
+  );
+  check(
+    "outro convênio sem plano + ativa -> ativa",
+    resolverStatusMatricula("outro_convenio", null, "ativa") === "ativa"
+  );
+  check(
+    "parceiro com plano legado preservado + ativa -> ativa",
+    resolverStatusMatricula("wellhub", "plano-fantasma", "ativa") === "ativa"
+  );
+  check(
+    "parceiro cancelado continua cancelado",
+    resolverStatusMatricula("wellhub", null, "cancelada") === "cancelada"
+  );
+
+  // E o aluno de parceiro, sem mensalidade, passa na catraca: decidirAcesso
+  // olha status + mensalidades, e não o plano.
+  const parceiro = decidirAcesso(
+    resolverStatusMatricula("wellhub", null, "ativa"),
+    "bloquear",
+    []
+  );
+  check(
+    "aluno Wellhub sem mensalidade libera mesmo na política mais dura",
+    parceiro.resultado === "liberado",
+    `-> ${parceiro.resultado}`
+  );
+  // Antes da migration 096 o mesmo aluno era forçado a "pendente" e barrava.
+  const antes = decidirAcesso("pendente", "liberar", []);
+  check(
+    "prova do problema antigo: pendente era bloqueado",
+    antes.resultado === "bloqueado",
+    `-> ${antes.resultado}`
+  );
+}
+
+console.log("\n7. Periodicidade em palavra (única fonte, sem cópias divergentes)");
+{
+  check("1 mês -> mensal", rotuloRecorrencia(1) === "mensal");
+  check("3 meses -> trimestral", rotuloRecorrencia(3) === "trimestral");
+  check("6 meses -> semestral", rotuloRecorrencia(6) === "semestral");
+  check("12 meses -> anual", rotuloRecorrencia(12) === "anual");
+  check("4 meses -> a cada 4 meses", rotuloRecorrencia(4) === "a cada 4 meses");
 }
 
 console.log(`\n=== ${passou} passaram, ${falhou} falharam ===`);

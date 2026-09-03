@@ -14,6 +14,59 @@ export type StatusFinanceiro =
 export type OrigemAcesso = "Direto" | "Gympass" | "TotalPass" | "qr";
 export type StatusLiberacao = "liberado" | "negado" | "pendente" | "alerta";
 
+/**
+ * De ONDE vem o direito de acesso do aluno (migration 096).
+ *
+ * NÃO confundir com `OrigemAcesso` acima, que descreve UMA ENTRADA na catraca
+ * ("por onde essa pessoa passou agora"), nem com a PERIODICIDADE, que continua
+ * vivendo em `Plano.recorrencia_meses`. Origem e periodicidade são dois eixos
+ * separados: só "Plano da academia" tem periodicidade — Wellhub e TotalPass
+ * não são "mensal" nem "trimestral", são a fonte do acesso.
+ */
+export type OrigemAcessoAluno =
+  | "plano_academia"
+  | "wellhub"
+  | "totalpass"
+  | "avulso"
+  | "outro_convenio";
+
+export const ORIGENS_ACESSO_ALUNO: {
+  value: OrigemAcessoAluno;
+  label: string;
+  /** Explicação curta exibida abaixo do campo, no formulário do aluno. */
+  ajuda: string;
+}[] = [
+  {
+    value: "plano_academia",
+    label: "Plano da academia",
+    ajuda:
+      "O aluno paga um plano seu. Pode ficar sem plano definido enquanto você " +
+      "decide — a matrícula fica pendente até o plano ser escolhido.",
+  },
+  {
+    value: "wellhub",
+    label: "Wellhub/Gympass",
+    ajuda: "Acesso pago pelo parceiro. A academia não cobra mensalidade deste aluno.",
+  },
+  {
+    value: "totalpass",
+    label: "TotalPass",
+    ajuda: "Acesso pago pelo parceiro. A academia não cobra mensalidade deste aluno.",
+  },
+  {
+    value: "avulso",
+    label: "Avulso / diária",
+    ajuda:
+      "Só para quem NÃO vai ter plano: diária, cortesia ou uso pontual. Se o " +
+      "plano ainda vai ser definido, mantenha \"Plano da academia\".",
+  },
+  {
+    value: "outro_convenio",
+    label: "Outro convênio",
+    ajuda: "Convênio de empresa, clube ou parceiro fora do Wellhub/TotalPass.",
+  },
+];
+
 /** Como a academia trata o acesso de aluno com mensalidade vencida (Fase 5). */
 export type PoliticaInadimplencia = "liberar" | "alertar" | "bloquear";
 
@@ -251,6 +304,11 @@ export interface Aluno {
   data_nascimento: string | null;
   status_matricula: StatusMatricula;
   plano_id: string | null;
+  /** Migration 096 — fonte do acesso. `plano_id` continua sendo o plano da
+   *  academia; as duas informações coexistem e nenhuma substitui a outra. */
+  origem_acesso: OrigemAcessoAluno;
+  /** Nome do convênio quando `origem_acesso` é "outro_convenio". */
+  parceiro_externo: string | null;
   matricula_codigo: string | null;
   dia_vencimento: number | null;
   objetivo: string | null;
@@ -273,6 +331,10 @@ export interface ExercicioTreino {
   descanso_segundos: number | null;
   imagem_demonstracao_url: string | null;
   video_demonstracao_url: string | null;
+  /** Vínculo com o exercício da biblioteca (migração 098). A imagem exibida é
+   *  a própria do exercício ou, se vazia, a da biblioteca — resolvido na
+   *  leitura, sem duplicar arquivo. */
+  catalogo_exercicio_id?: string | null;
   observacoes: string | null;
   configuracao?: Record<string, unknown>;
   ordem: number;

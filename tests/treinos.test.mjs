@@ -7,6 +7,10 @@
  * lib/types.ts para .test-build-treinos/ e roda com Node puro, sem framework.
  */
 import { nivelDoTreino } from "../.test-build-treinos/treinos.js";
+import {
+  normalizarNomeExercicio,
+  resolverMidiaExercicio,
+} from "../.test-build-treinos/exercicios-treino.js";
 
 let passou = 0;
 let falhou = 0;
@@ -86,6 +90,94 @@ console.log("\n4. origem_tipo tem precedência: não classifica plataforma falsa
   check(
     "gestacad vence visibilidade privado -> plataforma",
     nivelDoTreino({ origem_tipo: "gestacad", academia_id: null, visibilidade: "privado" }) === "plataforma"
+  );
+}
+
+console.log("\nVínculo do exercício com a biblioteca (migração 098)");
+{
+  // O normalizador precisa concordar com public.normalizar_nome_exercicio
+  // (SQL). Se um dos dois mudar sozinho, a importação liga um exercício que a
+  // migração deixou solto — ou o contrário. Estes pares foram conferidos
+  // rodando os dois lado a lado contra o Postgres.
+  const pares = [
+    ["Supino Reto com Barra", "supino reto com barra"],
+    ["SUPINO RETO COM BARRA", "supino reto com barra"],
+    ["Remada Baixa (Cabo)", "remada baixa"],
+    ["Remada  Baixa   (Cabo)", "remada baixa"],
+    ["Agachamento Sumô", "agachamento sumo"],
+    ["Tríceps Testa", "triceps testa"],
+    ["Elevação Pélvica", "elevacao pelvica"],
+    ["Rosca Direta - Barra", "rosca direta barra"],
+    ["Leg Press 45°", "leg press 45"],
+    ["Crucifixo/Peck Deck", "crucifixo peck deck"],
+    ["  Espaços  nas  Pontas  ", "espacos nas pontas"],
+    ["Cadeira Extensora (leve)", "cadeira extensora"],
+  ];
+  for (const [entrada, esperado] of pares) {
+    const obtido = normalizarNomeExercicio(entrada);
+    check(
+      "normaliza " + JSON.stringify(entrada),
+      obtido === esperado,
+      "-> " + JSON.stringify(obtido)
+    );
+  }
+
+  const daBiblioteca = {
+    imagem_demonstracao_url: "https://cdn/biblioteca.jpg",
+    video_demonstracao_url: "https://cdn/biblioteca.mp4",
+  };
+
+  const semPropria = resolverMidiaExercicio({
+    imagem_demonstracao_url: null,
+    video_demonstracao_url: null,
+    catalogo: daBiblioteca,
+  });
+  check(
+    "sem imagem própria -> usa a da biblioteca",
+    semPropria.imagem_demonstracao_url === "https://cdn/biblioteca.jpg"
+  );
+  check(
+    "sem vídeo próprio -> usa o da biblioteca",
+    semPropria.video_demonstracao_url === "https://cdn/biblioteca.mp4"
+  );
+  check(
+    "a chave `catalogo` não vaza para o componente",
+    !("catalogo" in semPropria)
+  );
+
+  const comPropria = resolverMidiaExercicio({
+    imagem_demonstracao_url: "https://cdn/foto-do-professor.jpg",
+    video_demonstracao_url: null,
+    catalogo: daBiblioteca,
+  });
+  check(
+    "imagem própria SEMPRE vence a da biblioteca",
+    comPropria.imagem_demonstracao_url === "https://cdn/foto-do-professor.jpg"
+  );
+
+  // Importações antigas gravaram "" em vez de null — vazio conta como ausência.
+  const vazio = resolverMidiaExercicio({
+    imagem_demonstracao_url: "",
+    video_demonstracao_url: "   ",
+    catalogo: daBiblioteca,
+  });
+  check(
+    "string vazia conta como ausente (imagem)",
+    vazio.imagem_demonstracao_url === "https://cdn/biblioteca.jpg"
+  );
+  check(
+    "só espaços conta como ausente (vídeo)",
+    vazio.video_demonstracao_url === "https://cdn/biblioteca.mp4"
+  );
+
+  const semNada = resolverMidiaExercicio({
+    imagem_demonstracao_url: null,
+    video_demonstracao_url: null,
+    catalogo: null,
+  });
+  check(
+    "sem imagem em lugar nenhum -> null (o card mostra o placeholder)",
+    semNada.imagem_demonstracao_url === null
   );
 }
 

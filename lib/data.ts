@@ -3,6 +3,7 @@
 // banco garante que só os dados da academia do admin autenticado voltam.
 
 import { createClient } from "./supabase/server";
+import { resolverMidiaExercicio } from "./exercicios-treino";
 import { hojeSaoPaulo, somarDiasISO, inicioDiaSaoPauloUTC } from "./utils";
 import { tokenTemFormatoValido } from "./aluno-classificacao";
 import { calcularRange, construirFiltroBuscaAlunos } from "./paginacao";
@@ -134,7 +135,7 @@ export async function getAlunosPaginado(
   let query = supabase
     .from("alunos")
     .select(
-      "id, academia_id, nome, telefone, foto_perfil_url, status_matricula, plano_id, matricula_codigo, dia_vencimento, condicoes_medicas, token_acesso_publico, criado_em",
+      "id, academia_id, nome, telefone, foto_perfil_url, status_matricula, plano_id, origem_acesso, parceiro_externo, matricula_codigo, dia_vencimento, condicoes_medicas, token_acesso_publico, criado_em",
       { count: "exact" }
     )
     .eq("academia_id", academiaId);
@@ -167,7 +168,7 @@ export async function getAlunosResumo(academiaId: string): Promise<Aluno[]> {
   const { data, error } = await supabase
     .from("alunos")
     .select(
-      "id, academia_id, nome, cpf, email, telefone, foto_perfil_url, data_nascimento, status_matricula, plano_id, matricula_codigo, dia_vencimento, objetivo, condicoes_medicas, contato_emergencia_nome, contato_emergencia_telefone, token_acesso_publico, criado_em, atualizado_em"
+      "id, academia_id, nome, cpf, email, telefone, foto_perfil_url, data_nascimento, status_matricula, plano_id, origem_acesso, parceiro_externo, matricula_codigo, dia_vencimento, objetivo, condicoes_medicas, contato_emergencia_nome, contato_emergencia_telefone, token_acesso_publico, criado_em, atualizado_em"
     )
     .eq("academia_id", academiaId)
     .order("nome", { ascending: true });
@@ -351,6 +352,25 @@ export async function getPlanos(academiaId: string): Promise<Plano[]> {
   return (data as Plano[]) ?? [];
 }
 
+/**
+ * Aplica a resolução de mídia da migração 098 em todos os exercícios: a foto
+ * do próprio exercício vence; faltando ela, entra a da biblioteca.
+ *
+ * Existe para o PAINEL ver exatamente a mesma imagem que o APP DO ALUNO — lá a
+ * coalescência acontece dentro da RPC `obter_ficha_aluno`, em SQL. Duas telas,
+ * uma regra só (resolverMidiaExercicio, lib/exercicios-treino.ts).
+ *
+ * Também remove a chave `catalogo` do objeto: ela é detalhe da consulta, não
+ * faz parte do tipo Treino que os componentes recebem.
+ */
+function resolverMidiaDosTreinos(data: unknown): Treino[] {
+  const treinos = (data as Treino[]) ?? [];
+  return treinos.map((t) => ({
+    ...t,
+    exercicios: (t.exercicios ?? []).map(resolverMidiaExercicio),
+  }));
+}
+
 export async function getTreinosDoAluno(
   academiaId: string,
   alunoId: string
@@ -358,24 +378,24 @@ export async function getTreinosDoAluno(
   const supabase = createClient();
   const { data, error } = await supabase
     .from("treinos")
-    .select("*, exercicios:exercicios_treino(*)")
+    .select("*, exercicios:exercicios_treino(*, catalogo:catalogo_exercicios(imagem_demonstracao_url, video_demonstracao_url))")
     .eq("academia_id", academiaId)
     .eq("aluno_id", alunoId)
     .order("ordem", { ascending: true });
   if (error) throw new Error(`Falha ao carregar treinos: ${error.message}`);
-  return (data as Treino[]) ?? [];
+  return resolverMidiaDosTreinos(data);
 }
 
 export async function getTodosOsTreinos(academiaId: string): Promise<Treino[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("treinos")
-    .select("*, exercicios:exercicios_treino(*)")
+    .select("*, exercicios:exercicios_treino(*, catalogo:catalogo_exercicios(imagem_demonstracao_url, video_demonstracao_url))")
     .eq("academia_id", academiaId)
     .not("aluno_id", "is", null)
     .order("ordem", { ascending: true });
   if (error) throw new Error(`Falha ao carregar treinos: ${error.message}`);
-  return (data as Treino[]) ?? [];
+  return resolverMidiaDosTreinos(data);
 }
 
 /**
@@ -393,12 +413,12 @@ export async function getTreinosDosAlunos(
   const supabase = createClient();
   const { data, error } = await supabase
     .from("treinos")
-    .select("*, exercicios:exercicios_treino(*)")
+    .select("*, exercicios:exercicios_treino(*, catalogo:catalogo_exercicios(imagem_demonstracao_url, video_demonstracao_url))")
     .eq("academia_id", academiaId)
     .in("aluno_id", alunoIds)
     .order("ordem", { ascending: true });
   if (error) throw new Error(`Falha ao carregar treinos: ${error.message}`);
-  return (data as Treino[]) ?? [];
+  return resolverMidiaDosTreinos(data);
 }
 
 /** Treinos da biblioteca (modelos, sem aluno vinculado), por modalidade. */
@@ -411,14 +431,14 @@ export async function getTreinosBiblioteca(
   // privado de instrutor só volta para o dono, dono/gerente ou a plataforma.
   const { data, error } = await supabase
     .from("treinos")
-    .select("*, exercicios:exercicios_treino(*)")
+    .select("*, exercicios:exercicios_treino(*, catalogo:catalogo_exercicios(imagem_demonstracao_url, video_demonstracao_url))")
     .or(`academia_id.eq.${academiaId},academia_id.is.null`)
     .is("aluno_id", null)
     .eq("ativo", true)
     .order("modalidade", { ascending: true })
     .order("ordem", { ascending: true });
   if (error) throw new Error(`Falha ao carregar treinos: ${error.message}`);
-  return (data as Treino[]) ?? [];
+  return resolverMidiaDosTreinos(data);
 }
 
 /**

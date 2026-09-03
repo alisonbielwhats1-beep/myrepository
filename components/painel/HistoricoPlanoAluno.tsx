@@ -3,14 +3,8 @@
 import { useState, useTransition } from "react";
 import { CalendarClock, Loader2, RefreshCw } from "lucide-react";
 import { HistoricoPlano } from "@/lib/types";
-import { formatBRL } from "@/lib/utils";
+import { formatBRL, rotuloRecorrencia } from "@/lib/utils";
 import { renovarPlano } from "@/app/painel/[slug]/alunos/actions";
-
-function periodoLabel(meses: number): string {
-  if (meses === 1) return "mensal";
-  if (meses === 12) return "anual";
-  return `${meses} meses`;
-}
 
 /** Calcula a próxima renovação a partir do início do plano atual + recorrência. */
 function proximaRenovacao(inicioISO: string, recorrenciaMeses: number): Date {
@@ -79,7 +73,7 @@ export default function HistoricoPlanoAluno({
             <Info label="Plano atual" valor={atual.plano_nome} />
             <Info
               label="Valor"
-              valor={`${formatBRL(atual.valor)} / ${periodoLabel(atual.recorrencia_meses)}`}
+              valor={`${formatBRL(atual.valor)} / ${rotuloRecorrencia(atual.recorrencia_meses)}`}
             />
             <Info
               label="Próxima renovação"

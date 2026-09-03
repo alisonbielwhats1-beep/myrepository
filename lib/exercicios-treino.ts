@@ -24,6 +24,9 @@ export type ExercicioEntrada = {
   observacoes: string;
   imagem_demonstracao_url: string;
   video_demonstracao_url: string;
+  /** Id do exercício da biblioteca que originou esta linha (migração 098).
+   *  Vazio = digitado à mão, sem correspondente na biblioteca. */
+  catalogo_exercicio_id?: string;
 };
 
 /** Linha pronta para inserir em `exercicios_treino`. */
@@ -37,6 +40,7 @@ export type ExercicioLinhaBanco = {
   observacoes: string | null;
   imagem_demonstracao_url: string | null;
   video_demonstracao_url: string | null;
+  catalogo_exercicio_id: string | null;
   ordem: number;
 };
 
@@ -91,6 +95,73 @@ export function montarLinhasExercicio(
     observacoes: ex.observacoes?.trim() || null,
     imagem_demonstracao_url: ex.imagem_demonstracao_url?.trim() || null,
     video_demonstracao_url: ex.video_demonstracao_url?.trim() || null,
+    // Vínculo com a biblioteca (migração 098). Guardar o ID é o que permite a
+    // imagem da biblioteca aparecer no treino sem copiar arquivo nenhum, e
+    // valer retroativamente se a biblioteca ganhar a foto depois.
+    catalogo_exercicio_id: ex.catalogo_exercicio_id?.trim() || null,
     ordem: idx + 1,
   }));
+}
+
+
+// ---------------------------------------------------------------------------
+// Resolução da mídia (migração 098)
+// ---------------------------------------------------------------------------
+
+/** Exercício como vem do banco quando a query traz junto o item da biblioteca. */
+export type ExercicioComBiblioteca = {
+  imagem_demonstracao_url: string | null;
+  video_demonstracao_url: string | null;
+  catalogo?: {
+    imagem_demonstracao_url: string | null;
+    video_demonstracao_url: string | null;
+  } | null;
+};
+
+/**
+ * Mídia que o exercício deve exibir: a própria, se houver; senão a da
+ * biblioteca. ÚNICA regra — a RPC `obter_ficha_aluno` (app do aluno) aplica
+ * exatamente esta mesma coalescência em SQL, e o painel a aplica aqui, para
+ * as duas telas nunca divergirem sobre qual foto aparece.
+ *
+ * String vazia conta como ausente: importações antigas gravaram "" em vez de
+ * null (ver o histórico do bug na migração 098).
+ */
+export function resolverMidiaExercicio<T extends ExercicioComBiblioteca>(
+  ex: T
+): T & { imagem_demonstracao_url: string | null; video_demonstracao_url: string | null } {
+  const proprio = (v: string | null | undefined) => (v?.trim() ? v : null);
+  const { catalogo, ...resto } = ex as T & { catalogo?: unknown };
+  const daBiblioteca = catalogo as ExercicioComBiblioteca["catalogo"];
+  return {
+    ...(resto as T),
+    imagem_demonstracao_url:
+      proprio(ex.imagem_demonstracao_url) ??
+      proprio(daBiblioteca?.imagem_demonstracao_url) ??
+      null,
+    video_demonstracao_url:
+      proprio(ex.video_demonstracao_url) ??
+      proprio(daBiblioteca?.video_demonstracao_url) ??
+      null,
+  };
+}
+
+/**
+ * Normaliza o nome do exercício para casar com a biblioteca: minúsculas, sem
+ * acento, sem "(...)", só letras/números/espaço.
+ *
+ * Espelha `public.normalizar_nome_exercicio` (migração 098), que faz o mesmo
+ * em SQL para o casamento único dos dados antigos. As duas precisam concordar,
+ * senão a importação ligaria um exercício que a migração deixou solto (ou o
+ * contrário). Casar por nome é SEMPRE fallback — quando existe id da
+ * biblioteca, é ele que manda.
+ */
+export function normalizarNomeExercicio(nome: string): string {
+  return nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
