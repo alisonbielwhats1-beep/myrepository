@@ -24,6 +24,7 @@ import {
   calcularIdade,
   cn,
   diaDoMesSaoPaulo,
+  formatBRL,
   formatDataISO,
   hojeSaoPaulo,
   origemExigePlanoDaAcademia,
@@ -453,9 +454,14 @@ export default function FormularioAluno({
                 className="inp"
               >
                 <option value="">Nenhum</option>
+                {/* Nome + periodicidade + valor. A academia mantém versões de
+                    preço com o MESMO nome (três "Mensal", dois "Trimestral"),
+                    então só o nome não distingue uma opção da outra — e a
+                    periodicidade sozinha também não. */}
                 {planos.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.nome} — {rotuloRecorrencia(p.recorrencia_meses)}
+                    {p.nome} — {rotuloRecorrencia(p.recorrencia_meses)} ·{" "}
+                    {formatBRL(p.valor_mensal)}
                   </option>
                 ))}
               </select>
