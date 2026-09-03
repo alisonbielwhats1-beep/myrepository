@@ -36,17 +36,27 @@ export default function FotoAlunoAdminCard({
   const [mostrarWebcam, setMostrarWebcam] = useState(false);
   const galeriaRef = useRef<HTMLInputElement>(null);
 
-  const escolherArquivo = async (file: File | undefined) => {
-    if (!file) return;
-    setErro(null);
+  /**
+   * Recorta/comprime e guarda a foto. Devolve a mensagem de erro (ou null) —
+   * é esse retorno que a janela da câmera usa para exibir a falha nela mesma,
+   * em vez de fechar e deixar o aviso escondido atrás do modal.
+   */
+  const processarFoto = async (file: File): Promise<string | null> => {
     const resultado = await prepararFotoParaEnvio(file);
-    if ("erro" in resultado) {
-      setErro(resultado.erro);
-      return;
-    }
+    if ("erro" in resultado) return resultado.erro;
     if (preview) URL.revokeObjectURL(preview);
     setBlob(resultado.blob);
     setPreview(resultado.previewUrl);
+    setErro(null);
+    return null;
+  };
+
+  // Caminho do "Enviar arquivo": sem modal, o erro aparece no próprio cartão.
+  const escolherArquivo = async (file: File | undefined) => {
+    if (!file) return;
+    setErro(null);
+    const mensagem = await processarFoto(file);
+    if (mensagem) setErro(mensagem);
   };
 
   const cancelarSelecao = () => {
@@ -130,7 +140,7 @@ export default function FotoAlunoAdminCard({
                 type="button"
                 onClick={salvar}
                 disabled={pending}
-                className="btn-volt !py-1.5 text-xs disabled:opacity-50"
+                className="btn-volt min-h-11 text-xs disabled:opacity-50"
               >
                 {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                 Salvar
@@ -139,7 +149,7 @@ export default function FotoAlunoAdminCard({
                 type="button"
                 onClick={cancelarSelecao}
                 disabled={pending}
-                className="btn-ghost !py-1.5 text-xs"
+                className="btn-ghost min-h-11 text-xs"
               >
                 Cancelar
               </button>
@@ -149,14 +159,14 @@ export default function FotoAlunoAdminCard({
               <button
                 type="button"
                 onClick={() => setMostrarWebcam(true)}
-                className="btn-ghost !py-1.5 text-xs"
+                className="btn-ghost min-h-11 text-xs"
               >
                 <Camera className="h-3.5 w-3.5" /> Tirar foto
               </button>
               <button
                 type="button"
                 onClick={() => galeriaRef.current?.click()}
-                className="btn-ghost !py-1.5 text-xs"
+                className="btn-ghost min-h-11 text-xs"
               >
                 <ImagePlus className="h-3.5 w-3.5" /> Enviar arquivo
               </button>
@@ -165,7 +175,7 @@ export default function FotoAlunoAdminCard({
                   type="button"
                   onClick={remover}
                   disabled={pending}
-                  className="btn-ghost !py-1.5 text-xs text-red-300 hover:bg-red-500/10"
+                  className="btn-ghost min-h-11 text-xs text-red-300 hover:bg-red-500/10"
                 >
                   {pending ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -183,7 +193,7 @@ export default function FotoAlunoAdminCard({
       {mostrarWebcam && (
         <CapturaWebcam
           titulo={`Foto de ${nome.split(" ")[0]}`}
-          onCapturar={(file) => escolherArquivo(file)}
+          onCapturar={processarFoto}
           onFechar={() => setMostrarWebcam(false)}
         />
       )}

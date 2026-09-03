@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   Camera,
+  Check,
   HeartPulse,
   ImagePlus,
   Loader2,
@@ -101,17 +102,28 @@ export default function FormularioAluno({
   const galeriaRef = useRef<HTMLInputElement>(null);
   const fotoExibida = fotoPreview ?? alunoExistente?.foto_perfil_url ?? null;
 
-  const escolherFoto = async (file: File | undefined) => {
-    if (!file) return;
-    setFotoErro(null);
+  /**
+   * Recorta/comprime e guarda a foto. Devolve a mensagem de erro (ou null) em
+   * vez de só gravar no estado: é esse retorno que a janela da câmera usa para
+   * mostrar a falha nela mesma, sem fechar e sem mandar o usuário procurar o
+   * aviso atrás do modal.
+   */
+  const processarFoto = async (file: File): Promise<string | null> => {
     const resultado = await prepararFotoParaEnvio(file);
-    if ("erro" in resultado) {
-      setFotoErro(resultado.erro);
-      return;
-    }
+    if ("erro" in resultado) return resultado.erro;
     if (fotoPreview) URL.revokeObjectURL(fotoPreview);
     setFotoBlob(resultado.blob);
     setFotoPreview(resultado.previewUrl);
+    setFotoErro(null);
+    return null;
+  };
+
+  // Caminho do "Enviar arquivo": sem modal, o erro aparece no próprio cartão.
+  const escolherFoto = async (file: File | undefined) => {
+    if (!file) return;
+    setFotoErro(null);
+    const erro = await processarFoto(file);
+    if (erro) setFotoErro(erro);
   };
 
   const descartarFoto = () => {
@@ -198,18 +210,27 @@ export default function FormularioAluno({
               {fotoErro}
             </p>
           )}
+          {/* Estado explícito depois de confirmar a foto na janela da câmera:
+              aqui o envio ainda não aconteceu (depende do id do aluno), e sem
+              essa linha o usuário fica sem saber se a foto "pegou". */}
+          {fotoBlob && !fotoErro && (
+            <p className="flex items-center gap-1.5 text-xs text-volt-300">
+              <Check className="h-3.5 w-3.5 flex-none" />
+              Foto pronta — será salva ao concluir o cadastro.
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setMostrarWebcam(true)}
-              className="btn-ghost !py-1.5 text-xs"
+              className="btn-ghost min-h-11 text-xs"
             >
               <Camera className="h-3.5 w-3.5" /> Tirar foto
             </button>
             <button
               type="button"
               onClick={() => galeriaRef.current?.click()}
-              className="btn-ghost !py-1.5 text-xs"
+              className="btn-ghost min-h-11 text-xs"
             >
               <ImagePlus className="h-3.5 w-3.5" /> Enviar arquivo
             </button>
@@ -217,7 +238,7 @@ export default function FormularioAluno({
               <button
                 type="button"
                 onClick={descartarFoto}
-                className="btn-ghost !py-1.5 text-xs text-slate-400"
+                className="btn-ghost min-h-11 text-xs text-slate-400"
               >
                 Descartar
               </button>
@@ -531,7 +552,7 @@ export default function FormularioAluno({
       {mostrarWebcam && (
         <CapturaWebcam
           titulo="Foto do aluno"
-          onCapturar={(file) => escolherFoto(file)}
+          onCapturar={processarFoto}
           onFechar={() => setMostrarWebcam(false)}
         />
       )}
