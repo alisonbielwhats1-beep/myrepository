@@ -96,31 +96,79 @@ export default function ProvedorDescanso({
   }, []);
 
   // --- Som -----------------------------------------------------------------
-  // Oscilador do WebAudio: bipe sem baixar nenhum asset. O AudioContext nasce
-  // dentro do clique que inicia o descanso, então o gesto do usuário já o
-  // libera — é isso que faz o som funcionar onde o autoplay é bloqueado.
+  /**
+   * Destrava o áudio. Roda DENTRO do toque que inicia o descanso — é o gesto
+   * que o navegador exige.
+   *
+   * O QUE DEU ERRADO NO IPHONE (teste em campo, 07/09/2026)
+   *   Não bastava criar o AudioContext no gesto: no iOS o WebAudio cai na
+   *   categoria de áudio "ambient", que o botão físico de silencioso do
+   *   iPhone cala. E celular de academia vive no silencioso, então o bipe
+   *   simplesmente não existia pro aluno. `audioSession.type = "playback"`
+   *   (Safari 16.4+) move o som pra categoria de mídia, que ignora a chavinha.
+   *
+   *   Junto vai o buffer mudo de 1 frame: é o que o iOS reconhece como "o
+   *   usuário realmente pediu áudio". Sem ele o contexto fica `running` e
+   *   ainda assim sai calado.
+   */
+  const desbloquearAudio = useCallback(() => {
+    try {
+      const sessao = (
+        navigator as unknown as { audioSession?: { type: string } }
+      ).audioSession;
+      if (sessao) sessao.type = "playback";
+    } catch {
+      /* Navegador sem audioSession: segue no comportamento padrão. */
+    }
+    try {
+      const AC =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+      if (!AC) return;
+      const ctx = (audioRef.current ??= new AC());
+      void ctx.resume();
+      const fonte = ctx.createBufferSource();
+      fonte.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+      fonte.connect(ctx.destination);
+      fonte.start(0);
+    } catch {
+      /* Sem áudio: a vibração e o visual continuam valendo. */
+    }
+  }, []);
+
+  /** Oscilador do WebAudio: bipe sem baixar nenhum asset. */
   const bip = useCallback((freq: number, dur: number, atraso = 0) => {
     if (mudoRef.current) return;
     const ctx = audioRef.current;
     if (!ctx) return;
-    try {
-      if (ctx.state === "suspended") void ctx.resume();
-      const t0 = ctx.currentTime + atraso;
-      const osc = ctx.createOscillator();
-      const ganho = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, t0);
-      // Rampas exponenciais: sem elas o corte seco estala no alto-falante.
-      ganho.gain.setValueAtTime(0.0001, t0);
-      ganho.gain.exponentialRampToValueAtTime(0.3, t0 + 0.012);
-      ganho.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      osc.connect(ganho);
-      ganho.connect(ctx.destination);
-      osc.start(t0);
-      osc.stop(t0 + dur + 0.02);
-    } catch {
-      /* Áudio é enfeite: nunca pode derrubar a contagem. */
-    }
+
+    const tocar = () => {
+      try {
+        const t0 = ctx.currentTime + atraso;
+        const osc = ctx.createOscillator();
+        const ganho = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, t0);
+        // Rampas exponenciais: sem elas o corte seco estala no alto-falante.
+        ganho.gain.setValueAtTime(0.0001, t0);
+        ganho.gain.exponentialRampToValueAtTime(0.3, t0 + 0.012);
+        ganho.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.connect(ganho);
+        ganho.connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.02);
+      } catch {
+        /* Áudio é enfeite: nunca pode derrubar a contagem. */
+      }
+    };
+
+    // Com o contexto suspenso o `currentTime` fica congelado, e agendar aí
+    // marca o som pro passado — ele nunca toca. O iOS suspende sozinho quando
+    // a aba perde o foco, então isto não é hipótese remota: é o caso comum de
+    // quem trocou de app no meio do descanso.
+    if (ctx.state === "running") tocar();
+    else void ctx.resume().then(tocar).catch(() => {});
   }, []);
 
   const encerrar = useCallback(() => {
@@ -138,20 +186,9 @@ export default function ProvedorDescanso({
   const iniciar = useCallback(
     (pedido: PedidoDescanso) => {
       const base = pedido.segundos > 0 ? pedido.segundos : PADRAO_SEGUNDOS;
-      // Criado/retomado aqui dentro porque `iniciar` só é chamado a partir de
-      // um toque do aluno — o gesto que destrava o áudio no navegador.
-      try {
-        const AC =
-          window.AudioContext ??
-          (window as unknown as { webkitAudioContext?: typeof AudioContext })
-            .webkitAudioContext;
-        if (AC) {
-          audioRef.current ??= new AC();
-          if (audioRef.current.state === "suspended") void audioRef.current.resume();
-        }
-      } catch {
-        /* Sem áudio: a vibração e o visual continuam valendo. */
-      }
+      // Aqui dentro porque `iniciar` só é chamado a partir de um toque do
+      // aluno — o gesto que destrava o áudio no navegador.
+      desbloquearAudio();
       if (fimRef.current != null) {
         window.clearTimeout(fimRef.current);
         fimRef.current = null;
@@ -164,7 +201,7 @@ export default function ProvedorDescanso({
       setPausado(false);
       setMinimizado(false); // marcar a série abre em tela cheia
     },
-    []
+    [desbloquearAudio]
   );
 
   // --- Contagem ------------------------------------------------------------
@@ -230,6 +267,18 @@ export default function ProvedorDescanso({
       void sentinela?.release();
       sentinela = null;
     };
+  }, [sessao]);
+
+  // O iOS suspende o AudioContext quando a aba sai de foco e NÃO o retoma
+  // sozinho ao voltar. Sem isto, quem sai do app no meio do descanso perde o
+  // bipe justamente na volta — que é quando ele importa.
+  useEffect(() => {
+    if (!sessao) return;
+    const aoVoltar = () => {
+      if (document.visibilityState === "visible") void audioRef.current?.resume();
+    };
+    document.addEventListener("visibilitychange", aoVoltar);
+    return () => document.removeEventListener("visibilitychange", aoVoltar);
   }, [sessao]);
 
   // Trava a rolagem do fundo enquanto o overlay cobre a tela.
