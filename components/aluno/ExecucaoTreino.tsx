@@ -10,6 +10,7 @@ import {
 } from "@/lib/types";
 import CreditoVideosExercicios from "./CreditoVideosExercicios";
 import ExercicioCard from "./ExercicioCard";
+import ProvedorDescanso from "./ProvedorDescanso";
 
 export type AcoesExecucao = {
   iniciar: (treinoId: string) => Promise<{ erro?: string; sessao?: SessaoTreino }>;
@@ -222,18 +223,23 @@ export default function ExecucaoTreino({
         </p>
       )}
 
-      <div className="space-y-4">
-        {exercicios.map((ex) => (
-          <ExercicioCard
-            key={ex.id}
-            ex={ex}
-            progresso={progressoPorExercicio.get(ex.id)}
-            recorde={recordes[ex.id] ?? null}
-            ultimaCarga={ultimaCarga[ex.id] ?? null}
-            onAlterar={(patch) => handleAlterar(ex.id, patch)}
-          />
-        ))}
-      </div>
+      {/* Um único cronômetro de descanso pra ficha inteira: sobrevive à
+          rolagem, e o overlay sai pelo Portal (não fica preso no card). */}
+      <ProvedorDescanso>
+        <div className="space-y-4">
+          {exercicios.map((ex, i) => (
+            <ExercicioCard
+              key={ex.id}
+              ex={ex}
+              progresso={progressoPorExercicio.get(ex.id)}
+              recorde={recordes[ex.id] ?? null}
+              ultimaCarga={ultimaCarga[ex.id] ?? null}
+              proximo={exercicios[i + 1]?.nome_exercicio ?? null}
+              onAlterar={(patch) => handleAlterar(ex.id, patch)}
+            />
+          ))}
+        </div>
+      </ProvedorDescanso>
 
       <button
         onClick={handleFinalizar}

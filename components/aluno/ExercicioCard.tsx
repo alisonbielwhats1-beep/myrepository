@@ -19,7 +19,7 @@ import {
 import { EsforcoTreino, ExercicioTreino, ProgressoExercicio } from "@/lib/types";
 import { guiaDoExercicio } from "@/lib/guia-exercicios";
 import { cn } from "@/lib/utils";
-import CronometroDescanso from "./CronometroDescanso";
+import { useDescanso } from "./ProvedorDescanso";
 
 const PROGRESSO_VAZIO: Omit<ProgressoExercicio, "exercicio_id"> = {
   concluido: false,
@@ -34,6 +34,13 @@ const OPCOES_ESFORCO: { valor: EsforcoTreino; rotulo: string }[] = [
   { valor: "medio", rotulo: "Médio" },
   { valor: "pesado", rotulo: "Pesado" },
 ];
+
+// Rótulo do botão de descanso. O 60 default espelha o PADRAO_SEGUNDOS do
+// ProvedorDescanso — sem prescrição, o botão promete o que o cronômetro conta.
+function formatarDescanso(segundos: number | null | undefined) {
+  const s = segundos != null && segundos > 0 ? segundos : 60;
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
 
 // GIF não é formato de vídeo — a tag <video> não reproduz .gif. Um GIF já
 // anima sozinho, então é exibido como imagem e dispensa player.
@@ -190,6 +197,7 @@ export default function ExercicioCard({
   progresso,
   recorde,
   ultimaCarga,
+  proximo,
   onAlterar,
 }: {
   ex: ExercicioTreino;
@@ -198,6 +206,8 @@ export default function ExercicioCard({
   recorde?: number | null;
   /** Carga (kg) da última vez que fez este exercício. null/0 = sem histórico. */
   ultimaCarga?: number | null;
+  /** Nome do exercício seguinte na ficha — mostrado no cronômetro de descanso. */
+  proximo?: string | null;
   onAlterar?: (patch: Partial<Omit<ProgressoExercicio, "exercicio_id">>) => void;
 }) {
   const realizado = progresso ?? { exercicio_id: ex.id, ...PROGRESSO_VAZIO };
@@ -212,8 +222,22 @@ export default function ExercicioCard({
   // Ref do campo de carga: permite preencher a última carga com um toque sem
   // tornar o input controlado (o padrão da tela é uncontrolled + onBlur).
   const cargaRef = useRef<HTMLInputElement>(null);
-  // Sinal que dispara o cronômetro de descanso ao concluir a série.
-  const [sinalDescanso, setSinalDescanso] = useState(0);
+
+  // Cronômetro compartilhado da execução. Null na ficha pública read-only,
+  // que renderiza este card fora do ProvedorDescanso.
+  const descanso = useDescanso();
+  const abrirDescanso = () =>
+    descanso?.iniciar({
+      segundos: ex.descanso_segundos ?? 0,
+      exercicio: ex.nome_exercicio,
+      detalhe: [
+        `${ex.series} × ${ex.repeticoes}`,
+        ex.carga_kg != null && ex.carga_kg > 0 ? `${ex.carga_kg} kg` : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      proximo,
+    });
 
   const usarUltimaCarga = () => {
     if (!temUltima || !onAlterar) return;
@@ -226,7 +250,7 @@ export default function ExercicioCard({
     const vai = !realizado.concluido;
     // Concluir e "não consegui" são mutuamente exclusivos.
     onAlterar(vai ? { concluido: true, nao_fez: false } : { concluido: false });
-    if (vai) setSinalDescanso((s) => s + 1); // auto-inicia o descanso
+    if (vai) abrirDescanso(); // o descanso abre sozinho, em tela cheia
   };
 
   const alternarNaoFez = () => {
@@ -395,13 +419,18 @@ export default function ExercicioCard({
               </div>
             </div>
 
-            {/* Cronômetro de descanso — puramente client-side, usa o descanso
-                prescrito como padrão. Auto-inicia ao concluir a série (sinal).
-                Só aparece no modo sessão, nunca na ficha pública read-only. */}
-            <CronometroDescanso
-              segundosPadrao={ex.descanso_segundos ?? 0}
-              dispararSinal={sinalDescanso}
-            />
+            {/* Atalho pra descansar sem marcar a série (entre séries do mesmo
+                exercício). Marcar como concluído abre o mesmo cronômetro. */}
+            {descanso && (
+              <button
+                type="button"
+                onClick={abrirDescanso}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-ink-600 bg-ink-800 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-ink-700 active:scale-[0.98]"
+              >
+                <Timer className="h-4 w-4 text-volt-300" />
+                Descansar {formatarDescanso(ex.descanso_segundos)}
+              </button>
+            )}
 
             <button
               onClick={alternarConcluido}
