@@ -26,6 +26,11 @@ export default function NovaPublicacao({
 }) {
   const [legenda, setLegenda] = useState("");
   const [blob, setBlob] = useState<Blob | null>(null);
+  // Dimensões finais da imagem já redimensionada. Vão junto no envio para o
+  // feed reservar a caixa na proporção real da foto (migração 103).
+  const [dimensoes, setDimensoes] = useState<{ largura: number; altura: number } | null>(
+    null
+  );
   const [preview, setPreview] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [processando, setProcessando] = useState(false);
@@ -35,6 +40,7 @@ export default function NovaPublicacao({
   function limparImagem() {
     if (preview) URL.revokeObjectURL(preview);
     setBlob(null);
+    setDimensoes(null);
     setPreview(null);
     if (inputRef.current) inputRef.current.value = "";
   }
@@ -53,6 +59,7 @@ export default function NovaPublicacao({
     }
     if (preview) URL.revokeObjectURL(preview);
     setBlob(r.blob);
+    setDimensoes({ largura: r.largura, altura: r.altura });
     setPreview(r.previewUrl);
   }
 
@@ -66,6 +73,10 @@ export default function NovaPublicacao({
     const fd = new FormData();
     fd.set("legenda", texto);
     if (blob) fd.set("imagem", new File([blob], "publicacao.jpg", { type: blob.type }));
+    if (blob && dimensoes) {
+      fd.set("largura", String(dimensoes.largura));
+      fd.set("altura", String(dimensoes.altura));
+    }
 
     startEnvio(async () => {
       const r = await criar({}, fd);

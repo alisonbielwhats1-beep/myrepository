@@ -64,6 +64,14 @@ export default function PostCard({
     };
   }, [ampliada]);
 
+  // Proporção real da foto, quando gravada no upload. O par é sempre gravado
+  // junto (constraint da migração 103), mas conferimos os dois de qualquer
+  // forma: um valor solto daria uma caixa de altura infinita.
+  const proporcaoFoto =
+    post.imagem_largura && post.imagem_altura
+      ? `${post.imagem_largura} / ${post.imagem_altura}`
+      : null;
+
   function toggleCurtida() {
     if (curtindoRef.current) return;
     curtindoRef.current = true;
@@ -183,23 +191,23 @@ export default function PostCard({
       </div>
 
       {/* Imagem — ANTES da legenda, como em todo feed que o aluno já usa.
-          Sem corte: `contain` dentro de uma caixa 4:5 limitada a 55vh, para
-          que um post sozinho não tome a tela e o feed sempre insinue o
-          próximo (antes eram 70vh).
-          A caixa é de proporção FIXA de propósito. A alternativa — deixar o
-          container abraçar a proporção real da foto (`w-auto h-auto`) —
-          eliminaria as barras, mas mede 0px de altura antes da imagem
-          carregar: o feed inteiro pularia a cada foto que chega. Reservar o
-          espaço custa barra em foto muito fora de 4:5, e esse é o lado certo
-          da troca num feed que se rola.
-          Acabar com as barras sem reintroduzir o pulo exige guardar largura e
-          altura da foto no upload, para dar a proporção real à caixa. */}
+          A caixa é reservada na proporção REAL da foto (migração 103), então
+          não há corte, não há faixa escura e o feed não pula quando a imagem
+          chega. Sem as dimensões — post anterior à migração, ou migração ainda
+          não aplicada — cai numa caixa 4:5 com `contain`, que preserva a foto
+          inteira ao custo da faixa.
+          O teto de 55vh vale nos dois casos, para que um post sozinho não tome
+          a tela e o feed sempre insinue o próximo. */}
       {post.imagem_url && (
         <button
           type="button"
           onClick={() => setAmpliada(true)}
           aria-label={`Ampliar foto de ${post.autor.nome}`}
-          className="relative block aspect-[4/5] max-h-[55vh] w-full bg-ink-900"
+          className={cn(
+            "relative block max-h-[55vh] w-full bg-ink-900",
+            !proporcaoFoto && "aspect-[4/5]"
+          )}
+          style={proporcaoFoto ? { aspectRatio: proporcaoFoto } : undefined}
         >
           <Image
             src={post.imagem_url}

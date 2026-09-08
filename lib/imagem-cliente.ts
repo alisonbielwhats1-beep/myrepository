@@ -113,7 +113,9 @@ const LADO_MAXIMO_COMUNIDADE_PX = 1080;
 const ALVO_BYTES_COMUNIDADE = 700 * 1024; // 700 KB — meta de compressão
 const LIMITE_REJEICAO_COMUNIDADE_BYTES = 950 * 1024; // 950 KB — teto antes do envio
 
-async function redimensionarEComprimir(file: File): Promise<Blob> {
+async function redimensionarEComprimir(
+  file: File
+): Promise<{ blob: Blob; largura: number; altura: number }> {
   const bitmap = await carregarBitmap(file);
   const maiorLado = Math.max(bitmap.width, bitmap.height);
   const escala = maiorLado > LADO_MAXIMO_COMUNIDADE_PX ? LADO_MAXIMO_COMUNIDADE_PX / maiorLado : 1;
@@ -143,22 +145,28 @@ async function redimensionarEComprimir(file: File): Promise<Blob> {
   if (blob.size > LIMITE_REJEICAO_COMUNIDADE_BYTES) {
     throw new ImagemGrandeDemaisError();
   }
-  return blob;
+  // As dimensões são as do canvas que acabamos de desenhar — exatamente o que
+  // o servidor vai receber. Elas viajam junto com o blob para o feed poder
+  // reservar a caixa na proporção certa (migração 103).
+  return { blob, largura, altura };
 }
 
 /**
  * Valida, redimensiona (mantendo a proporção, máx. 1080px no maior lado) e
- * comprime a imagem de uma publicação da comunidade. Devolve o blob pronto +
- * uma URL de preview local (quem chama revoga com `URL.revokeObjectURL`).
+ * comprime a imagem de uma publicação da comunidade. Devolve o blob pronto,
+ * suas dimensões finais e uma URL de preview local (quem chama revoga com
+ * `URL.revokeObjectURL`).
  */
 export async function prepararImagemComunidade(
   file: File
-): Promise<{ blob: Blob; previewUrl: string } | { erro: string }> {
+): Promise<
+  { blob: Blob; largura: number; altura: number; previewUrl: string } | { erro: string }
+> {
   const erro = erroDoArquivo(file);
   if (erro) return { erro };
   try {
-    const blob = await redimensionarEComprimir(file);
-    return { blob, previewUrl: URL.createObjectURL(blob) };
+    const { blob, largura, altura } = await redimensionarEComprimir(file);
+    return { blob, largura, altura, previewUrl: URL.createObjectURL(blob) };
   } catch (e) {
     if (e instanceof ImagemGrandeDemaisError) {
       return {
