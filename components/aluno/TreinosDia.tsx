@@ -29,12 +29,33 @@ const ROTULO_ESTADO: Record<StatusDia, string> = {
   descanso: "DESCANSO",
 };
 
-// Ponto de status (auditoria de UX, item 6). Cores dos tokens do README.
-const COR_PONTO: Record<StatusDia, string> = {
+/**
+ * Marca de status do dia — FORMA, não só cor.
+ *
+ * Antes, "planejado" e "descanso" eram `ink-500` e `ink-600`: dois quase-pretos
+ * separados por 15 pontos de luminância, num ponto de 6px, sobre um card que já
+ * é `ink-800`. No celular, sob a luz da academia, o mesmo pixel — e no tema
+ * claro viravam dois cinzas quase iguais sobre branco. A legenda de quatro
+ * itens embaixo da régua era o sintoma: quando o desenho precisa de legenda, a
+ * codificação não está funcionando.
+ *
+ * Cheio / cheio-verde / anel / vazio se distingue em qualquer tema e sob
+ * qualquer luz, então a legenda saiu. O estado continua no `aria-label` do
+ * botão para quem usa leitor de tela.
+ */
+const MARCA_DIA: Record<StatusDia, string> = {
   feito: "bg-slate-300",
   hoje: "bg-volt-300",
-  planejado: "bg-ink-500",
-  descanso: "bg-ink-600",
+  planejado: "border-[1.5px] border-slate-500",
+  descanso: "opacity-0",
+};
+
+/** Mesma marca sobre o dia selecionado, que tem fundo volt. */
+const MARCA_DIA_ATIVO: Record<StatusDia, string> = {
+  feito: "bg-ink-950/70",
+  hoje: "bg-ink-950/70",
+  planejado: "border-[1.5px] border-ink-950/60",
+  descanso: "opacity-0",
 };
 
 /**
@@ -216,29 +237,13 @@ export default function TreinosDia({
               {ROTULO_DIA_CURTO[d]}
               <span
                 className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  ativo ? "bg-ink-950/60" : COR_PONTO[st]
+                  "h-2 w-2 rounded-full",
+                  (ativo ? MARCA_DIA_ATIVO : MARCA_DIA)[st]
                 )}
               />
             </button>
           );
         })}
-      </div>
-
-      {/* Legenda */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10.5px] text-slate-500">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-slate-300" /> feito
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-volt-300" /> hoje
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-ink-500" /> planejado
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-ink-600" /> descanso
-        </span>
       </div>
 
       {/* Card do dia selecionado */}

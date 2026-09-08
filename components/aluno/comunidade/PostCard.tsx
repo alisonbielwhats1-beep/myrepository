@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   Flag,
   Heart,
@@ -10,9 +10,11 @@ import {
   MoreHorizontal,
   Send,
   Trash2,
+  X,
 } from "lucide-react";
 import type { ComentarioComunidade, PostComunidade } from "@/lib/types";
 import { cn, timeAgo } from "@/lib/utils";
+import Portal from "@/components/ui/Portal";
 import AvatarAluno from "@/components/aluno/AvatarAluno";
 import BotaoCompartilhar from "./BotaoCompartilhar";
 import type { AcoesComunidade } from "./FeedComunidade";
@@ -41,9 +43,26 @@ export default function PostCard({
   const [mostrarComentarios, setMostrarComentarios] = useState(false);
   const [texto, setTexto] = useState("");
   const [menuAberto, setMenuAberto] = useState(false);
+  const [ampliada, setAmpliada] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [enviandoComentario, startComentario] = useTransition();
   const curtindoRef = useRef(false);
+
+  // Foto ampliada: Esc fecha, e a rolagem do feed trava enquanto ela cobre a
+  // tela (senão o dedo arrasta o feed atrás da imagem).
+  useEffect(() => {
+    if (!ampliada) return;
+    const anterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAmpliada(false);
+    };
+    document.addEventListener("keydown", aoTeclar);
+    return () => {
+      document.body.style.overflow = anterior;
+      document.removeEventListener("keydown", aoTeclar);
+    };
+  }, [ampliada]);
 
   function toggleCurtida() {
     if (curtindoRef.current) return;
@@ -163,25 +182,34 @@ export default function PostCard({
         </div>
       </div>
 
-      {/* Legenda */}
-      {post.legenda && (
-        <p className="whitespace-pre-line px-4 pb-3 text-sm text-slate-200">
-          {post.legenda}
-        </p>
-      )}
-
-      {/* Imagem */}
+      {/* Imagem — ANTES da legenda, como em todo feed que o aluno já usa.
+          Proporção fixa 4:5 (o retrato padrão) com `cover`: antes era
+          `contain` até 70vh, o que transformava foto vertical de celular numa
+          faixa alta com barras escuras e fazia um único post ocupar quase a
+          tela toda — o feed nunca mostrava dois posts ao mesmo tempo. O corte
+          é reversível num toque: a foto inteira abre em tela cheia. */}
       {post.imagem_url && (
-        <div className="relative w-full bg-ink-900">
+        <button
+          type="button"
+          onClick={() => setAmpliada(true)}
+          aria-label={`Ampliar foto de ${post.autor.nome}`}
+          className="relative block aspect-[4/5] w-full bg-ink-900"
+        >
           <Image
             src={post.imagem_url}
             alt={post.legenda ?? `Publicação de ${post.autor.nome}`}
-            width={1080}
-            height={1080}
+            fill
             sizes="(max-width: 480px) 100vw, 480px"
-            className="media-native h-auto max-h-[70vh] w-full object-contain"
+            className="media-native object-cover"
           />
-        </div>
+        </button>
+      )}
+
+      {/* Legenda */}
+      {post.legenda && (
+        <p className="whitespace-pre-line px-4 pt-3 text-sm text-slate-200">
+          {post.legenda}
+        </p>
       )}
 
       {/* Ações */}
@@ -294,6 +322,38 @@ export default function PostCard({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Foto inteira, sem corte. Pelo Portal porque `.surface` usa
+          backdrop-blur, que prenderia um `fixed inset-0` dentro do card. */}
+      {ampliada && post.imagem_url && (
+        <Portal>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Foto de ${post.autor.nome}`}
+            onClick={() => setAmpliada(false)}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/95 p-4 backdrop-blur-md"
+          >
+            <button
+              type="button"
+              onClick={() => setAmpliada(false)}
+              aria-label="Fechar foto"
+              className="absolute right-4 grid h-10 w-10 place-items-center rounded-xl bg-ink-800/80 text-slate-200"
+              style={{ top: "max(1rem, env(safe-area-inset-top))" }}
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <Image
+              src={post.imagem_url}
+              alt={post.legenda ?? `Publicação de ${post.autor.nome}`}
+              width={1080}
+              height={1080}
+              sizes="100vw"
+              className="media-native max-h-full w-auto max-w-full object-contain"
+            />
+          </div>
+        </Portal>
       )}
     </article>
   );
