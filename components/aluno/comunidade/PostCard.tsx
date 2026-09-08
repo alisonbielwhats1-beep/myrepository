@@ -183,24 +183,30 @@ export default function PostCard({
       </div>
 
       {/* Imagem — ANTES da legenda, como em todo feed que o aluno já usa.
-          Proporção fixa 4:5 (o retrato padrão) com `cover`: antes era
-          `contain` até 70vh, o que transformava foto vertical de celular numa
-          faixa alta com barras escuras e fazia um único post ocupar quase a
-          tela toda — o feed nunca mostrava dois posts ao mesmo tempo. O corte
-          é reversível num toque: a foto inteira abre em tela cheia. */}
+          Sem corte: `contain` dentro de uma caixa 4:5 limitada a 55vh, para
+          que um post sozinho não tome a tela e o feed sempre insinue o
+          próximo (antes eram 70vh).
+          A caixa é de proporção FIXA de propósito. A alternativa — deixar o
+          container abraçar a proporção real da foto (`w-auto h-auto`) —
+          eliminaria as barras, mas mede 0px de altura antes da imagem
+          carregar: o feed inteiro pularia a cada foto que chega. Reservar o
+          espaço custa barra em foto muito fora de 4:5, e esse é o lado certo
+          da troca num feed que se rola.
+          Acabar com as barras sem reintroduzir o pulo exige guardar largura e
+          altura da foto no upload, para dar a proporção real à caixa. */}
       {post.imagem_url && (
         <button
           type="button"
           onClick={() => setAmpliada(true)}
           aria-label={`Ampliar foto de ${post.autor.nome}`}
-          className="relative block aspect-[4/5] w-full bg-ink-900"
+          className="relative block aspect-[4/5] max-h-[55vh] w-full bg-ink-900"
         >
           <Image
             src={post.imagem_url}
             alt={post.legenda ?? `Publicação de ${post.autor.nome}`}
             fill
             sizes="(max-width: 480px) 100vw, 480px"
-            className="media-native object-cover"
+            className="media-native object-contain"
           />
         </button>
       )}
