@@ -94,12 +94,37 @@ export async function criarPost(
     imagemUrl = enviado.url;
   }
 
-  const { data, error } = await supabase.rpc("criar_post_comunidade", {
+  // Dimensões da imagem já redimensionada no navegador — o feed usa a
+  // proporção real para reservar a caixa do post (migração 103). Nunca
+  // confiadas de olhos fechados: a RPC valida a faixa e descarta o que não
+  // fizer sentido.
+  const dimensao = (campo: string): number | null => {
+    const n = Number(formData.get(campo));
+    return Number.isInteger(n) && n > 0 && n <= 20000 ? n : null;
+  };
+  const largura = imagemUrl ? dimensao("largura") : null;
+  const altura = imagemUrl ? dimensao("altura") : null;
+
+  let { data, error } = await supabase.rpc("criar_post_comunidade", {
     p_token: token,
     p_slug: slug,
     p_legenda: legenda || null,
     p_imagem_url: imagemUrl,
+    p_imagem_largura: largura,
+    p_imagem_altura: altura,
   });
+
+  // Migração 103 ainda não aplicada: a RPC antiga não conhece os dois
+  // parâmetros novos e o PostgREST responde PGRST202. Republica sem eles em
+  // vez de deixar o aluno sem publicar — a foto vale mais que a proporção.
+  if (error?.code === "PGRST202") {
+    ({ data, error } = await supabase.rpc("criar_post_comunidade", {
+      p_token: token,
+      p_slug: slug,
+      p_legenda: legenda || null,
+      p_imagem_url: imagemUrl,
+    }));
+  }
 
   if (error || !data) {
     return { erro: "Não foi possível publicar. Tente novamente." };

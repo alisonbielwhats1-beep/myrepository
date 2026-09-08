@@ -982,6 +982,15 @@ export interface PostComunidade {
   id: string;
   legenda: string | null;
   imagem_url: string | null;
+  /**
+   * Dimensões da imagem já redimensionada, gravadas no upload (migração 103).
+   * Servem para o card reservar a caixa na proporção real da foto, evitando ao
+   * mesmo tempo o corte, a faixa escura e o pulo do feed. Ausentes em post
+   * anterior à migração, em post sem foto, e enquanto ela não for aplicada —
+   * nesses casos o card cai numa caixa 4:5.
+   */
+  imagem_largura?: number | null;
+  imagem_altura?: number | null;
   criado_em: string;
   sou_autor: boolean;
   autor: AutorComunidade;
