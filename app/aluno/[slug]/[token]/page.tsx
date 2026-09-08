@@ -180,6 +180,14 @@ export default async function AlunoHome({
     : null;
   const IconeAcesso = statusAcesso ? ICONE_ACESSO[statusAcesso.resultado] : HelpCircle;
 
+  // Notícia por exceção: para o aluno em dia e liberado — a maioria dos alunos
+  // na maioria dos dias — o bloco de situação gastava três linhas fixas para
+  // dizer que não há nada a fazer. Agora ele colapsa numa linha, e só se abre
+  // quando existe algo que o aluno precisa resolver. Política de acesso
+  // indisponível (statusAcesso null) NÃO conta como "ok": na dúvida, mostra.
+  const situacaoOk =
+    statusFinanceiro === "em_dia" && statusAcesso?.resultado === "liberado";
+
   return (
     <div className="space-y-6">
       {/* Saudação — com a marca da academia (logo) quando houver */}
@@ -371,63 +379,90 @@ export default async function AlunoHome({
         )}
       </Link>
 
-      {/* Situação (financeiro + acesso) — informações importantes, condensadas */}
-      <section className="surface space-y-3 rounded-2xl p-4">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm text-slate-300">
-            <Wallet className="h-4 w-4 text-volt-300" /> Situação financeira
-          </div>
-          <span className={cn("chip", badgeStatusFinanceiro(statusFinanceiro))}>
-            {ROTULO_FINANCEIRO[statusFinanceiro]}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-2 border-t border-ink-600/60 pt-3">
-          <div className="flex items-center gap-2 text-sm text-slate-300">
-            <IconeAcesso className="h-4 w-4 text-volt-300" /> Situação de acesso
-          </div>
-          <span
-            className={cn(
-              "chip",
-              statusAcesso
-                ? badgeStatusAcesso(statusAcesso.resultado)
-                : BADGE_ACESSO_INDISPONIVEL
-            )}
-          >
-            {statusAcesso ? ROTULO_ACESSO[statusAcesso.resultado] : "Indisponível"}
-          </span>
-        </div>
-
-        {proximaMensalidade && (
-          <div className="flex items-center justify-between gap-2 border-t border-ink-600/60 pt-3 text-sm">
-            <div className="flex items-center gap-2 text-slate-300">
-              <CalendarClock className="h-4 w-4 text-cyanx-400" /> Próxima mensalidade
-            </div>
-            <div className="text-right">
-              <p className="font-semibold text-white">
-                {formatBRL(proximaMensalidade.valor)}
-              </p>
-              <p className="text-xs text-slate-500">
-                vence{" "}
-                {new Date(proximaMensalidade.data + "T00:00:00").toLocaleDateString(
-                  "pt-BR",
-                  { day: "2-digit", month: "2-digit" }
-                )}
-                {proximaMensalidade.data < hoje && (
-                  <span className="text-red-400"> · vencida</span>
-                )}
-              </p>
-            </div>
-          </div>
-        )}
-
+      {/* Situação (financeiro + acesso). Tudo certo = uma linha; qualquer
+          pendência abre o bloco inteiro, com as cores de alerta. */}
+      {situacaoOk ? (
         <Link
           href={`${base}/mensalidades`}
-          className="flex items-center justify-between border-t border-ink-600/60 pt-3 text-sm text-slate-400 transition hover:text-slate-200"
+          className="surface flex items-center justify-between gap-3 rounded-2xl p-4 transition hover:border-ink-500"
         >
-          Ver mensalidades <ChevronRight className="h-4 w-4" />
+          <span className="flex min-w-0 items-center gap-2 text-sm text-slate-300">
+            <CheckCircle2 className="h-4 w-4 flex-none text-volt-300" />
+            <span className="truncate">Mensalidade e acesso em dia</span>
+          </span>
+          <span className="flex flex-none items-center gap-1 text-xs text-slate-500">
+            {proximaMensalidade && (
+              <>
+                vence{" "}
+                {new Date(
+                  proximaMensalidade.data + "T00:00:00"
+                ).toLocaleDateString("pt-BR", {
+                  day: "2-digit",
+                  month: "2-digit",
+                })}
+              </>
+            )}
+            <ChevronRight className="h-4 w-4" />
+          </span>
         </Link>
-      </section>
+      ) : (
+        <section className="surface space-y-3 rounded-2xl p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm text-slate-300">
+              <Wallet className="h-4 w-4 text-volt-300" /> Situação financeira
+            </div>
+            <span className={cn("chip", badgeStatusFinanceiro(statusFinanceiro))}>
+              {ROTULO_FINANCEIRO[statusFinanceiro]}
+            </span>
+          </div>
+  
+          <div className="flex items-center justify-between gap-2 border-t border-ink-600/60 pt-3">
+            <div className="flex items-center gap-2 text-sm text-slate-300">
+              <IconeAcesso className="h-4 w-4 text-volt-300" /> Situação de acesso
+            </div>
+            <span
+              className={cn(
+                "chip",
+                statusAcesso
+                  ? badgeStatusAcesso(statusAcesso.resultado)
+                  : BADGE_ACESSO_INDISPONIVEL
+              )}
+            >
+              {statusAcesso ? ROTULO_ACESSO[statusAcesso.resultado] : "Indisponível"}
+            </span>
+          </div>
+  
+          {proximaMensalidade && (
+            <div className="flex items-center justify-between gap-2 border-t border-ink-600/60 pt-3 text-sm">
+              <div className="flex items-center gap-2 text-slate-300">
+                <CalendarClock className="h-4 w-4 text-cyanx-400" /> Próxima mensalidade
+              </div>
+              <div className="text-right">
+                <p className="font-semibold text-white">
+                  {formatBRL(proximaMensalidade.valor)}
+                </p>
+                <p className="text-xs text-slate-500">
+                  vence{" "}
+                  {new Date(proximaMensalidade.data + "T00:00:00").toLocaleDateString(
+                    "pt-BR",
+                    { day: "2-digit", month: "2-digit" }
+                  )}
+                  {proximaMensalidade.data < hoje && (
+                    <span className="text-red-400"> · vencida</span>
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
+  
+          <Link
+            href={`${base}/mensalidades`}
+            className="flex items-center justify-between border-t border-ink-600/60 pt-3 text-sm text-slate-400 transition hover:text-slate-200"
+          >
+            Ver mensalidades <ChevronRight className="h-4 w-4" />
+          </Link>
+        </section>
+      )}
 
       {/* Atalhos pequenos, incluindo o acesso (item 9: no máximo um atalho discreto) */}
       <div className="grid grid-cols-3 gap-3">

@@ -2,13 +2,11 @@ import Link from "next/link";
 import {
   BadgeCheck,
   ChevronRight,
-  CreditCard,
   FileText,
   Lock,
   MessageSquare,
   MessagesSquare,
   Ruler,
-  ShieldCheck,
   ShoppingBag,
 } from "lucide-react";
 import { GraficoProgressoPeso } from "@/components/painel/DashboardCharts";
@@ -68,6 +66,15 @@ export default async function PerfilPage({
             </div>
           </div>
         </div>
+        {/* Plano e matrícula moram aqui. Cada um ocupava um card inteiro
+            (`surface rounded-2xl p-5`) para carregar uma única linha de texto,
+            empurrando o resto do perfil para fora da dobra sem entregar
+            informação nova. */}
+        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-ink-600/60 pt-4">
+          <Medida label="Plano" valor={aluno.plano_nome ?? "—"} />
+          <Medida label="Matrícula" valor={aluno.matricula_codigo ?? "—"} />
+        </div>
+
         <div className="mt-4 border-t border-ink-600/60 pt-4">
           <FotoPerfilForm
             nome={aluno.nome}
@@ -126,25 +133,6 @@ export default async function PerfilPage({
           </p>
         </div>
       )}
-
-      {/* Plano */}
-      {aluno.plano_nome && (
-        <div className="surface rounded-2xl p-5">
-          <div className="flex items-center gap-2 text-slate-300">
-            <CreditCard className="h-4 w-4 text-volt-300" />
-            <span className="text-sm font-medium">Plano atual</span>
-          </div>
-          <p className="mt-2 text-lg font-bold text-white">{aluno.plano_nome}</p>
-        </div>
-      )}
-
-      {/* Identificação */}
-      <div className="surface space-y-3 rounded-2xl p-5">
-        <div className="flex items-center gap-3 text-sm text-slate-300">
-          <ShieldCheck className="h-4 w-4 text-slate-500" />
-          Matrícula {aluno.matricula_codigo ?? "—"}
-        </div>
-      </div>
 
       {/* Mais — itens secundários (rotas preservadas, só saíram da barra
           inferior fixa no Bloco 2) e documentos legais do piloto. */}
