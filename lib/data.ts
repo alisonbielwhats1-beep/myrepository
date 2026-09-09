@@ -1199,9 +1199,10 @@ export async function getSessoesAtivasTreino(
 }
 
 /**
- * Treinos-modelo que o aluno pode consultar enquanto não tem ficha própria,
- * via RPC `obter_treinos_sugeridos_aluno` (migração 104), resolvida por
- * token+slug. São os mesmos modelos que a 018 semeia em toda academia.
+ * Treinos-modelo de nível INICIANTE que o aluno pode consultar enquanto não
+ * tem ficha própria, via RPC `obter_treinos_sugeridos_aluno` (migração 104,
+ * filtrada por nível na 105), resolvida por token+slug. São os modelos que a
+ * 018 semeia em toda academia, classificados pela 105.
  *
  * Degradação graciosa: sem a migração 104 aplicada, a RPC não existe e a tela
  * simplesmente não oferece sugestão — em vez de derrubar a aba Treinos inteira
