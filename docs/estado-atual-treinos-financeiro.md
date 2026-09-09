@@ -3,7 +3,7 @@
 Resumo do que foi entregue nas últimas iterações, para quem retomar o projeto
 (inclusive uma sessão nova de IA) achar tudo rápido, sem reconstruir contexto.
 
-Última atualização: 2026-08-16.
+Última atualização: 2026-09-09.
 
 ## Migrations a aplicar em produção (SQL Editor do Supabase, em ordem)
 
@@ -41,8 +41,10 @@ select
   - `origem_tipo`: `gestacad` (plataforma, `academia_id` NULL) / `academia` /
     `instrutor` (autoria). Fonte única de "é da plataforma".
   - `visibilidade`: `privado` (só o criador; dono/gerente também) / `equipe`
-    (dono/gerente/instrutor — recepção **não** vê) / `academia` (todo o tenant,
-    inclui recepção).
+    (dono, gerente, instrutor **e recepção** — a recepção entrou na migration
+    095) / `academia` (todo o tenant). Desde a migration **106** o DEFAULT é
+    `equipe`, e a aplicação grava esse nível explicitamente
+    (`VISIBILIDADE_PADRAO_MODELO`, em `lib/treinos.ts`).
   - Helper de classificação: `lib/treinos.ts` → `nivelDoTreino()`.
 - **Ficha do aluno** é sempre uma **cópia** (snapshot) do modelo — editar o
   modelo não altera fichas já atribuídas. RPC: `atribuir_modelo_treino`.
@@ -63,6 +65,30 @@ Server actions: `app/painel/[slug]/treinos/actions.ts`.
 - Atribuir a aluno (cria a cópia na ficha; aceita aluno `ativa` ou `pendente`).
 - Compartilhar (link/QR público), visibilidade em 3 níveis, excluir.
 - Biblioteca mostra academia + instrutor + GestAcad (RLS filtra privado alheio).
+
+## Biblioteca por instrutor (09/09/2026)
+
+Pedido da Geração Saúde: a recepcionista estava **recadastrando à mão** treinos
+que os instrutores (Vinícius e Rodrigo) já tinham cadastrado. Causa: todo
+treino-modelo nascia `privado`, então sumia para todo mundo menos o autor e a
+gestão — a liberação da recepção na 095 não adiantava, porque nenhum treino
+chegava ao nível `equipe`.
+
+O que mudou:
+
+- **Visão "Por instrutor"** na biblioteca (`GestaoTreinos`): blocos por autor,
+  com contagem, papel e os treinos já expandidos. A **recepção abre nessa visão
+  por padrão**; os demais papéis abrem na Lista. Alternador no topo.
+- **"Atribuir estes treinos"** por bloco: abre o `AtribuirEmMassa` já limitado
+  aos treinos daquele instrutor (o "marcar todos" pega o programa dele inteiro).
+- **Treino nasce `equipe`** ao criar, duplicar ou importar
+  (`VISIBILIDADE_PADRAO_MODELO`). Quem quiser esconder marca "Só eu (privado)".
+- **Migration 106** conserta o passivo (privados → equipe), com rollback exato
+  via `metadados->>'visibilidade_antes_106'`. **É opcional para o recurso
+  funcionar**: treino novo já nasce certo sem ela, e dono/gerente ainda têm o
+  botão "Liberar para a equipe" no painel, que faz o mesmo pela aplicação.
+- Agrupamento em `lib/treinos.ts` → `agruparTreinosPorAutor()` (testado em
+  `tests/treinos.test.mjs`, `npm run test:treinos`).
 
 ## Fluxo de aluno
 

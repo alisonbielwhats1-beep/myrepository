@@ -6,6 +6,7 @@ import { podeGerenciarTreinos } from "@/lib/permissoes";
 import {
   getAdesaoTreinos,
   getCatalogoExercicios,
+  getEquipeTreinos,
   getInstrutores,
   getTreinosBiblioteca,
 } from "@/lib/data";
@@ -18,10 +19,11 @@ export default async function TreinosPage({
   params: { slug: string };
 }) {
   const sessao = await requireSecao(params.slug, "treinos");
-  const [treinos, catalogo, instrutores, adesao] = await Promise.all([
+  const [treinos, catalogo, instrutores, equipe, adesao] = await Promise.all([
     getTreinosBiblioteca(sessao.academia.id),
     getCatalogoExercicios(sessao.academia.id),
     getInstrutores(sessao.academia.id),
+    getEquipeTreinos(sessao.academia.id),
     getAdesaoTreinos(30),
   ]);
 
@@ -42,6 +44,7 @@ export default async function TreinosPage({
         treinosIniciais={treinos}
         catalogo={catalogo}
         instrutores={instrutores}
+        equipe={equipe}
         podeAtribuir={podeGerenciarTreinos(sessao.papel)}
         userId={sessao.userId}
         papel={sessao.papel}

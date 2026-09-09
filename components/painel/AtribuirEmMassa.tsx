@@ -23,13 +23,24 @@ const TETO_ALUNOS = 30;
 /**
  * Atribuição em massa: escolher VÁRIOS treinos (ex.: o ABCD do Avançado) e
  * VÁRIOS alunos, e cruzar tudo num clique. Reaproveita a RPC de lote por aluno.
+ *
+ * `treinos` é o ESCOPO da janela: no topo da tela vem a biblioteca inteira; na
+ * visão "Por instrutor" vem só a lista daquele autor, e aí "marcar todos" já
+ * seleciona o programa dele inteiro sem a recepção ter que garimpar. `label`,
+ * `escopo` e `className` só ajustam o texto/estilo do botão nesse segundo uso.
  */
 export default function AtribuirEmMassa({
   slug,
   treinos,
+  label = "Atribuir em massa",
+  escopo,
+  className = "btn-ghost",
 }: {
   slug: string;
   treinos: Treino[];
+  label?: string;
+  escopo?: string;
+  className?: string;
 }) {
   const [aberto, setAberto] = useState(false);
   // Só treinos-modelo entram (ficha de aluno tem aluno_id != null).
@@ -43,11 +54,15 @@ export default function AtribuirEmMassa({
       <button
         type="button"
         onClick={() => setAberto(true)}
-        className="btn-ghost"
+        className={className}
         disabled={modelos.length === 0}
-        title="Atribuir vários treinos a vários alunos de uma vez"
+        title={
+          escopo
+            ? `Atribuir treinos de ${escopo} a vários alunos de uma vez`
+            : "Atribuir vários treinos a vários alunos de uma vez"
+        }
       >
-        <UsersRound className="h-4 w-4" /> Atribuir em massa
+        <UsersRound className="h-4 w-4" /> {label}
       </button>
 
       {aberto &&
@@ -55,6 +70,7 @@ export default function AtribuirEmMassa({
           <Dialog
             slug={slug}
             modelos={modelos}
+            escopo={escopo}
             onClose={() => setAberto(false)}
           />,
           document.body
@@ -66,10 +82,12 @@ export default function AtribuirEmMassa({
 function Dialog({
   slug,
   modelos,
+  escopo,
   onClose,
 }: {
   slug: string;
   modelos: Treino[];
+  escopo?: string;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -268,11 +286,13 @@ function Dialog({
             id="titulo-massa"
             className="flex items-center gap-2 text-lg font-semibold text-white"
           >
-            <UsersRound className="h-5 w-5 text-volt-300" /> Atribuir em massa
+            <UsersRound className="h-5 w-5 text-volt-300" />
+            {escopo ? `Atribuir treinos de ${escopo}` : "Atribuir em massa"}
           </h3>
           <p className="mt-1 text-sm text-slate-400">
-            Escolha os treinos (ex.: o ABCD de um programa) e os alunos — o
-            sistema cria a ficha de cada treino para cada aluno marcado.
+            {escopo
+              ? `Só os treinos de ${escopo} estão listados aqui. Marque os que quiser (ou “marcar todos”) e escolha os alunos — o sistema cria a ficha de cada treino para cada aluno marcado.`
+              : "Escolha os treinos (ex.: o ABCD de um programa) e os alunos — o sistema cria a ficha de cada treino para cada aluno marcado."}
           </p>
         </div>
 
@@ -334,7 +354,10 @@ function Dialog({
                           {t.nome_treino}
                         </span>
                         <span className="block text-xs text-slate-500">
-                          {t.exercicios?.length ?? 0} exercícios
+                          {t.exercicios?.length ?? 0}{" "}
+                          {(t.exercicios?.length ?? 0) === 1
+                            ? "exercício"
+                            : "exercícios"}
                           {t.nivel ? ` · ${t.nivel}` : ""}
                         </span>
                       </span>

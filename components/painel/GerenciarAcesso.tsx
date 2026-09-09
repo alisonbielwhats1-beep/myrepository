@@ -214,7 +214,8 @@ function Dialog({
     {
       valor: "privado",
       titulo: "Somente eu",
-      descricao: "Fica na sua lista. Dono e gerente também veem.",
+      descricao:
+        "Some da biblioteca dos outros — a recepção não consegue atribuir. Dono e gerente ainda veem.",
       icone: <Lock className="h-4 w-4" />,
     },
     {
@@ -226,7 +227,7 @@ function Dialog({
     {
       valor: "equipe",
       titulo: "Equipe",
-      descricao: "Equipe técnica (dono, gerente e instrutores). A recepção não.",
+      descricao: "Dono, gerente, instrutores e recepção veem e atribuem.",
       icone: <UsersRound className="h-4 w-4" />,
     },
     {

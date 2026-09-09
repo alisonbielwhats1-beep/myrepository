@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Copy,
   Dumbbell,
+  LayoutList,
   Link2,
   Loader2,
   Lock,
@@ -31,7 +32,13 @@ import {
   Papel,
   Treino,
 } from "@/lib/types";
-import { nivelDoTreino, type NivelTreino } from "@/lib/treinos";
+import {
+  agruparTreinosPorAutor,
+  nivelDoTreino,
+  type AutorTreino,
+  type GrupoAutorTreinos,
+  type NivelTreino,
+} from "@/lib/treinos";
 import { cn } from "@/lib/utils";
 import FormActions from "@/components/ui/FormActions";
 import ImageUpload from "@/components/ui/ImageUpload";
@@ -48,6 +55,7 @@ import {
   duplicarTreino,
   editarTreinoBiblioteca,
   excluirTreinoBiblioteca,
+  liberarPrivadosParaEquipe,
 } from "@/app/painel/[slug]/treinos/actions";
 
 const MODALIDADES_SUGERIDAS = [
@@ -65,6 +73,9 @@ type AbaOrigem = "todos" | "meus" | "academia" | "gestacad";
 /** Ordenação da lista. */
 type Ordenacao = "modalidade" | "nome" | "exercicios";
 
+/** Como a biblioteca é desenhada: lista corrida ou blocos por autor. */
+type Visao = "lista" | "autor";
+
 type Instrutor = { id: string; nome: string };
 
 export default function GestaoTreinos({
@@ -72,6 +83,7 @@ export default function GestaoTreinos({
   treinosIniciais,
   catalogo,
   instrutores,
+  equipe,
   podeAtribuir,
   userId,
   papel,
@@ -80,6 +92,7 @@ export default function GestaoTreinos({
   treinosIniciais: Treino[];
   catalogo: CatalogoExercicio[];
   instrutores: Instrutor[];
+  equipe: AutorTreino[];
   podeAtribuir: boolean;
   userId: string;
   papel: Papel;
@@ -90,6 +103,12 @@ export default function GestaoTreinos({
   const [mostrarForm, setMostrarForm] = useState(treinos.length === 0);
   const [mostrarCatalogoForm, setMostrarCatalogoForm] = useState(false);
   const [aba, setAba] = useState<AbaOrigem>("todos");
+  // A recepção abre direto em "Por instrutor": o trabalho dela é achar a ficha
+  // do Rodrigo ou do Vinícius, não navegar a biblioteca inteira. Os demais
+  // papéis continuam na lista corrida, e o botão troca a qualquer momento.
+  const [visao, setVisao] = useState<Visao>(
+    papel === "recepcao" ? "autor" : "lista"
+  );
   const [busca, setBusca] = useState("");
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
 
@@ -101,10 +120,16 @@ export default function GestaoTreinos({
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("modalidade");
 
   const [avisoDuplicado, setAvisoDuplicado] = useState<string | null>(null);
+  // Resultado da liberação em lote e dispensa do aviso: moram AQUI (e não no
+  // próprio aviso) porque o componente some assim que não há mais treino
+  // privado — a confirmação sumiria junto, sem a pessoa ler o que aconteceu.
+  const [avisoLiberacao, setAvisoLiberacao] = useState<string | null>(null);
+  const [privadosDispensado, setPrivadosDispensado] = useState(false);
 
-  // Após duplicar, a cópia nasce PRIVADA (vai para "Meus"). Se houver filtro/aba
-  // ativo, o card novo ficaria escondido — limpamos os filtros e avisamos onde a
-  // cópia ficou, para o card aparecer sempre. (Correção B2 da auditoria.)
+  // A cópia nasce com a autoria de quem duplicou, então cai em "Meus" (a aba é
+  // por AUTOR, não por visibilidade). Se houver filtro/aba ativo, o card novo
+  // ficaria escondido — limpamos os filtros e avisamos onde a cópia ficou, para
+  // o card aparecer sempre. (Correção B2 da auditoria.)
   const aoDuplicar = (nomeBase: string) => {
     setAba("todos");
     setBusca("");
@@ -120,6 +145,12 @@ export default function GestaoTreinos({
     const t = window.setTimeout(() => setAvisoDuplicado(null), 6000);
     return () => window.clearTimeout(t);
   }, [avisoDuplicado]);
+
+  useEffect(() => {
+    if (!avisoLiberacao) return;
+    const t = window.setTimeout(() => setAvisoLiberacao(null), 8000);
+    return () => window.clearTimeout(t);
+  }, [avisoLiberacao]);
 
   // Classifica a ORIGEM de cada treino para as abas (partição estável).
   const origemDe = (t: Treino): Exclude<AbaOrigem, "todos"> => {
@@ -223,6 +254,29 @@ export default function GestaoTreinos({
     setFNivel("");
     setFVisibilidade("");
   };
+
+  // Passivo de treinos que ninguém além do autor enxerga. Só dono/gerente veem
+  // o privado alheio, então só para eles esta contagem é completa — e só eles
+  // podem liberar em lote.
+  const qtdPrivados = useMemo(
+    () =>
+      treinos.filter(
+        (t) => t.aluno_id == null && nivelDoTreino(t) === "privado"
+      ).length,
+    [treinos]
+  );
+
+  // Blocos da visão "Por instrutor". Sem filtro, a equipe INTEIRA aparece —
+  // inclusive quem ainda não tem treino visível — para a recepção enxergar de
+  // quem falta ficha em vez de achar que a pessoa não existe. Com filtro ativo
+  // só entram os blocos com resultado, senão a tela vira uma lista de vazios.
+  const grupos = useMemo(
+    () =>
+      agruparTreinosPorAutor(filtrados, equipe, {
+        incluirEquipeSemTreinos: !temFiltro,
+      }),
+    [filtrados, equipe, temFiltro]
+  );
 
   const abas: { valor: AbaOrigem; label: string; qtd: number }[] = [
     { valor: "todos", label: "Todos", qtd: contagem.todos },
@@ -332,6 +386,7 @@ export default function GestaoTreinos({
                 </button>
               )}
             </div>
+            <SeletorVisao visao={visao} onChange={setVisao} />
             <button
               type="button"
               onClick={() => setFiltrosAbertos((v) => !v)}
@@ -417,6 +472,27 @@ export default function GestaoTreinos({
         </>
       )}
 
+      {avisoLiberacao && (
+        <p className="flex items-start gap-2 rounded-xl border border-volt-500/30 bg-volt-500/10 px-3 py-2 text-sm text-volt-200">
+          <Check className="mt-0.5 h-4 w-4 flex-none" /> {avisoLiberacao}
+        </p>
+      )}
+
+      {ehGestor && qtdPrivados > 0 && !privadosDispensado && (
+        <AvisoPrivados
+          slug={slug}
+          quantidade={qtdPrivados}
+          onLiberado={(n) =>
+            setAvisoLiberacao(
+              n === 1
+                ? "1 treino liberado para a equipe — a recepção já consegue atribuir."
+                : `${n} treinos liberados para a equipe — a recepção já consegue atribuir.`
+            )
+          }
+          onDispensar={() => setPrivadosDispensado(true)}
+        />
+      )}
+
       {/* Lista */}
       {treinos.length === 0 && !mostrarForm ? (
         <div className="surface rounded-2xl p-8 text-center text-slate-400">
@@ -432,6 +508,27 @@ export default function GestaoTreinos({
           >
             Limpar
           </button>
+        </div>
+      ) : visao === "autor" && treinos.length > 0 ? (
+        <div className="space-y-3">
+          {grupos.map((g) => (
+            <BlocoAutor
+              key={g.chave}
+              slug={slug}
+              grupo={g}
+              catalogo={catalogo}
+              instrutores={instrutores}
+              podeAtribuir={podeAtribuir}
+              userId={userId}
+              ehGestor={ehGestor}
+              onDuplicado={aoDuplicar}
+              // Todo bloco COM treino já nasce aberto: o pedido era "a recepção
+              // abre a aba e os treinos do Rodrigo estão lá", não "abre e clica
+              // em cada nome". Só o bloco vazio começa fechado — o cabeçalho
+              // dele já diz tudo ("Nenhum treino visível para você").
+              abertoInicial={g.treinos.length > 0}
+            />
+          ))}
         </div>
       ) : (
         <div className="divide-y divide-ink-700/70 overflow-hidden rounded-2xl border border-ink-700 bg-ink-800/40">
@@ -451,6 +548,276 @@ export default function GestaoTreinos({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Aviso para dono/gerente: existem treinos que só o autor enxerga, então a
+ * recepção não consegue atribuí-los e acaba recadastrando ficha que já existe.
+ * O botão resolve o passivo inteiro num clique, sem depender de rodar a
+ * migration 106 no SQL Editor.
+ */
+function AvisoPrivados({
+  slug,
+  quantidade,
+  onLiberado,
+  onDispensar,
+}: {
+  slug: string;
+  quantidade: number;
+  onLiberado: (liberados: number) => void;
+  onDispensar: () => void;
+}) {
+  const router = useRouter();
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const liberar = async () => {
+    setEnviando(true);
+    setErro(null);
+    const r = await liberarPrivadosParaEquipe(slug);
+    if ("erro" in r) {
+      setErro(r.erro);
+      setEnviando(false);
+      return;
+    }
+    onLiberado(r.liberados);
+    router.refresh();
+    setEnviando(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-ink-600 bg-ink-900/50 p-3 sm:flex-row sm:items-center">
+      <Lock className="hidden h-4 w-4 flex-none text-slate-400 sm:block" />
+      <p className="min-w-0 flex-1 text-sm text-slate-300">
+        <span className="font-medium text-white">
+          {quantidade === 1
+            ? "1 treino está como “Só eu (privado)”"
+            : `${quantidade} treinos estão como “Só eu (privado)”`}
+        </span>
+        <span className="text-slate-400">
+          {" "}
+          — só o autor e a gestão veem. A recepção não encontra esses treinos na
+          hora de atribuir a um aluno.
+        </span>
+        {erro && <span className="mt-1 block text-red-300">{erro}</span>}
+      </p>
+      <div className="flex flex-none items-center gap-2">
+        <button
+          type="button"
+          onClick={onDispensar}
+          disabled={enviando}
+          className="rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:text-slate-200 disabled:opacity-40"
+        >
+          Agora não
+        </button>
+        <button
+          type="button"
+          onClick={liberar}
+          disabled={enviando}
+          className="btn-outline"
+        >
+          {enviando ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <UsersRound className="h-4 w-4" />
+          )}
+          Liberar para a equipe
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Alternador Lista ⇄ Por instrutor (segmented control). */
+function SeletorVisao({
+  visao,
+  onChange,
+}: {
+  visao: Visao;
+  onChange: (v: Visao) => void;
+}) {
+  const opcoes: { valor: Visao; label: string; icone: React.ReactNode }[] = [
+    { valor: "lista", label: "Lista", icone: <LayoutList className="h-4 w-4" /> },
+    {
+      valor: "autor",
+      label: "Por instrutor",
+      icone: <UserCog className="h-4 w-4" />,
+    },
+  ];
+  return (
+    <div
+      role="group"
+      aria-label="Como exibir a biblioteca"
+      className="flex rounded-xl border border-ink-600 bg-ink-900/50 p-1"
+    >
+      {opcoes.map((o) => (
+        <button
+          key={o.valor}
+          type="button"
+          onClick={() => onChange(o.valor)}
+          aria-pressed={visao === o.valor}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition sm:flex-none",
+            visao === o.valor
+              ? "bg-ink-700 text-white"
+              : "text-slate-400 hover:text-slate-200"
+          )}
+        >
+          {o.icone}
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Iniciais do nome, para o avatar do bloco (no máximo duas letras). */
+function iniciais(nome: string): string {
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "?";
+  const primeira = partes[0][0] ?? "";
+  const ultima = partes.length > 1 ? partes[partes.length - 1][0] ?? "" : "";
+  return (primeira + ultima).toLocaleUpperCase("pt-BR");
+}
+
+const ROTULO_PAPEL: Record<string, string> = {
+  dono: "Dono",
+  gerente: "Gerente",
+  instrutor: "Instrutor",
+  recepcao: "Recepção",
+};
+
+/**
+ * Um autor e todos os treinos dele — o coração da visão "Por instrutor". A
+ * recepção abre a aba e já vê "Rodrigo · 12 treinos" com o botão de atribuir o
+ * programa inteiro, sem precisar recadastrar nada que já existe.
+ */
+function BlocoAutor({
+  slug,
+  grupo,
+  catalogo,
+  instrutores,
+  podeAtribuir,
+  userId,
+  ehGestor,
+  onDuplicado,
+  abertoInicial,
+}: {
+  slug: string;
+  grupo: GrupoAutorTreinos;
+  catalogo: CatalogoExercicio[];
+  instrutores: Instrutor[];
+  podeAtribuir: boolean;
+  userId: string;
+  ehGestor: boolean;
+  onDuplicado: (nomeBase: string) => void;
+  abertoInicial: boolean;
+}) {
+  const [aberto, setAberto] = useState(abertoInicial);
+
+  // Com poucos blocos tudo nasce aberto; ao filtrar, os blocos com resultado
+  // abrem sozinhos — a recepção não clica duas vezes para ver o que buscou.
+  useEffect(() => {
+    setAberto(abertoInicial);
+  }, [abertoInicial]);
+
+  const total = grupo.treinos.length;
+  const rotuloPapel = grupo.papel ? ROTULO_PAPEL[grupo.papel] : null;
+
+  return (
+    // Sem `overflow-hidden` de propósito: o menu "•••" da última linha abre para
+    // baixo (absolute top-full) e seria CORTADO pela borda do bloco. O
+    // arredondamento é feito peça a peça, no cabeçalho e na última linha.
+    <section className="rounded-2xl border border-ink-700 bg-ink-800/40">
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-3 rounded-t-2xl bg-ink-900/40 p-3 sm:flex-nowrap",
+          aberto ? "border-b border-ink-700/70" : "rounded-b-2xl"
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setAberto((v) => !v)}
+          aria-expanded={aberto}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+        >
+          <span
+            aria-hidden
+            className={cn(
+              "grid h-9 w-9 flex-none place-items-center rounded-full text-xs font-bold",
+              grupo.ehPlataforma
+                ? "bg-volt-500/15 text-volt-300"
+                : "bg-ink-700 text-slate-300"
+            )}
+          >
+            {grupo.ehPlataforma ? (
+              <Sparkles className="h-4 w-4" />
+            ) : (
+              iniciais(grupo.nome)
+            )}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-2">
+              <span className="truncate font-semibold text-white">
+                {grupo.nome}
+              </span>
+              {rotuloPapel && (
+                <span className="hidden flex-none rounded-md border border-ink-500 bg-ink-700/60 px-1.5 py-0.5 text-[11px] text-slate-400 sm:inline">
+                  {rotuloPapel}
+                </span>
+              )}
+            </span>
+            <span className="mt-0.5 block text-xs text-slate-500">
+              {total === 0
+                ? "Nenhum treino visível para você"
+                : `${total} ${total === 1 ? "treino" : "treinos"}`}
+            </span>
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 flex-none text-slate-600 transition-transform",
+              aberto && "rotate-180"
+            )}
+          />
+        </button>
+
+        {podeAtribuir && total > 0 && !grupo.ehPlataforma && (
+          <AtribuirEmMassa
+            slug={slug}
+            treinos={grupo.treinos}
+            escopo={grupo.nome}
+            label="Atribuir estes treinos"
+            className="btn-outline w-full flex-none sm:w-auto"
+          />
+        )}
+      </div>
+
+      {aberto &&
+        (total === 0 ? (
+          <p className="p-4 text-sm text-slate-500">
+            Ainda não há treino desta pessoa na biblioteca — ou os treinos dela
+            estão marcados como “Só eu (privado)”. Quem criou o treino consegue
+            liberar em “Gerenciar acesso”.
+          </p>
+        ) : (
+          <div className="divide-y divide-ink-700/70 [&>*:last-child]:rounded-b-2xl">
+            {grupo.treinos.map((t) => (
+              <LinhaTreino
+                key={t.id}
+                slug={slug}
+                treino={t}
+                catalogo={catalogo}
+                instrutores={instrutores}
+                podeAtribuir={podeAtribuir}
+                userId={userId}
+                ehGestor={ehGestor}
+                onDuplicado={onDuplicado}
+              />
+            ))}
+          </div>
+        ))}
+    </section>
   );
 }
 
@@ -1185,7 +1552,6 @@ function FormularioTreino({
               type="radio"
               name="visibilidade"
               value="privado"
-              defaultChecked
               className="mt-0.5 accent-volt-400"
             />
             <span className="min-w-0">
@@ -1193,8 +1559,8 @@ function FormularioTreino({
                 <Lock className="h-3.5 w-3.5 text-slate-300" /> Só eu (privado)
               </span>
               <span className="mt-0.5 block text-xs text-slate-500">
-                Fica na sua lista. Dono/gerente também veem. Dá para liberar
-                depois em “Gerenciar acesso”.
+                Ninguém mais encontra na biblioteca — nem a recepção, na hora de
+                atribuir. Dono/gerente ainda veem.
               </span>
             </span>
           </label>
@@ -1203,15 +1569,19 @@ function FormularioTreino({
               type="radio"
               name="visibilidade"
               value="equipe"
+              defaultChecked
               className="mt-0.5 accent-volt-400"
             />
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-sm font-medium text-white">
                 <UsersRound className="h-3.5 w-3.5 text-indigo-300" /> A equipe
+                <span className="rounded-md bg-ink-700 px-1.5 py-0.5 text-[11px] font-normal text-slate-400">
+                  recomendado
+                </span>
               </span>
               <span className="mt-0.5 block text-xs text-slate-500">
-                A equipe técnica (dono, gerente e instrutores) vê. A recepção
-                não.
+                Dono, gerente, instrutores e a recepção veem e podem atribuir
+                este treino aos alunos.
               </span>
             </span>
           </label>
