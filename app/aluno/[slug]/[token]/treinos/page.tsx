@@ -5,6 +5,7 @@ import {
   getRecordesAluno,
   getResumoEvolucaoAluno,
   getSessoesAtivasTreino,
+  getTreinosSugeridosAluno,
   getUltimaCargaAluno,
 } from "@/lib/data";
 import { ROTULO_DIA_LONGO, diaSemanaHojeSaoPaulo } from "@/lib/dias-semana";
@@ -22,13 +23,16 @@ export default async function TreinosPage({
   params: { slug: string; token: string };
 }) {
   const ficha = await requireFichaAluno(params.slug, params.token);
-  const [sessoesAtivas, recordes, acessos, ultimaCarga, evolucao] =
+  const [sessoesAtivas, recordes, acessos, ultimaCarga, evolucao, sugeridos] =
     await Promise.all([
       getSessoesAtivasTreino(params.token, params.slug),
       getRecordesAluno(params.token, params.slug),
       getFrequenciaAlunoPublico(params.token, params.slug),
       getUltimaCargaAluno(params.token, params.slug),
       getResumoEvolucaoAluno(params.token, params.slug),
+      // Só o SE existem, não o conteúdo: a lista completa é carregada na tela
+      // de sugeridos. Aqui serve para não oferecer um atalho que leva a nada.
+      getTreinosSugeridosAluno(params.token, params.slug),
     ]);
 
   const hoje = diaSemanaHojeSaoPaulo();
@@ -54,6 +58,8 @@ export default async function TreinosPage({
         ultimaCarga={ultimaCarga}
         evolucao={evolucao}
         diasFeitos={diasFeitos}
+        base={`/aluno/${params.slug}/${params.token}`}
+        temSugeridos={sugeridos.length > 0}
         iniciar={iniciarSessaoTreino.bind(null, params.slug, params.token)}
         salvarProgresso={salvarProgressoTreino.bind(null, params.slug, params.token)}
         finalizar={finalizarSessaoTreino.bind(null, params.slug, params.token)}

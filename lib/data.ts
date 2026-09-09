@@ -45,6 +45,7 @@ import {
   SessaoTreino,
   Treino,
   TreinoPublico,
+  TreinoSugerido,
 } from "./types";
 
 /**
@@ -1195,6 +1196,33 @@ export async function getSessoesAtivasTreino(
   });
   if (error) throw new Error(`Falha ao carregar sessões de treino: ${error.message}`);
   return (data as SessaoTreino[]) ?? [];
+}
+
+/**
+ * Treinos-modelo que o aluno pode consultar enquanto não tem ficha própria,
+ * via RPC `obter_treinos_sugeridos_aluno` (migração 104), resolvida por
+ * token+slug. São os mesmos modelos que a 018 semeia em toda academia.
+ *
+ * Degradação graciosa: sem a migração 104 aplicada, a RPC não existe e a tela
+ * simplesmente não oferece sugestão — em vez de derrubar a aba Treinos inteira
+ * de quem já tem ficha. Mesmo espírito do fallback dos recordes antes da 059.
+ */
+export async function getTreinosSugeridosAluno(
+  token: string,
+  slug: string
+): Promise<TreinoSugerido[]> {
+  if (!tokenTemFormatoValido(token)) return [];
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("obter_treinos_sugeridos_aluno", {
+      p_token: token,
+      p_slug: slug,
+    });
+    if (error) return [];
+    return (data as TreinoSugerido[]) ?? [];
+  } catch {
+    return [];
+  }
 }
 
 /**
