@@ -239,6 +239,25 @@ export default function ExercicioCard({
       proximo,
     });
 
+  /**
+   * Atalho pra descansar sem marcar a série. Existe nos DOIS modos do card:
+   * na sessão, entre séries do mesmo exercício; e no treino sugerido, onde é a
+   * única ferramenta interativa que o aluno tem — justamente quem está
+   * seguindo um treino pronto é quem mais precisa do cronômetro. Definido uma
+   * vez e usado em dois lugares só para não repetir a marcação, já que a
+   * posição dele dentro do card muda entre os modos.
+   */
+  const botaoDescanso = descanso ? (
+    <button
+      type="button"
+      onClick={abrirDescanso}
+      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-ink-600 bg-ink-800 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-ink-700 active:scale-[0.98]"
+    >
+      <Timer className="h-4 w-4 text-volt-300" />
+      Descansar {formatarDescanso(ex.descanso_segundos)}
+    </button>
+  ) : null;
+
   const usarUltimaCarga = () => {
     if (!temUltima || !onAlterar) return;
     if (cargaRef.current) cargaRef.current.value = String(ultimaCarga);
@@ -419,18 +438,7 @@ export default function ExercicioCard({
               </div>
             </div>
 
-            {/* Atalho pra descansar sem marcar a série (entre séries do mesmo
-                exercício). Marcar como concluído abre o mesmo cronômetro. */}
-            {descanso && (
-              <button
-                type="button"
-                onClick={abrirDescanso}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-ink-600 bg-ink-800 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-ink-700 active:scale-[0.98]"
-              >
-                <Timer className="h-4 w-4 text-volt-300" />
-                Descansar {formatarDescanso(ex.descanso_segundos)}
-              </button>
-            )}
+            {botaoDescanso}
 
             <button
               onClick={alternarConcluido}
@@ -463,6 +471,11 @@ export default function ExercicioCard({
             </button>
           </>
         )}
+
+        {/* Modo consulta (treino sugerido, ficha pública): nada é gravado, mas
+            o cronômetro de descanso continua valendo — desde que haja um
+            ProvedorDescanso por perto. Na ficha pública não há, e aí some. */}
+        {!onAlterar && botaoDescanso}
       </div>
     </div>
   );

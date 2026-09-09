@@ -962,6 +962,26 @@ export interface FichaTreinoPublico {
   exercicios: ExercicioTreino[];
 }
 
+/**
+ * Treino-modelo que o aluno pode consultar enquanto não tem ficha própria
+ * (migração 104). Vem da mesma biblioteca que a 018 semeia em toda academia,
+ * então os exercícios têm o mesmo formato da ficha — de propósito, para as
+ * telas reaproveitarem os mesmos componentes.
+ *
+ * Não tem `dias_semana`: modelo não é prescrição, é sugestão. Quem manda no
+ * calendário do aluno é a ficha que o instrutor montar.
+ */
+export interface TreinoSugerido {
+  id: string;
+  nome_treino: string;
+  objetivo: string | null;
+  modalidade: string | null;
+  nivel: string | null;
+  publico_alvo: string | null;
+  ordem: number;
+  exercicios: ExercicioTreino[];
+}
+
 /** Autor exposto na comunidade — só nome e avatar, nunca dado de cadastro. */
 export interface AutorComunidade {
   nome: string;

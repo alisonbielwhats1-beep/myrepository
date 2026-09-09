@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowLeft, ChevronRight, Dumbbell, Flame, Trophy } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, ChevronRight, Dumbbell, Flame, Sparkles, Trophy } from "lucide-react";
 import type {
   FichaTreinoPublico,
   ResumoEvolucaoAluno,
@@ -74,9 +75,15 @@ export default function TreinosDia({
   ultimaCarga = {},
   evolucao,
   diasFeitos = [],
+  base,
+  temSugeridos = false,
   ...acoes
 }: {
   treinos: FichaTreinoPublico[];
+  /** Prefixo das rotas do aluno (`/aluno/[slug]/[token]`). */
+  base: string;
+  /** A academia publicou treinos-modelo? Sem eles, não oferecemos o atalho. */
+  temSugeridos?: boolean;
   sessoesAtivas: SessaoTreino[];
   recordes: Record<string, number>;
   /** Última carga (kg) por exercício — pré-preenchimento da execução. */
@@ -108,10 +115,34 @@ export default function TreinosDia({
     return "planejado";
   };
 
+  // Sem ficha: antes isto era um beco sem saída ("fale com a recepção") e o app
+  // nascia inútil justamente no dia em que o aluno está mais animado. Agora
+  // aponta para a biblioteca-padrão da própria academia (migração 018), que
+  // sempre existiu no banco e só era visível no painel.
   if (treinos.length === 0) {
     return (
-      <div className="surface rounded-2xl p-8 text-center text-slate-400">
-        Seu treino ainda está sendo montado. Fale com a recepção da sua academia.
+      <div className="space-y-3">
+        <div className="surface rounded-2xl p-6 text-center">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-volt-300/15 text-volt-300">
+            <Dumbbell className="h-6 w-6" />
+          </span>
+          <h2 className="mt-3 text-lg font-bold text-white">
+            Seu treino está sendo montado
+          </h2>
+          <p className="mt-1 text-sm text-slate-400">
+            {temSugeridos
+              ? "Enquanto isso, não precisa ficar parado: sua academia tem treinos prontos para você começar hoje."
+              : "Fale com a recepção da sua academia para receber sua ficha."}
+          </p>
+          {temSugeridos && (
+            <Link href={`${base}/treinos/sugeridos`} className="btn-volt mt-4 w-full">
+              Ver treinos sugeridos
+            </Link>
+          )}
+        </div>
+        <p className="text-center text-xs text-slate-500">
+          Assim que seu instrutor publicar sua ficha, ela aparece aqui.
+        </p>
       </div>
     );
   }
@@ -312,6 +343,19 @@ export default function TreinosDia({
             );
           })}
         </section>
+      )}
+
+      {/* Atalho discreto para quem JÁ tem ficha: serve para o dia em que ele
+          quer treinar um grupo fora do plano, ou está viajando. A ficha do
+          instrutor continua sendo o destaque da tela. */}
+      {temSugeridos && (
+        <Link
+          href={`${base}/treinos/sugeridos`}
+          className="flex items-center justify-center gap-1.5 py-1 text-xs font-medium text-slate-500 transition hover:text-slate-300"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          Ver treinos sugeridos da academia
+        </Link>
       )}
     </div>
   );
