@@ -47,7 +47,7 @@ export default async function TreinosSugeridosPage({
       </Link>
 
       <header>
-        <p className="text-sm text-slate-400">Para começar hoje</p>
+        <p className="text-sm text-slate-400">Nível iniciante</p>
         <h1 className="text-2xl font-bold text-white">Treinos sugeridos</h1>
       </header>
 
@@ -56,8 +56,8 @@ export default async function TreinosSugeridosPage({
           <Info className="h-4 w-4" />
         </span>
         <p className="text-sm leading-snug text-slate-400">
-          São treinos prontos da sua academia, para você não ficar parado
-          enquanto seu instrutor monta a sua ficha.{" "}
+          São treinos de nível iniciante da sua academia, para você não ficar
+          parado enquanto seu instrutor monta a sua ficha.{" "}
           <span className="text-slate-300">
             Nada aqui é registrado no seu histórico
           </span>{" "}
@@ -67,8 +67,8 @@ export default async function TreinosSugeridosPage({
 
       {sugeridos.length === 0 ? (
         <div className="surface rounded-2xl p-8 text-center text-slate-400">
-          Sua academia ainda não publicou treinos sugeridos. Fale com a recepção
-          para receber sua ficha.
+          Sua academia ainda não marcou nenhum treino como iniciante. Fale com a
+          recepção para receber sua ficha.
         </div>
       ) : (
         Array.from(porModalidade.entries()).map(([modalidade, lista]) => (
@@ -92,10 +92,11 @@ export default async function TreinosSugeridosPage({
                     </span>
                     <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
                       {grupos && <span className="truncate">{titulo}</span>}
+                      {/* O nível não é repetido aqui: a tela inteira é de
+                          nível iniciante, dizer isso onze vezes é ruído. */}
                       <span>
                         {qtd} {qtd === 1 ? "exercício" : "exercícios"}
                       </span>
-                      {t.nivel && <span className="text-slate-400">{t.nivel}</span>}
                     </span>
                   </span>
                   <ChevronRight className="h-5 w-5 flex-none text-slate-500" />
