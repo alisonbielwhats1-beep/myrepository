@@ -19,6 +19,7 @@ import {
 } from "@/lib/dias-semana";
 import CardTreino from "./CardTreino";
 import ExecucaoTreino, { AcoesExecucao } from "./ExecucaoTreino";
+import type { SugestaoCarga } from "@/lib/progressao-carga";
 
 /** Estado de um dia na trilha da semana. */
 type StatusDia = "feito" | "hoje" | "planejado" | "descanso";
@@ -73,6 +74,7 @@ export default function TreinosDia({
   sessoesAtivas,
   recordes,
   ultimaCarga = {},
+  sugestoes = {},
   evolucao,
   diasFeitos = [],
   base,
@@ -88,6 +90,8 @@ export default function TreinosDia({
   recordes: Record<string, number>;
   /** Última carga (kg) por exercício — pré-preenchimento da execução. */
   ultimaCarga?: Record<string, number>;
+  /** Sugestão de carga por exercício (migration 107). Vazio = sem sugestão. */
+  sugestoes?: Record<string, SugestaoCarga>;
   /** Contadores do painel "Minha evolução". Ausente = painel não aparece. */
   evolucao?: ResumoEvolucaoAluno;
   /** Dias (1=seg…7=dom) já treinados nesta semana — para o status "feito". */
@@ -166,6 +170,7 @@ export default function TreinosDia({
           sessaoInicial={sessaoDe(treinoAberto.id)}
           recordes={recordes}
           ultimaCarga={ultimaCarga}
+          sugestoes={sugestoes}
           evolucao={evolucao}
           {...acoes}
         />

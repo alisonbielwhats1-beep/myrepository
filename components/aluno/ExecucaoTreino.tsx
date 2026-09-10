@@ -11,6 +11,7 @@ import {
 import CreditoVideosExercicios from "./CreditoVideosExercicios";
 import ExercicioCard from "./ExercicioCard";
 import ProvedorDescanso from "./ProvedorDescanso";
+import type { SugestaoCarga } from "@/lib/progressao-carga";
 
 export type AcoesExecucao = {
   iniciar: (treinoId: string) => Promise<{ erro?: string; sessao?: SessaoTreino }>;
@@ -32,6 +33,7 @@ export default function ExecucaoTreino({
   sessaoInicial,
   recordes,
   ultimaCarga = {},
+  sugestoes = {},
   evolucao,
   iniciar,
   salvarProgresso,
@@ -42,6 +44,8 @@ export default function ExecucaoTreino({
   recordes: Record<string, number>;
   /** Última carga (kg) por exercício — pré-preenchimento por card. */
   ultimaCarga?: Record<string, number>;
+  /** Sugestão de carga por exercício (migration 107). Vazio = sem sugestão. */
+  sugestoes?: Record<string, SugestaoCarga>;
   /** Contadores de evolução — usados só para a comemoração de marcos. */
   evolucao?: ResumoEvolucaoAluno;
 } & AcoesExecucao) {
@@ -234,6 +238,7 @@ export default function ExecucaoTreino({
               progresso={progressoPorExercicio.get(ex.id)}
               recorde={recordes[ex.id] ?? null}
               ultimaCarga={ultimaCarga[ex.id] ?? null}
+              sugestao={sugestoes[ex.id] ?? null}
               proximo={exercicios[i + 1]?.nome_exercicio ?? null}
               onAlterar={(patch) => handleAlterar(ex.id, patch)}
             />
