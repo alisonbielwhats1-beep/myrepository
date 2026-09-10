@@ -54,6 +54,8 @@ next-env.d.ts
 /.test-build-periodo
 .vercel
 /.test-build-recuperacao
+/.test-build-planos
+/.test-build-evolucao
 
 # playwright (e2e)
 /test-results/

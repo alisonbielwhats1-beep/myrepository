@@ -1,21 +1,23 @@
 "use client";
 
 import { Check, Zap } from "lucide-react";
-import { PlanoSaas, PLANOS_SAAS, labelPlano } from "@/lib/planos";
+import {
+  PlanoSaas,
+  PLANOS_SAAS,
+  RECURSOS_VENDAVEIS,
+  labelPlano,
+  planoMinimo,
+} from "@/lib/planos";
 import { cn } from "@/lib/utils";
 
-const FEATURES: { label: string; plano: PlanoSaas }[] = [
-  { label: "Alunos, treinos e recepção", plano: "basico" },
-  { label: "Mini-site público", plano: "basico" },
-  { label: "Financeiro (receitas, despesas, DRE)", plano: "profissional" },
-  { label: "Funcionários e folha salarial", plano: "profissional" },
-  { label: "Múltiplos usuários (equipe)", plano: "profissional" },
-  { label: "Retenção e frequência", plano: "profissional" },
-  { label: "Loja e controle de estoque", plano: "profissional" },
-  { label: "Feedback e NPS", plano: "profissional" },
-  { label: "Relatórios e BI", plano: "profissional" },
-  { label: "Integrações Gympass e TotalPass", plano: "premium" },
-];
+// A vitrine é DERIVADA de lib/planos.ts — cada linha pergunta ao código a
+// partir de qual plano aquele recurso existe. Antes esta lista era mantida à
+// mão ao lado da outra, e as duas divergiram: a tela vendia Gympass como
+// Premium enquanto o código entregava no Profissional. Derivar mata a classe
+// inteira do problema, não só a ocorrência.
+const FEATURES: { label: string; plano: PlanoSaas }[] = RECURSOS_VENDAVEIS.map(
+  (r) => ({ label: r.label, plano: planoMinimo(r.recurso) })
+);
 
 const ORDEM: PlanoSaas[] = ["basico", "profissional", "premium"];
 

@@ -4,6 +4,7 @@ import InstallPWA from "@/components/painel/InstallPWA";
 import DemoBanner from "@/components/painel/DemoBanner";
 import GestAcadIntelligence from "@/components/painel/intelligence/GestAcadIntelligence";
 import { requireSessao } from "@/lib/auth";
+import { planoPodeAcessar } from "@/lib/planos";
 import { contarFeedbackNaoLido } from "@/lib/data";
 import {
   contarNotificacoesNaoLidas,
@@ -59,13 +60,14 @@ export default async function PainelLayout({
       <main className="min-w-0 flex-1 overflow-x-clip px-4 py-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-4">
           <div className="no-print flex items-center justify-end gap-2">
-            {sessao.papel === "dono" && (
-              <GestAcadIntelligence
-                slug={params.slug}
-                academiaName={sessao.academia.nome_fantasia}
-                userName={sessao.nome}
-              />
-            )}
+            {sessao.papel === "dono" &&
+              planoPodeAcessar(sessao.academia.plano_saas, "intelligence") && (
+                <GestAcadIntelligence
+                  slug={params.slug}
+                  academiaName={sessao.academia.nome_fantasia}
+                  userName={sessao.nome}
+                />
+              )}
             <InstallPWA />
             <NotificationBell
               slug={params.slug}
