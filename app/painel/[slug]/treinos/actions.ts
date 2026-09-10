@@ -25,6 +25,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { erroAmigavel } from "@/lib/erros-servidor";
 import { normalizarDias, type FichaRealocada } from "@/lib/dias-semana";
+import { VISIBILIDADE_PADRAO_MODELO } from "@/lib/treinos";
 
 const FORMATO_UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -45,11 +46,17 @@ export async function criarTreinoBiblioteca(
   if ("erro" in lidos) return lidos;
   const exercicios = lidos.exercicios;
 
-  // Visibilidade (migration 077): privado (padrão) / equipe / academia. A
+  // Visibilidade (migration 077): privado / equipe (padrão) / academia. A
   // origem é sempre 'instrutor' (autoria) — mudar quem vê não muda a autoria.
+  // O padrão só é 'privado' quando a pessoa marca isso de propósito: treino que
+  // nasce invisível é o que fazia a recepção recadastrar ficha que já existia.
   const visRaw = String(formData.get("visibilidade") ?? "");
   const visibilidade =
-    visRaw === "academia" ? "academia" : visRaw === "equipe" ? "equipe" : "privado";
+    visRaw === "privado"
+      ? "privado"
+      : visRaw === "academia"
+        ? "academia"
+        : VISIBILIDADE_PADRAO_MODELO;
   const origemTipo = "instrutor";
 
   const { count } = await supabase
@@ -708,6 +715,44 @@ export async function definirVisibilidadeTreino(
 }
 
 /**
+ * Libera de uma vez TODOS os treinos-modelo que ainda estão 'privado' para o
+ * nível 'equipe' (dono, gerente, instrutores e recepção).
+ *
+ * POR QUE ISSO EXISTE
+ *   Até a migration 106 o modelo nascia 'privado', então o treino que o
+ *   instrutor cadastrava sumia para a recepção — que acabava recadastrando à
+ *   mão o que já existia. A 106 conserta o passivo no banco, mas ela é aplicada
+ *   à MÃO no SQL Editor. Este botão é o mesmo conserto pelo painel: quem já é
+ *   dono/gerente resolve na hora, sem depender de rodar SQL. Aplicar a 106
+ *   depois é inofensivo (não vai achar mais nada 'privado' para mexer).
+ *
+ * Só dono/gerente: são os únicos que enxergam o privado alheio (RLS 077/095),
+ * então são os únicos que podem liberar treino de OUTRA pessoa. Um instrutor
+ * libera o dele em "Gerenciar acesso", um a um — que é o certo.
+ */
+export async function liberarPrivadosParaEquipe(
+  slug: string
+): Promise<{ erro: string } | { ok: true; liberados: number }> {
+  const sessao = await requireSecao(slug, "treinos");
+  if (sessao.papel !== "dono" && sessao.papel !== "gerente") {
+    return { erro: "Só o dono ou o gerente pode liberar os treinos da equipe." };
+  }
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("treinos")
+    .update({ visibilidade: "equipe" })
+    .eq("academia_id", sessao.academia.id)
+    .is("aluno_id", null)
+    .eq("visibilidade", "privado")
+    .select("id");
+  if (error) {
+    return { erro: await erroAmigavel(error, "liberar os treinos para a equipe") };
+  }
+  revalidatePath(`/painel/${slug}/treinos`);
+  return { ok: true, liberados: data?.length ?? 0 };
+}
+
+/**
  * Liga/desliga o compartilhamento público (QR) de um TREINO-MODELO da academia.
  *
  * Restrições de segurança (defesa em profundidade além do RLS):
@@ -896,7 +941,7 @@ export async function duplicarTreino(
       profissional_nome: sessao.nome,
       origem: "manual",
       origem_tipo: "instrutor",
-      visibilidade: "privado",
+      visibilidade: VISIBILIDADE_PADRAO_MODELO,
       publico: false,
       ordem: (count ?? 0) + 1,
     })
@@ -1055,7 +1100,7 @@ export async function importarTreinosBiblioteca(
         profissional_nome: sessao.nome,
         origem: "importacao",
         origem_tipo: "instrutor",
-        visibilidade: "privado",
+        visibilidade: VISIBILIDADE_PADRAO_MODELO,
         ordem,
       })
       .select("id")

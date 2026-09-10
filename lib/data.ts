@@ -461,6 +461,30 @@ export async function getInstrutores(
   return (data as { id: string; nome: string }[]) ?? [];
 }
 
+/**
+ * Equipe INTEIRA do painel (dono, gerente, instrutor e recepção) — usada para
+ * agrupar a biblioteca por autor na visão "Por instrutor". Difere de
+ * `getInstrutores` (só papel 'instrutor', para o compartilhamento seletivo)
+ * porque quem cria treino-modelo não é só instrutor: o dono e a própria
+ * recepção também criam, e um bloco sem nome ("Sem autor definido") seria pior
+ * que um bloco nomeado.
+ *
+ * Falha em silêncio (lista vazia) de propósito: a visão por autor ainda
+ * funciona sem ela, caindo no `profissional_nome` gravado em cada treino.
+ */
+export async function getEquipeTreinos(
+  academiaId: string
+): Promise<{ id: string; nome: string; papel: string | null }[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("perfis_admin")
+    .select("id, nome, papel")
+    .eq("academia_id", academiaId)
+    .order("nome", { ascending: true });
+  if (error) return [];
+  return (data as { id: string; nome: string; papel: string | null }[]) ?? [];
+}
+
 export async function getAcessos(
   academiaId: string,
   limite = 50
