@@ -9,6 +9,7 @@ import {
   Flame,
   HelpCircle,
   QrCode,
+  TrendingUp,
   Trophy,
   User,
   Users,
@@ -41,6 +42,10 @@ import {
   formatBRL,
   hojeSaoPaulo,
 } from "@/lib/utils";
+import {
+  evolucaoDasMedidas,
+  formatarMedida,
+} from "@/lib/evolucao-aluno";
 import {
   ROTULO_DIA_LONGO,
   diaSemanaHojeSaoPaulo,
@@ -133,6 +138,13 @@ export default async function AlunoHome({
   const statusFinanceiro = calcularStatusFinanceiro(mensalidades);
   const hoje = hojeSaoPaulo();
   const seq = sequenciaSemanalTreino(acessos);
+
+  // Evolução corporal — já vem na ficha (a RPC devolve `progresso` desde a
+  // migração 037) e, até 10/09/2026, era descartada sem chegar à tela.
+  const progresso = ficha.progresso ?? [];
+  const pesoEvolucao = evolucaoDasMedidas(progresso).find(
+    (m) => m.chave === "peso_kg"
+  );
 
   // Treino de hoje: primeira ficha (por ordem) cujos dias incluem o dia atual.
   const diaHoje = diaSemanaHojeSaoPaulo();
@@ -341,6 +353,32 @@ export default async function AlunoHome({
             </span>
           </div>
         )}
+
+        {/* Evolução do corpo — a seção se chama "Seu progresso" mas até
+            10/09/2026 só mostrava presença. Aparece por exceção: só quando
+            existe avaliação registrada, para não virar cobrança permanente em
+            quem nunca fez uma. */}
+        {progresso.length > 0 && (
+          <Link
+            href={`${base}/evolucao`}
+            className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-ink-900/50 p-3 transition hover:bg-ink-900"
+          >
+            <span className="flex min-w-0 items-center gap-2 text-sm text-slate-300">
+              <TrendingUp className="h-4 w-4 flex-none text-cyanx-400" />
+              <span className="truncate">
+                {pesoEvolucao
+                  ? `Peso: ${formatarMedida(pesoEvolucao.ultimo, "kg", 1)}`
+                  : "Minha evolução"}
+              </span>
+            </span>
+            <span className="flex flex-none items-center gap-1 text-sm font-semibold text-cyanx-300">
+              {pesoEvolucao
+                ? formatarMedida(pesoEvolucao.delta, "kg", 1, true)
+                : `${progresso.length} ${progresso.length === 1 ? "avaliação" : "avaliações"}`}
+              <ChevronRight className="h-4 w-4" />
+            </span>
+          </Link>
+        )}
       </section>
 
       {/* COMUNIDADE — prévia */}
@@ -465,7 +503,8 @@ export default async function AlunoHome({
       )}
 
       {/* Atalhos pequenos, incluindo o acesso (item 9: no máximo um atalho discreto) */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
+        <AtalhoPequeno href={`${base}/evolucao`} icon={TrendingUp} label="Evolução" />
         <AtalhoPequeno href={`${base}/frequencia`} icon={CalendarDays} label="Frequência" />
         <AtalhoPequeno href={`${base}/acesso`} icon={QrCode} label="Acesso" />
         <AtalhoPequeno href={`${base}/perfil`} icon={User} label="Perfil" />

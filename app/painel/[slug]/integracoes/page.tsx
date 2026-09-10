@@ -1,8 +1,10 @@
 import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import Integracoes from "@/components/painel/Integracoes";
+import UpgradeGuard from "@/components/ui/UpgradeGuard";
 import { requireSecao } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getConfigRepasseParceiros } from "@/lib/data";
+import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
 import { mascarar } from "@/lib/utils";
 import type { StatusIntegracao } from "@/lib/types";
 
@@ -14,6 +16,25 @@ export default async function IntegracoesPage({
   params: { slug: string };
 }) {
   const sessao = await requireSecao(params.slug, "integracoes");
+
+  // `requireSecao` só confere o PAPEL — sem esta trava, qualquer dono chegava
+  // aqui digitando a URL, em qualquer plano. O Sidebar escondia o link e a
+  // página abria assim mesmo, com os segredos de webhook dentro. É a mesma
+  // guarda que financeiro, loja, equipe, feedback, retenção e relatórios já
+  // tinham; integrações era a única seção paga sem ela.
+  if (!planoPodeAcessar(sessao.academia.plano_saas, "integracoes")) {
+    return (
+      <UpgradeGuard
+        recurso="integracoes"
+        planoAtual={sessao.academia.plano_saas}
+        planoNecessario={planoMinimo("integracoes")}
+        slug={params.slug}
+        titulo="Integrações disponíveis no Premium"
+        descricao="Check-in automático de Gympass e TotalPass direto no seu controle de acessos, sem digitar nada na recepção."
+      />
+    );
+  }
+
   const supabase = createClient();
 
   // getConfigRepasseParceiros é vazia (não erro) para quem não é dono — RLS

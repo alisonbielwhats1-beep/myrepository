@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessao } from "@/lib/auth";
+import { planoPodeAcessar } from "@/lib/planos";
 import { parseIntelligenceQuestion } from "@/lib/intelligence/parser";
 import { answerIntelligenceQuestion } from "@/lib/intelligence/services";
 
@@ -25,6 +26,16 @@ export async function POST(
   if (session.papel !== "dono") {
     return NextResponse.json(
       { error: "O GestAcad Intelligence está disponível para o proprietário." },
+      { status: 403 }
+    );
+  }
+
+  // Recurso do plano Premium. A trava vive aqui e no layout: esconder o botão
+  // não basta, porque a rota é chamável à mão com a sessão de um dono de
+  // qualquer plano.
+  if (!planoPodeAcessar(session.academia.plano_saas, "intelligence")) {
+    return NextResponse.json(
+      { error: "O GestAcad Intelligence está disponível no plano Premium." },
       { status: 403 }
     );
   }
