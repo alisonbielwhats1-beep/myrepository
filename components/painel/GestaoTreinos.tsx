@@ -270,6 +270,19 @@ export default function GestaoTreinos({
   // inclusive quem ainda não tem treino visível — para a recepção enxergar de
   // quem falta ficha em vez de achar que a pessoa não existe. Com filtro ativo
   // só entram os blocos com resultado, senão a tela vira uma lista de vazios.
+  // Assinatura do recorte atual. Vai como prop para os blocos: quando ela muda,
+  // um bloco que a pessoa tinha fechado volta a abrir, senão o resultado da
+  // busca ficaria escondido lá dentro. (Prop, e não `key`: assim a árvore não é
+  // remontada a cada tecla digitada na busca.)
+  const assinaturaFiltro = [
+    aba,
+    busca.trim(),
+    fModalidade,
+    fObjetivo,
+    fNivel,
+    fVisibilidade,
+  ].join("|");
+
   const grupos = useMemo(
     () =>
       agruparTreinosPorAutor(filtrados, equipe, {
@@ -514,6 +527,7 @@ export default function GestaoTreinos({
           {grupos.map((g) => (
             <BlocoAutor
               key={g.chave}
+              assinaturaFiltro={assinaturaFiltro}
               slug={slug}
               grupo={g}
               catalogo={catalogo}
@@ -703,6 +717,7 @@ function BlocoAutor({
   ehGestor,
   onDuplicado,
   abertoInicial,
+  assinaturaFiltro,
 }: {
   slug: string;
   grupo: GrupoAutorTreinos;
@@ -713,14 +728,20 @@ function BlocoAutor({
   ehGestor: boolean;
   onDuplicado: (nomeBase: string) => void;
   abertoInicial: boolean;
+  assinaturaFiltro: string;
 }) {
   const [aberto, setAberto] = useState(abertoInicial);
 
-  // Com poucos blocos tudo nasce aberto; ao filtrar, os blocos com resultado
-  // abrem sozinhos — a recepção não clica duas vezes para ver o que buscou.
-  useEffect(() => {
+  // Trocar a busca/filtro devolve o bloco ao estado inicial — senão o que a
+  // pessoa procurou ficaria escondido num bloco que ela fechou antes. É o
+  // padrão de "estado derivado de prop": ajuste durante o render, sem efeito
+  // (que só correria depois de pintar a tela fechada) e sem `key` nova (que
+  // remontaria a árvore inteira a cada tecla digitada).
+  const filtroAnterior = useRef(assinaturaFiltro);
+  if (filtroAnterior.current !== assinaturaFiltro) {
+    filtroAnterior.current = assinaturaFiltro;
     setAberto(abertoInicial);
-  }, [abertoInicial]);
+  }
 
   const total = grupo.treinos.length;
   const rotuloPapel = grupo.papel ? ROTULO_PAPEL[grupo.papel] : null;
