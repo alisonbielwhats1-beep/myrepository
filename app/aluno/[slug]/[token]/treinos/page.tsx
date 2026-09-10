@@ -7,8 +7,10 @@ import {
   getSessoesAtivasTreino,
   getTreinosSugeridosAluno,
   getUltimaCargaAluno,
+  getUltimaExecucaoAluno,
 } from "@/lib/data";
 import { ROTULO_DIA_LONGO, diaSemanaHojeSaoPaulo } from "@/lib/dias-semana";
+import { sugestoesDeCarga } from "@/lib/progressao-carga";
 import {
   finalizarSessaoTreino,
   iniciarSessaoTreino,
@@ -23,12 +25,20 @@ export default async function TreinosPage({
   params: { slug: string; token: string };
 }) {
   const ficha = await requireFichaAluno(params.slug, params.token);
-  const [sessoesAtivas, recordes, acessos, ultimaCarga, evolucao, sugeridos] =
-    await Promise.all([
+  const [
+    sessoesAtivas,
+    recordes,
+    acessos,
+    ultimaCarga,
+    ultimaExecucao,
+    evolucao,
+    sugeridos,
+  ] = await Promise.all([
       getSessoesAtivasTreino(params.token, params.slug),
       getRecordesAluno(params.token, params.slug),
       getFrequenciaAlunoPublico(params.token, params.slug),
       getUltimaCargaAluno(params.token, params.slug),
+      getUltimaExecucaoAluno(params.token, params.slug),
       getResumoEvolucaoAluno(params.token, params.slug),
       // Só o SE existem, não o conteúdo: a lista completa é carregada na tela
       // de sugeridos. Aqui serve para não oferecer um atalho que leva a nada.
@@ -38,6 +48,11 @@ export default async function TreinosPage({
   const hoje = diaSemanaHojeSaoPaulo();
   // Dias já treinados nesta semana — alimentam o status "feito" da trilha.
   const diasFeitos = diasTreinadosNaSemana(acessos);
+
+  // Sugestão de carga: decidida no servidor, uma vez, a partir do esforço que
+  // o próprio aluno registrou. Vem vazia enquanto a migration 107 não estiver
+  // aplicada — e aí a tela fica exatamente como era.
+  const sugestoes = sugestoesDeCarga(ultimaExecucao);
 
   return (
     <div className="space-y-5">
@@ -56,6 +71,7 @@ export default async function TreinosPage({
         sessoesAtivas={sessoesAtivas}
         recordes={recordes}
         ultimaCarga={ultimaCarga}
+        sugestoes={sugestoes}
         evolucao={evolucao}
         diasFeitos={diasFeitos}
         base={`/aluno/${params.slug}/${params.token}`}

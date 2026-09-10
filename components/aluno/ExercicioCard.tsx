@@ -14,12 +14,14 @@ import {
   RotateCcw,
   Target,
   Timer,
+  TrendingUp,
   Weight,
 } from "lucide-react";
 import { EsforcoTreino, ExercicioTreino, ProgressoExercicio } from "@/lib/types";
 import { guiaDoExercicio } from "@/lib/guia-exercicios";
 import { cn } from "@/lib/utils";
 import { useDescanso } from "./ProvedorDescanso";
+import { formatarCarga, type SugestaoCarga } from "@/lib/progressao-carga";
 
 const PROGRESSO_VAZIO: Omit<ProgressoExercicio, "exercicio_id"> = {
   concluido: false,
@@ -197,6 +199,7 @@ export default function ExercicioCard({
   progresso,
   recorde,
   ultimaCarga,
+  sugestao,
   proximo,
   onAlterar,
 }: {
@@ -206,6 +209,8 @@ export default function ExercicioCard({
   recorde?: number | null;
   /** Carga (kg) da última vez que fez este exercício. null/0 = sem histórico. */
   ultimaCarga?: number | null;
+  /** Sugestão de progressão de carga (migration 107); null = não sugerir. */
+  sugestao?: SugestaoCarga | null;
   /** Nome do exercício seguinte na ficha — mostrado no cronômetro de descanso. */
   proximo?: string | null;
   onAlterar?: (patch: Partial<Omit<ProgressoExercicio, "exercicio_id">>) => void;
@@ -262,6 +267,12 @@ export default function ExercicioCard({
     if (!temUltima || !onAlterar) return;
     if (cargaRef.current) cargaRef.current.value = String(ultimaCarga);
     onAlterar({ carga_realizada_kg: ultimaCarga! });
+  };
+
+  const usarSugestao = () => {
+    if (!sugestao || !onAlterar) return;
+    if (cargaRef.current) cargaRef.current.value = String(sugestao.carga);
+    onAlterar({ carga_realizada_kg: sugestao.carga });
   };
 
   const alternarConcluido = () => {
@@ -392,6 +403,31 @@ export default function ExercicioCard({
               >
                 <History className="h-3.5 w-3.5" />
                 Última vez: {ultimaCarga} kg — usar
+              </button>
+            )}
+
+            {/* Sugestão de progressão (migration 107). Só aparece quando o
+                próprio aluno marcou "leve" e concluiu o exercício da última vez
+                — a regra está em lib/progressao-carga.ts. É um ATALHO, não uma
+                prescrição: o campo continua pré-preenchido com a carga
+                anterior, e tocar aqui é escolha dele. Sem a migration a lista
+                chega vazia e nada disto é renderizado. */}
+            {sugestao && (
+              <button
+                type="button"
+                onClick={usarSugestao}
+                className="mt-2 flex w-full items-start gap-2 rounded-xl border border-volt-500/30 bg-volt-500/[0.07] p-2.5 text-left transition hover:bg-volt-500/[0.12] active:scale-[0.99]"
+              >
+                <TrendingUp className="mt-0.5 h-4 w-4 flex-none text-volt-300" />
+                <span className="min-w-0">
+                  <span className="block text-xs font-semibold text-volt-300">
+                    Tenta {formatarCarga(sugestao.carga)} kg hoje
+                  </span>
+                  <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
+                    Você marcou “leve” com {formatarCarga(sugestao.anterior)} kg.
+                    Se pesar, volta para a carga anterior — sem problema.
+                  </span>
+                </span>
               </button>
             )}
 

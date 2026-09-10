@@ -3,6 +3,7 @@
 // banco garante que só os dados da academia do admin autenticado voltam.
 
 import { createClient } from "./supabase/server";
+import type { UltimaExecucao } from "@/lib/progressao-carga";
 import { resolverMidiaExercicio } from "./exercicios-treino";
 import { hojeSaoPaulo, somarDiasISO, inicioDiaSaoPauloUTC } from "./utils";
 import { tokenTemFormatoValido } from "./aluno-classificacao";
@@ -1305,6 +1306,48 @@ export async function getUltimaCargaAluno(
     if (Number.isFinite(n) && n > 0) cargas[exercicioId] = n;
   }
   return cargas;
+}
+
+/**
+ * Última EXECUÇÃO por exercício — carga, esforço percebido e se concluiu — via
+ * RPC `obter_ultima_execucao_aluno` (migration 107). Alimenta a sugestão de
+ * progressão de carga.
+ *
+ * Degradação graciosa: sem a migration 107 a RPC não existe, a chamada falha e
+ * devolvemos vazio. A tela então não mostra sugestão nenhuma, e o
+ * pré-preenchimento com a última carga segue intacto — ele vem de
+ * `getUltimaCargaAluno`, que é outra função e não foi tocada.
+ */
+export async function getUltimaExecucaoAluno(
+  token: string,
+  slug: string
+): Promise<Record<string, UltimaExecucao>> {
+  if (!tokenTemFormatoValido(token)) return {};
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("obter_ultima_execucao_aluno", {
+    p_token: token,
+    p_slug: slug,
+  });
+  if (error) return {};
+
+  const bruto = (data ?? {}) as Record<string, unknown>;
+  const execucoes: Record<string, UltimaExecucao> = {};
+  for (const [exercicioId, valor] of Object.entries(bruto)) {
+    if (!valor || typeof valor !== "object") continue;
+    const linha = valor as Record<string, unknown>;
+    const carga = Number(linha.carga);
+    if (!Number.isFinite(carga) || carga <= 0) continue;
+    const esforco = linha.esforco;
+    execucoes[exercicioId] = {
+      carga,
+      esforco:
+        esforco === "leve" || esforco === "medio" || esforco === "pesado"
+          ? esforco
+          : null,
+      concluido: linha.concluido === true,
+    };
+  }
+  return execucoes;
 }
 
 /**
