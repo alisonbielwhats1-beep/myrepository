@@ -26,7 +26,8 @@ decidida por mim com liberdade dada por ele. Cada item diz qual é qual.
    polegar do visitante, os módulos do sistema que resolvem cada um.
 6. **Estética:** premium-minimal escuro, com peso tipográfico (Archivo Expanded).
 7. **Estrutura:** cenas distintas, sem um voo contínuo de câmera.
-8. **Recursos:** nenhuma foto real. Fotos geradas para o hero, e interface em
+8. **Recursos:** fotos geradas por IA pelo usuário (fundo 16:9, fundo 9:16 e aluna
+   recortada com transparência) em `public/landing/`, e interface em
    HTML real (painel e app) com dados de demonstração identificados como tal.
 
 ## Curva de sensação

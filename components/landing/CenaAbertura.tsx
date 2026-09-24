@@ -3,10 +3,10 @@ import ScrollScene from "@/components/landing/ScrollScene";
 import QrDecorativo from "@/components/landing/QrDecorativo";
 
 /**
- * Abertura em camadas: fundo (a academia), título, aluna, celular e
+ * Abertura em camadas: fundo (a academia), título, aluna, avisos do app e
  * atmosfera, cada plano com uma velocidade própria sob o scroll. O título fica
- * sempre legível; a aluna passa à frente só da borda dele. No celular a
- * composição é outra (título em cima, aluna e celular embaixo).
+ * sempre legível; os avisos passam à frente da aluna. No celular a
+ * composição é outra (título em cima, aluna e avisos embaixo).
  *
  * As fotos são decorativas (aria-hidden): toda a informação está no texto.
  */
@@ -57,35 +57,22 @@ export default function CenaAbertura({
         <div className="lp-hero__photo lp-hero__photo--subject" />
       </div>
 
-      {/* Plano 4: o celular e os avisos, na frente de tudo */}
+      {/* Plano 4: os avisos do app, na frente da aluna */}
       <div className="lp-hero__front" aria-hidden="true">
-        <div className="lp-hero__phone">
-          <div className="lp-phone">
-            <div className="lp-phone__bar">
-              <span>6:58</span>
-              <span className="lp-phone__notch" />
-            </div>
-            <div className="lp-phone__body">
-              <p className="text-[10px] text-slate-500">Academia Movimento</p>
-              <p className="lp-display text-[15px] leading-tight text-white">Olá, Marina</p>
-              <div className="lp-hero__qr">
-                <QrDecorativo className="lp-hero__qr-code" />
-                <div className="lp-hero__qr-ok">
-                  <span className="grid h-11 w-11 place-items-center rounded-full bg-volt-300 text-ink-950">
-                    <Check className="h-6 w-6" strokeWidth={3} />
-                  </span>
-                </div>
-              </div>
-              <div className="lp-swap">
-                <p className="lp-swap__a text-[11px] text-slate-400">
-                  Aproxime o QR Code do leitor
-                </p>
-                <p className="lp-swap__b text-[11px] font-semibold text-volt-300">
-                  Acesso liberado · mensalidade em dia
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="lp-hero__card lp-hero__acesso">
+          <span className="lp-hero__acesso-qr">
+            <QrDecorativo className="lp-hero__qr-code" />
+            <span className="lp-hero__qr-ok">
+              <Check className="h-4 w-4" strokeWidth={3} />
+            </span>
+          </span>
+          <span>
+            <span className="block text-[11px] text-slate-400">Recepção · 06:58</span>
+            <span className="lp-swap lp-swap--esq">
+              <span className="lp-swap__a text-sm font-semibold text-white">Validando QR Code</span>
+              <span className="lp-swap__b text-sm font-semibold text-volt-200">Acesso liberado</span>
+            </span>
+          </span>
         </div>
 
         <div className="lp-hero__card lp-hero__card--treino">

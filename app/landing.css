@@ -277,7 +277,8 @@
 .lp-hero__photo { position: absolute; inset: 0; background-repeat: no-repeat; }
 .lp-hero__photo--back {
   background-image:
-    var(--lp-foto-fundo, none),
+    linear-gradient(90deg, rgb(var(--ink-950)) 0%, rgb(var(--ink-950) / 0.75) 30%, transparent 62%),
+    url("/landing/hero-fundo.webp"),
     radial-gradient(55% 60% at 74% 42%, rgb(var(--volt-400) / 0.2), transparent 70%),
     radial-gradient(35% 40% at 92% 8%, rgb(0 207 250 / 0.09), transparent 70%),
     radial-gradient(45% 50% at 8% 100%, rgb(248 28 192 / 0.05), transparent 70%),
@@ -309,24 +310,20 @@
   position: absolute;
   z-index: 3;
   right: 3vw;
-  bottom: 0;
+  /* Passa da borda de baixo: o corte da foto (no quadril) nunca aparece,
+     nem depois de a camada subir com o scroll. */
+  bottom: -11svh;
   width: 40vw;
-  height: 90svh;
+  height: 98svh;
   transform: translate3d(0, calc(var(--p) * -8svh), 0);
 }
 .lp-hero__photo--subject {
-  background-image: var(--lp-foto-aluna, none);
+  background-image: url("/landing/hero-aluna.webp");
   background-size: contain;
   background-position: 50% 100%;
 }
 
 .lp-hero__front { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
-.lp-hero__phone {
-  position: absolute;
-  right: 17vw;
-  bottom: 7svh;
-  transform: translate3d(0, calc(var(--p) * -24svh), 0) rotate(calc(-7deg + var(--p) * 5deg));
-}
 .lp-hero__card {
   position: absolute;
   display: flex;
@@ -348,8 +345,25 @@
   background: rgb(var(--volt-400) / 0.16);
   color: rgb(var(--volt-300));
 }
-.lp-hero__card--treino { right: 4vw; top: 24svh; transform: translate3d(0, calc(var(--p) * -16svh), 0); }
-.lp-hero__card--pago { right: 35vw; bottom: 16svh; transform: translate3d(0, calc(var(--p) * -30svh), 0); }
+.lp-hero__card--treino { right: 3vw; top: 27svh; transform: translate3d(0, calc(var(--p) * -18svh), 0); }
+.lp-hero__card--pago { right: 5vw; bottom: 14svh; transform: translate3d(0, calc(var(--p) * -30svh), 0); }
+.lp-hero__acesso { right: calc(3vw + 36vw); bottom: 24svh; transform: translate3d(0, calc(var(--p) * -24svh), 0); }
+.lp-hero__acesso-qr {
+  --qr-bg: #f4f6f9;
+  position: relative;
+  display: block;
+  width: 44px;
+  height: 44px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #f4f6f9;
+}
+.lp-hero__acesso .lp-hero__qr-ok {
+  border-radius: 10px;
+  background: rgb(var(--volt-300));
+  color: rgb(var(--ink-950));
+}
+.lp-swap--esq { display: block; width: 9.5rem; height: 1.35em; margin: 0; text-align: left; }
 
 .lp-hero__haze {
   position: absolute;
@@ -381,13 +395,21 @@
   .lp-hero__title { font-size: clamp(2.2rem, 8.6vw, 3.6rem); }
   .lp-hero__sub { font-size: 1rem; }
   .lp-hero__ctas .lp-btn { flex: 1 1 auto; }
-  .lp-hero__subject { width: 86vw; right: -10vw; height: 50svh; }
-  .lp-hero__phone { right: auto; left: 50%; bottom: -12svh; margin-left: -118px; scale: 0.82; transform-origin: 50% 100%; }
-  .lp-hero__card--treino { right: var(--lp-gutter); top: auto; bottom: 26svh; }
-  .lp-hero__card--pago { display: none; }
+  .lp-hero__photo--back {
+    background-image:
+      linear-gradient(180deg, rgb(var(--ink-950)) 0%, rgb(var(--ink-950) / 0.7) 38%, transparent 62%),
+      url("/landing/hero-fundo-m.webp"),
+      linear-gradient(180deg, rgb(var(--ink-900)), rgb(var(--ink-950)) 75%);
+    background-position: 50% 100%;
+  }
+  .lp-hero__subject { width: 92vw; right: -14vw; bottom: -9svh; height: 54svh; }
+  .lp-hero__card { scale: 0.9; }
+  /* No celular o rosto da aluna ocupa o lugar dos avisos da direita. */
+  .lp-hero__card--treino, .lp-hero__card--pago { display: none; }
+  .lp-hero__acesso { right: auto; left: var(--lp-gutter); bottom: 9svh; transform-origin: 0 50%; }
 }
-@media (max-width: 1023px) and (max-height: 720px) {
-  .lp-hero__card--treino { display: none; }
+@media (max-width: 1023px) and (max-height: 740px) {
+  .lp-hero__subject { height: 46svh; }
 }
 
 /* ==========================================================================
