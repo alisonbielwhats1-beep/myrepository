@@ -1,0 +1,1271 @@
+/* ===========================================================================
+   Landing em tela dividida (split stage).
+   Dois lados da mesma academia, com dois chãos que não se misturam:
+   A (quem gerencia) é claro, concreto e papel, organizado.
+   B (quem treina) é escuro, a academia à noite.
+   Um só acento, o verde da marca, em duas luminosidades (uma por chão): é a
+   cor do pulso que atravessa a divisória.
+   Tudo aqui é prefixado com .ls- para não vazar para o resto do app; os
+   tokens do engine (--sc-*) ficam no :root porque o engine os lê no <body>.
+   =========================================================================== */
+
+:root {
+  --sc-canvas: #0e0f10;
+  --sc-surface: #17191b;
+  --sc-ink: #f1eee8;
+  --sc-ink-soft: #a9a49b;
+  --sc-accent: #a3e635;
+  --sc-accent-ink: #0e0f10;
+  --sc-font-display: var(--font-archivo), system-ui, sans-serif;
+  --sc-font-text: var(--font-geist-sans), system-ui, sans-serif;
+  --sc-font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+.ls-root {
+  /* Tokens do app redefinidos só aqui dentro. Base escura (lado do aluno);
+     .ls-claro troca para a versão clara (lado da academia). O "volt" do app
+     vira o verde da landing, para as telas de demonstração falarem a mesma
+     língua da página. */
+  --ink-950: 14 15 16;
+  --ink-900: 18 19 21;
+  --ink-800: 23 25 27;
+  --ink-700: 32 34 37;
+  --ink-600: 45 48 52;
+  --ink-500: 62 65 70;
+  --fg-strong: 241 238 232;
+  --slate-200: 226 222 214;
+  --slate-300: 204 199 190;
+  --slate-400: 169 164 155;
+  --slate-500: 126 121 111;
+  --slate-600: 90 86 79;
+  --volt-200: 190 242 100;
+  --volt-300: 163 230 53;
+  --volt-400: 132 204 22;
+  --volt-500: 101 163 13;
+
+  /* chão A: concreto claro */
+  --ls-a: #e8e5de;
+  --ls-a-2: #dedad1;
+  --ls-ink-a: #17150f;
+  --ls-soft-a: #555048;
+  --ls-mute-a: #6f695f;
+  --ls-hair-a: rgba(23, 21, 15, 0.14);
+  --ls-acc-a: #3f6212;
+
+  /* chão B: academia à noite */
+  --ls-b: #0e0f10;
+  --ls-b-2: #17191b;
+  --ls-ink-b: #f1eee8;
+  --ls-soft-b: #a9a49b;
+  --ls-mute-b: #8a857c;
+  --ls-hair-b: rgba(241, 238, 232, 0.14);
+  --ls-acc-b: #a3e635;
+
+  --ls-sinal: #a3e635;
+  --ls-sinal-ink: #0e0f10;
+  --ls-linha: rgba(163, 230, 53, 0.8);
+  --ls-gap: clamp(2.75rem, 5.2vw, 5.75rem);
+  --ls-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --ls-split: 0.5;
+
+  --ls-f-display: var(--font-archivo), "Arial Narrow", system-ui, sans-serif;
+  --ls-f-text: var(--font-geist-sans), system-ui, sans-serif;
+  --ls-f-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  font-family: var(--ls-f-text);
+  color: var(--ls-ink-b);
+  background: var(--ls-b);
+  font-size: 1rem;
+  letter-spacing: 0.002em;
+}
+
+/* Cada lado carrega a própria tinta (a cor é herdada como valor calculado,
+   então redefinir só o token não bastaria: a cor é declarada junto). */
+.ls-col--a, .ls-claro {
+  --ink-950: 244 242 237;
+  --ink-900: 236 233 226;
+  --ink-800: 250 249 246;
+  --ink-700: 232 229 222;
+  --ink-600: 214 209 199;
+  --ink-500: 190 184 172;
+  --fg-strong: 23 21 15;
+  --slate-200: 38 35 29;
+  --slate-300: 58 54 47;
+  --slate-400: 85 80 72;
+  --slate-500: 111 105 95;
+  --slate-600: 150 144 133;
+  --volt-200: 54 83 20;
+  --volt-300: 63 98 18;
+  --volt-400: 77 124 15;
+  --volt-500: 101 163 13;
+  color: var(--ls-ink-a);
+}
+.ls-col--b { color: var(--ls-ink-b); }
+
+.ls-root :where(h1, h2, h3, p, ul, ol, figure) { margin: 0; }
+.ls-root :where(ul, ol) { list-style: none; padding: 0; }
+.ls-root ::selection { background: var(--ls-sinal); color: var(--ls-sinal-ink); }
+.ls-mono { font-family: var(--ls-f-mono); font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------ tipografia -- */
+.ls-display {
+  font-family: var(--ls-f-display);
+  font-stretch: 72%;
+  font-weight: 800;
+  font-size: clamp(2.9rem, 5.7vw, 6.1rem);
+  line-height: 0.92;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+.ls-h2 {
+  font-family: var(--ls-f-display);
+  font-stretch: 76%;
+  font-weight: 800;
+  font-size: clamp(2rem, 3.3vw, 3.4rem);
+  line-height: 0.96;
+  letter-spacing: -0.008em;
+  text-wrap: balance;
+}
+.ls-h3 {
+  font-weight: 600;
+  font-size: 1.0625rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.ls-lede {
+  font-size: clamp(1rem, 1.15vw, 1.125rem);
+  line-height: 1.6;
+  max-width: 34ch;
+  text-wrap: pretty;
+}
+.ls-body { font-size: 0.9375rem; line-height: 1.62; text-wrap: pretty; }
+.ls-fine { font-size: 0.8125rem; line-height: 1.55; }
+.ls-col--a :is(.ls-lede, .ls-body) { color: var(--ls-soft-a); }
+.ls-col--b :is(.ls-lede, .ls-body) { color: var(--ls-soft-b); }
+.ls-col--a .ls-fine { color: var(--ls-mute-a); }
+.ls-col--b .ls-fine { color: var(--ls-mute-b); }
+.ls-col--a .ls-acento { color: var(--ls-acc-a); }
+.ls-col--b .ls-acento { color: var(--ls-acc-b); }
+
+/* --------------------------------------------------------------- colunas -- */
+.ls-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  position: relative;
+}
+.ls-col { position: relative; min-width: 0; }
+.ls-col--a { background: var(--ls-a); }
+.ls-col--b { background: var(--ls-b); }
+
+/* Cada coluna encosta o texto na divisória: à esquerda alinha à direita, à
+   direita alinha à esquerda. É o que substitui o "hero de canto". */
+.ls-inner { padding: clamp(3.5rem, 8vh, 6rem) 1.25rem; }
+.ls-inner--a, .ls-inner--b { display: flex; flex-direction: column; }
+
+/* Divisória horizontal dentro do ato (celular e tablet). */
+.ls-regua { position: relative; height: 2px; background: var(--ls-sinal); }
+.ls-regua > span {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  padding: 0.3rem 0.7rem;
+  font-family: var(--ls-f-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 4px;
+}
+.ls-regua > span:first-child { left: 1.25rem; background: var(--ls-a); color: var(--ls-ink-a); }
+.ls-regua > span:last-child { right: 1.25rem; background: var(--ls-b); color: var(--ls-ink-b); }
+
+@media (min-width: 1024px) {
+  .ls-split { grid-template-columns: 1fr 1fr; }
+  .ls-regua { display: none; }
+  .ls-inner { padding-block: clamp(5rem, 12vh, 8.5rem); }
+  .ls-inner--a { padding-left: clamp(2rem, 4vw, 4rem); padding-right: var(--ls-gap); align-items: flex-end; text-align: right; }
+  .ls-inner--b { padding-right: clamp(2rem, 4vw, 4rem); padding-left: var(--ls-gap); align-items: flex-start; text-align: left; }
+}
+
+/* ------------------------------------------------------------ divisória -- */
+.ls-espinha {
+  display: none;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  z-index: 60;
+  pointer-events: none;
+  transform: translate3d(calc(var(--ls-split) * var(--ls-vw, 100vw)), 0, 0);
+}
+@media (min-width: 1024px) { .ls-espinha { display: block; } }
+
+.ls-espinha__linha {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -1px;
+  width: 2px;
+  background: linear-gradient(to bottom, transparent 0, var(--ls-linha) 6.5rem, var(--ls-linha) calc(100% - 3rem), transparent 100%);
+  transition: opacity 240ms var(--ls-ease);
+}
+.ls-espinha__partida {
+  position: absolute;
+  top: 6.5rem;
+  bottom: 3rem;
+  left: -1px;
+  width: 2px;
+  opacity: 0;
+  background: repeating-linear-gradient(to bottom, var(--ls-linha) 0 10px, transparent 10px 26px);
+  transition: opacity 240ms var(--ls-ease);
+}
+.ls-root[data-ls-linha="partida"] .ls-espinha__linha { opacity: 0; }
+.ls-root[data-ls-linha="partida"] .ls-espinha__partida { opacity: 1; }
+
+.ls-espinha__topo {
+  position: absolute;
+  top: 1.25rem;
+  left: 0;
+  translate: -50% 0;
+  pointer-events: auto;
+}
+.ls-espinha__lados {
+  position: absolute;
+  top: 4.25rem;
+  left: 0;
+  width: 0;
+  font-family: var(--ls-f-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ls-espinha__lados span { position: absolute; }
+.ls-espinha__lados span:first-child { right: 0.875rem; color: var(--ls-ink-a); }
+.ls-espinha__lados span:last-child { left: 0.875rem; color: var(--ls-ink-b); }
+
+.ls-espinha__nav {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  translate: -50% 0;
+  pointer-events: auto;
+}
+.ls-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--ls-ink-b);
+  white-space: nowrap;
+  text-decoration: none;
+  background: #17191b;
+  border: 1px solid rgba(241, 238, 232, 0.16);
+  border-radius: 4px;
+  box-shadow: 0 6px 16px -10px rgba(0, 0, 0, 0.6);
+  transition: color 160ms var(--ls-ease), border-color 160ms var(--ls-ease), background-color 160ms var(--ls-ease);
+}
+.ls-chip:hover { border-color: var(--ls-sinal); }
+.ls-chip:active { transform: translateY(1px); }
+.ls-chip:focus-visible { outline: 2px solid var(--ls-sinal); outline-offset: 3px; }
+.ls-chip[aria-current="true"] { background: var(--ls-sinal); color: var(--ls-sinal-ink); border-color: var(--ls-sinal); }
+
+/* As marcas do sinal: cada travessia deixa um ponto na altura em que cruzou. */
+.ls-espinha__marcas { position: absolute; inset: 0; }
+.ls-marca {
+  position: absolute;
+  left: 0;
+  top: var(--y, 50%);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  translate: -5px -50%;
+  opacity: 0;
+  transition: opacity 220ms var(--ls-ease);
+}
+.ls-marca i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--ls-sinal);
+  box-shadow: 0 0 0 3px rgba(14, 15, 16, 0.9);
+}
+.ls-marca b {
+  font-family: var(--ls-f-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ls-ink-b);
+}
+.ls-marca.is-on { opacity: 1; }
+
+/* Menu do celular (a divisória some abaixo de 1024px). */
+.ls-menu {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.ls-menu > * { pointer-events: auto; }
+@media (min-width: 1024px) { .ls-menu { display: none; } }
+.ls-menu__marca, .ls-menu__botao {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.375rem 0.875rem 0.375rem 0.4rem;
+  border-radius: 6px;
+  background: #17191b;
+  color: var(--ls-ink-b);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.7);
+}
+.ls-menu__botao { padding-inline: 1rem; cursor: pointer; }
+.ls-menu__botao:focus-visible, .ls-menu__marca:focus-visible { outline: 2px solid var(--ls-sinal); outline-offset: 3px; }
+.ls-menu__lista {
+  position: fixed;
+  top: 4.25rem;
+  right: 0.75rem;
+  z-index: 61;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 13rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: #17191b;
+  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.8);
+}
+.ls-menu__lista a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.875rem;
+  border-radius: 4px;
+  font-size: 0.9375rem;
+  color: var(--ls-ink-b);
+  text-decoration: none;
+}
+.ls-menu__lista a:hover, .ls-menu__lista a:focus-visible { background: #24272a; outline: none; }
+
+/* Marca da GestAcad na landing. */
+.ls-selo {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 6px;
+  background: var(--ls-sinal);
+  color: var(--ls-sinal-ink);
+}
+.ls-marca-texto { font-family: var(--ls-f-display); font-stretch: 80%; font-weight: 800; font-size: 1.25rem; letter-spacing: -0.005em; }
+
+/* --------------------------------------------------------------- botões -- */
+.ls-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 50px;
+  padding: 0.8rem 1.35rem;
+  border-radius: 6px;
+  background: var(--ls-sinal);
+  color: var(--ls-sinal-ink);
+  font-size: 1rem;
+  font-weight: 650;
+  white-space: nowrap;
+  text-decoration: none;
+  box-shadow: 0 12px 24px -16px rgba(63, 98, 18, 0.9);
+  transition: background-color 160ms var(--ls-ease), transform 120ms var(--ls-ease);
+}
+.ls-cta:hover { background: #bef264; }
+.ls-cta:active { transform: scale(0.97); }
+.ls-cta:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.ls-col--a .ls-cta:focus-visible { outline-color: var(--ls-ink-a); }
+.ls-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 44px;
+  font-size: 0.9375rem;
+  font-weight: 550;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.3em;
+  transition: text-decoration-color 160ms var(--ls-ease);
+}
+.ls-col--a .ls-link, .ls-hero__cel--a .ls-link { color: var(--ls-ink-a); text-decoration-color: rgba(63, 98, 18, 0.55); }
+.ls-link:hover { text-decoration-color: var(--ls-sinal); }
+.ls-link:focus-visible { outline: 2px solid var(--ls-sinal); outline-offset: 3px; border-radius: 2px; }
+
+/* ================================================================ ATO 1 ==
+   Hero em camadas. Cada coluna tem fundo limpo, pessoa recortada, luz e
+   uma superfície real do produto; o tipo fica parado (1x). Tudo lê --sc-p
+   do próprio ato, então a profundidade é CSS puro.                         */
+.ls-hero .sc-stage { background: var(--ls-b); }
+.ls-hero__split { height: 100%; grid-template-rows: 1fr 1fr; }
+.ls-hero__col { overflow: clip; }
+.ls-plano {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  will-change: transform;
+}
+/* Enquadramento do topo: cada foto cresce a partir do canto de cima, o que
+   empurra a pessoa para baixo e para longe do título que encosta na
+   divisória (medido nas fotos: rosto da dona à esquerda, do aluno ao centro). */
+.ls-plano--fundo {
+  transform: translate3d(calc(var(--ls-mx, 0) * -6px), calc(var(--sc-p, 0) * -2.5%), 0) scale(calc(var(--ls-fundo-escala, 1.09) - var(--sc-p, 0) * 0.05));
+  transform-origin: var(--ls-fundo-origem, 50% 70%);
+}
+@media (min-width: 1024px) {
+  .ls-hero .ls-col--a .ls-plano--fundo { --ls-fundo-escala: 1.2; --ls-fundo-origem: 0% 0%; }
+  .ls-hero .ls-col--b .ls-plano--fundo { --ls-fundo-escala: 1.32; --ls-fundo-origem: 0% 0%; }
+}
+.ls-plano--sujeito {
+  transform: translate3d(calc(var(--ls-mx, 0) * -14px), calc(var(--sc-p, 0) * -34px), 0) scale(calc(1.03 + var(--sc-p, 0) * 0.02));
+  transform-origin: 50% 100%;
+}
+.ls-atmos {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: calc(0.85 - var(--sc-p, 0) * 0.35);
+}
+.ls-col--a .ls-atmos { background: radial-gradient(70% 55% at 20% 0%, rgba(255, 250, 238, 0.45), transparent 70%); }
+.ls-col--b .ls-atmos { background: radial-gradient(70% 55% at 80% 105%, rgba(163, 230, 53, 0.13), transparent 70%); }
+
+/* Densidade só onde o texto encosta: uma coluna junto da divisória. */
+.ls-hero__scrim { position: absolute; inset: 0; pointer-events: none; }
+.ls-col--a .ls-hero__scrim { background: linear-gradient(to bottom, rgba(232, 229, 222, 0.96) 0%, rgba(232, 229, 222, 0.7) 45%, transparent 78%); }
+.ls-col--b .ls-hero__scrim { background: linear-gradient(to bottom, rgba(14, 15, 16, 0.92) 0%, rgba(14, 15, 16, 0.4) 40%, transparent 65%); }
+
+.ls-superficie {
+  position: absolute;
+  z-index: 4;
+  will-change: transform;
+  transform: translate3d(calc(var(--ls-mx, 0) * -22px), calc(var(--sc-p, 0) * -110px), 0);
+}
+.ls-hero__recepcao { display: none; }
+.ls-hero__celular { right: 1.25rem; bottom: -9rem; }
+
+.ls-hero__copy {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  pointer-events: none;
+}
+.ls-hero__cel { display: flex; flex-direction: column; justify-content: flex-start; gap: 1rem; padding: 5rem 1.25rem 0; }
+.ls-hero__cel > * { pointer-events: auto; }
+.ls-hero__cel--a { color: var(--ls-ink-a); }
+.ls-hero__cel--a .ls-lede { color: var(--ls-soft-a); }
+.ls-hero__cel--b { color: var(--ls-ink-b); padding-top: 1.5rem; }
+.ls-hero__cel--b .ls-acento { color: var(--ls-acc-b); }
+.ls-hero__acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.25rem; margin-top: 0.5rem; }
+
+@media (min-width: 1024px) {
+  .ls-hero__split { grid-template-rows: none; }
+  .ls-hero__copy { grid-template-rows: none; grid-template-columns: 1fr 1fr; }
+  .ls-hero__cel { padding: 20vh var(--ls-gap) 0; gap: 1.25rem; }
+  .ls-hero__cel--a { align-items: flex-end; text-align: right; }
+  .ls-hero__cel--b { align-items: flex-start; text-align: left; padding-top: 20vh; }
+  .ls-hero__acoes { justify-content: flex-end; }
+  .ls-hero__recepcao { display: block; left: clamp(1.5rem, 3vw, 3rem); bottom: 3rem; width: 23rem; }
+  .ls-hero__celular { right: auto; left: var(--ls-gap); bottom: -12rem; }
+  .ls-col--a .ls-hero__scrim { background: linear-gradient(to left, rgba(232, 229, 222, 0.97) 0%, rgba(232, 229, 222, 0.72) 40%, transparent 66%); }
+  .ls-col--b .ls-hero__scrim { background: linear-gradient(to right, rgba(14, 15, 16, 0.92) 0%, rgba(14, 15, 16, 0.45) 36%, transparent 60%); }
+}
+
+/* ================================================================ ATO 2 == */
+.ls-sem__lista { display: grid; margin-top: 2.25rem; width: 100%; max-width: 30rem; counter-reset: dor; }
+.ls-sem__lista li {
+  padding: 1.1rem 0;
+  font-size: 1.0625rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.ls-col--a .ls-sem__lista li { border-top: 1px solid var(--ls-hair-a); }
+.ls-col--b .ls-sem__lista li { border-top: 1px solid var(--ls-hair-b); }
+.ls-col--a .ls-sem__lista li:last-child { border-bottom: 1px solid var(--ls-hair-a); }
+.ls-col--b .ls-sem__lista li:last-child { border-bottom: 1px solid var(--ls-hair-b); }
+.ls-sem__lista small { display: block; margin-top: 0.25rem; font-size: 0.875rem; }
+.ls-col--a .ls-sem__lista small { color: var(--ls-soft-a); }
+.ls-col--b .ls-sem__lista small { color: var(--ls-soft-b); }
+
+/* ================================================================ ATO 3 ==
+   O pico. Esquerda: painel da recepção. Direita: clipe scrub + celular.
+   O sinal é posicionado pelo JS da página (palco.ts).                     */
+.ls-con .sc-stage { background: var(--ls-b); }
+.ls-con__split { height: 100%; grid-template-rows: 1fr 1fr; }
+.ls-con__a { display: flex; flex-direction: column; justify-content: center; gap: 1rem; padding: 4.5rem 1.25rem 1rem; }
+.ls-con__b { overflow: clip; display: flex; align-items: center; justify-content: center; }
+.ls-con__b :is(video[data-sc-scrub], .sc-stage__poster) { object-position: 50% 40%; }
+.ls-con__cab { display: none; }
+.ls-con__scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(60% 60% at 50% 50%, rgba(14, 15, 16, 0.6), rgba(14, 15, 16, 0.2) 70%); }
+
+.ls-legendas { position: relative; min-height: 4.2em; }
+.ls-legendas p {
+  position: absolute;
+  inset: 0 auto auto 0;
+  opacity: 0;
+  transform: translate3d(0, 8px, 0);
+  transition: opacity 240ms var(--ls-ease), transform 240ms var(--ls-ease);
+  font-size: 1rem;
+  line-height: 1.5;
+  max-width: 34ch;
+}
+.ls-col--a .ls-legendas p { color: var(--ls-soft-a); }
+.ls-legendas p.is-on { opacity: 1; transform: none; }
+
+.ls-sinal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.7rem 0.35rem 0.45rem;
+  border-radius: 4px;
+  background: var(--ls-sinal);
+  color: var(--ls-sinal-ink);
+  font-family: var(--ls-f-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  translate: -50% -50%;
+  will-change: transform, opacity;
+  box-shadow: 0 10px 22px -10px rgba(0, 0, 0, 0.75);
+}
+.ls-sinal i { width: 0.5rem; height: 0.5rem; border-radius: 1px; background: var(--ls-sinal-ink); }
+
+/* Estados vindos dos eventos. O root recebe data-ev-<id>="viajando" ou
+   "chegou" (ausente = antes). Cada peça marca a qual evento responde:
+   data-est="<id>:antes|depois" muda quando o sinal CHEGA; data-est=
+   "<id>-src:antes|depois" muda quando o sinal SAI. data-dest="<id>" pisca
+   o destino na chegada. */
+/* Mais específico que as classes de layout (ex.: .ls-cel-ficha), para o
+   estado "depois" nunca aparecer antes da hora. */
+.ls-root [data-est$=":depois"] { display: none; }
+.ls-root[data-ev-checkin="chegou"] [data-est="checkin:antes"],
+.ls-root[data-ev-checkin] [data-est="checkin-src:antes"] { display: none; }
+.ls-root[data-ev-checkin="chegou"] [data-est="checkin:depois"],
+.ls-root[data-ev-checkin] [data-est="checkin-src:depois"] { display: revert; }
+.ls-root[data-ev-ficha="chegou"] [data-est="ficha:antes"],
+.ls-root[data-ev-ficha] [data-est="ficha-src:antes"] { display: none; }
+.ls-root[data-ev-ficha="chegou"] [data-est="ficha:depois"],
+.ls-root[data-ev-ficha] [data-est="ficha-src:depois"] { display: revert; }
+.ls-root[data-ev-treino="chegou"] [data-est="treino:antes"],
+.ls-root[data-ev-treino] [data-est="treino-src:antes"] { display: none; }
+.ls-root[data-ev-treino="chegou"] [data-est="treino:depois"],
+.ls-root[data-ev-treino] [data-est="treino-src:depois"] { display: revert; }
+.ls-root[data-ev-mensalidade="chegou"] [data-est="mensalidade:antes"],
+.ls-root[data-ev-mensalidade] [data-est="mensalidade-src:antes"] { display: none; }
+.ls-root[data-ev-mensalidade="chegou"] [data-est="mensalidade:depois"],
+.ls-root[data-ev-mensalidade] [data-est="mensalidade-src:depois"] { display: revert; }
+[data-dest] { transition: background-color 400ms var(--ls-ease), box-shadow 400ms var(--ls-ease); }
+.ls-root[data-ev-checkin="chegou"] [data-dest="checkin"],
+.ls-root[data-ev-ficha="chegou"] [data-dest="ficha"],
+.ls-root[data-ev-treino="chegou"] [data-dest="treino"],
+.ls-root[data-ev-mensalidade="chegou"] [data-dest="mensalidade"] {
+  box-shadow: inset 0 0 0 1.5px rgb(var(--volt-300) / 0.7);
+  background-color: rgb(var(--volt-300) / 0.08);
+}
+
+/* A linha nova do log entra fechada e abre quando o check-in chega. */
+.ls-log-novo { display: grid; grid-template-rows: 0fr; opacity: 0; transition: opacity 260ms var(--ls-ease); }
+.ls-log-novo > * { overflow: hidden; }
+.ls-root[data-ev-checkin="chegou"] .ls-log-novo { grid-template-rows: 1fr; opacity: 1; }
+
+/* No celular a tela é curta: cada lado mostra só o que o evento da vez usa. */
+@media (max-width: 1023.98px) {
+  .ls-con__legenda-movel {
+    position: absolute;
+    left: 1.25rem;
+    right: 1.25rem;
+    top: 50%;
+    z-index: 25;
+    translate: 0 -50%;
+    padding: 0.625rem 0.875rem;
+    border-radius: 6px;
+    background: #17191b;
+    color: var(--ls-ink-b);
+  }
+  .ls-con__legenda-movel .ls-legendas { min-height: 3.2em; }
+  .ls-con__legenda-movel .ls-legendas p { font-size: 0.875rem; max-width: none; }
+  .ls-painel-con .ls-opcional { display: none; }
+}
+@media (min-width: 1024px) {
+  .ls-con__legenda-movel { display: none; }
+  .ls-con__split { grid-template-rows: none; }
+  .ls-con__a { padding: 6rem var(--ls-gap) 3rem clamp(2rem, 4vw, 4rem); gap: 1.75rem; align-items: flex-end; }
+  .ls-con__cab { display: block; width: 100%; max-width: 32rem; text-align: right; }
+  .ls-con__cab .ls-legendas p { inset: 0 0 auto auto; }
+  .ls-painel-con { width: 100%; max-width: 32rem; }
+  .ls-con__scrim { background: linear-gradient(to right, rgba(14, 15, 16, 0.78) 0%, rgba(14, 15, 16, 0.35) 45%, rgba(14, 15, 16, 0.15) 100%); }
+}
+
+/* ================================================================ ATO 4 == */
+.ls-rec__midia {
+  position: relative;
+  width: 100%;
+  max-width: 32rem;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.ls-col--a .ls-rec__midia { background: var(--ls-a-2); }
+.ls-col--b .ls-rec__midia { background: var(--ls-b-2); }
+.ls-rec__midia :is(video, img) { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; }
+/* Foto parada ganha vida com um zoom lento guiado pelo scroll do ato. */
+.ls-rec__midia img { transform: scale(calc(1.12 - var(--sc-p, 0) * 0.1)); transform-origin: 50% 60%; will-change: transform; }
+.ls-rec__lista { display: grid; margin-top: 1.5rem; width: 100%; max-width: 32rem; }
+.ls-rec__lista li {
+  display: grid;
+  grid-template-columns: 1.5rem 1fr;
+  gap: 0.2rem 0.875rem;
+  padding: 0.9rem 0;
+  text-align: left;
+}
+.ls-col--a .ls-rec__lista li { border-top: 1px solid var(--ls-hair-a); }
+.ls-col--b .ls-rec__lista li { border-top: 1px solid var(--ls-hair-b); }
+.ls-rec__lista svg { grid-row: span 2; margin-top: 0.1rem; }
+.ls-col--a .ls-rec__lista svg { color: var(--ls-acc-a); }
+.ls-col--b .ls-rec__lista svg { color: var(--ls-acc-b); }
+.ls-rec__lista b { font-weight: 600; font-size: 0.9375rem; }
+.ls-rec__lista span { grid-column: 2; font-size: 0.875rem; line-height: 1.5; }
+.ls-col--a .ls-rec__lista span { color: var(--ls-soft-a); }
+.ls-col--b .ls-rec__lista span { color: var(--ls-soft-b); }
+.ls-rec__h2 { margin-top: 2.5rem; }
+
+/* ================================================================ ATO 5 == */
+.ls-bloco { width: 100%; max-width: 32rem; text-align: left; }
+.ls-bloco + .ls-bloco { margin-top: 3.25rem; }
+.ls-passos { display: grid; margin-top: 1.25rem; }
+.ls-passos li { display: grid; grid-template-columns: 2.25rem 1fr; gap: 0.2rem 0.75rem; padding: 0.9rem 0; }
+.ls-col--a .ls-passos li { border-top: 1px solid var(--ls-hair-a); }
+.ls-col--b .ls-passos li { border-top: 1px solid var(--ls-hair-b); }
+.ls-passos li > span:first-child { grid-row: span 2; font-family: var(--ls-f-display); font-stretch: 72%; font-weight: 800; font-size: 1.6rem; line-height: 1; }
+.ls-col--a .ls-passos li > span:first-child { color: var(--ls-acc-a); }
+.ls-col--b .ls-passos li > span:first-child { color: var(--ls-acc-b); }
+.ls-passos b { font-weight: 600; font-size: 0.9375rem; }
+.ls-faq { margin-top: 1rem; }
+.ls-col--a .ls-faq { border-top: 1px solid var(--ls-hair-a); }
+.ls-col--b .ls-faq { border-top: 1px solid var(--ls-hair-b); }
+.ls-col--a .ls-faq details { border-bottom: 1px solid var(--ls-hair-a); }
+.ls-col--b .ls-faq details { border-bottom: 1px solid var(--ls-hair-b); }
+.ls-faq summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 48px;
+  padding: 0.875rem 0;
+  font-size: 0.9375rem;
+  font-weight: 550;
+  cursor: pointer;
+  list-style: none;
+}
+.ls-faq summary::-webkit-details-marker { display: none; }
+.ls-faq summary:focus-visible { outline: 2px solid var(--ls-sinal); outline-offset: 2px; border-radius: 2px; }
+.ls-faq summary svg { flex-shrink: 0; transition: transform 200ms var(--ls-ease); }
+.ls-col--a .ls-faq summary svg { color: var(--ls-acc-a); }
+.ls-col--b .ls-faq summary svg { color: var(--ls-acc-b); }
+.ls-faq details[open] summary svg { transform: rotate(45deg); }
+.ls-faq details p { padding: 0 0 1rem; font-size: 0.9rem; line-height: 1.6; }
+.ls-col--a .ls-faq details p { color: var(--ls-soft-a); }
+.ls-col--b .ls-faq details p { color: var(--ls-soft-b); }
+.ls-seguranca { display: grid; gap: 0.55rem; margin-top: 1rem; }
+.ls-seguranca li { display: flex; gap: 0.625rem; font-size: 0.9rem; line-height: 1.5; color: var(--ls-soft-a); }
+.ls-seguranca svg { flex-shrink: 0; margin-top: 0.15rem; color: var(--ls-acc-a); }
+
+/* ================================================================ ATO 6 ==
+   O colapso. O layout final já está montado (esquerda larga, direita
+   estreita); o lado do aluno é uma cortina que começa cobrindo metade da
+   tela e recua com clip-path até virar só o celular. Sem animar largura.   */
+.ls-fim .sc-stage { background: var(--ls-a); }
+.ls-fim__palco { position: relative; height: 100%; }
+.ls-fim__a { height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 5rem 1.25rem 2rem; background: var(--ls-a); }
+.ls-fim__plano { width: 100%; max-width: 44rem; }
+.ls-fim__preco { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.5rem; margin-top: 1.75rem; }
+.ls-fim__preco strong { font-family: var(--ls-f-display); font-stretch: 72%; font-size: clamp(3rem, 5vw, 4.75rem); font-weight: 800; line-height: 0.9; font-variant-numeric: tabular-nums; color: var(--ls-ink-a); }
+.ls-fim__incluso { display: grid; gap: 0.55rem 2rem; margin-top: 1.5rem; }
+.ls-fim__incluso li { display: flex; gap: 0.625rem; font-size: 0.9375rem; line-height: 1.45; color: var(--ls-soft-a); }
+.ls-fim__incluso svg { flex-shrink: 0; margin-top: 0.15rem; color: var(--ls-acc-a); }
+.ls-fim__acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; margin-top: 2rem; }
+.ls-fim__aviso { margin-top: 2rem; padding: 1rem 1.125rem; border-radius: 4px; background: var(--ls-a-2); max-width: 28rem; }
+.ls-fim__aviso p:first-child { color: var(--ls-ink-a); }
+.ls-colofao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--ls-hair-a);
+  font-size: 0.8125rem;
+  color: var(--ls-mute-a);
+}
+.ls-colofao a { color: var(--ls-soft-a); text-decoration: none; min-height: 32px; display: inline-flex; align-items: center; }
+.ls-colofao a:hover { color: var(--ls-ink-a); }
+.ls-colofao a:focus-visible { outline: 2px solid var(--ls-acc-a); outline-offset: 2px; border-radius: 2px; }
+.ls-fim__cortina {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: var(--ls-b);
+  color: var(--ls-ink-b);
+}
+.ls-fim__cel-movel { display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem; padding: 5rem 1.25rem 3rem; background: var(--ls-b); }
+
+@media (max-width: 1023.98px) {
+  /* No celular o fechamento não fixa: o conteúdo do plano é mais alto que a
+     tela, e um palco fixo cortaria o botão. Vira seção normal. */
+  .ls-fim { height: auto !important; }
+  .ls-fim .sc-stage { position: relative; height: auto; overflow: visible; }
+}
+@media (min-width: 1024px) {
+  .ls-fim__cel-movel { display: none; }
+  .ls-fim__a { padding: 4.5rem calc(min(26rem, 34vw) + var(--ls-gap)) 2rem clamp(2rem, 5vw, 6rem); }
+  .ls-fim__incluso { grid-template-columns: 1fr 1fr; }
+  .ls-fim__cortina {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    clip-path: inset(0 0 0 calc(var(--ls-split) * 100%));
+  }
+  /* Posição final: centrado na coluna estreita da direita. Em t = 0 está
+     deslocado para o centro da metade direita; recua junto com a cortina. */
+  .ls-fim__cortina-conteudo {
+    --w: min(26rem, 34vw);
+    position: absolute;
+    top: 50%;
+    right: 0;
+    width: var(--w);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    transform: translate3d(calc((1 - var(--ls-fim-t, 0)) * (var(--w) / 2 - var(--ls-vw, 100vw) / 4)), -50%, 0);
+  }
+  .ls-fim__frase { text-align: center; color: var(--ls-soft-b); font-size: 1rem; line-height: 1.5; max-width: 22ch; }
+}
+
+/* ------------------------------------------------------- movimento reduzido */
+@media (prefers-reduced-motion: reduce) {
+  .ls-plano, .ls-superficie, .ls-atmos, .ls-rec__midia img { transform: none !important; }
+  .ls-sinal { display: none; }
+  .ls-legendas p { transition: none; }
+}
+
+/* O "alerta" das telas usa âmbar fixo do Tailwind: no lado claro precisa do
+   tom escuro para ler. */
+.ls-claro .text-amber-300 { color: #92400e; }
+.ls-claro .border-amber-400\/40 { border-color: rgba(146, 64, 14, 0.35); }
+
+/* A divisória tem largura zero; a regra do engine svg { max-width: 100% }
+   espremeria o símbolo para nada. */
+.ls-espinha svg { max-width: none; }
+.ls-marca b { white-space: nowrap; }
+
+/* =================================================== celular realista ==
+   Proporção 19,5:9. Borda de titânio escovado, tela concêntrica, ilha,
+   botões laterais e reflexo do vidro. Tudo em CSS, nenhuma imagem.        */
+.ls-cel {
+  --w: 272px;
+  --r: calc(var(--w) * 0.19);
+  position: relative;
+  width: var(--w);
+  height: calc(var(--w) * 2.1);
+  padding: calc(var(--w) * 0.034);
+  border-radius: var(--r);
+  background:
+    linear-gradient(145deg, #5a5d63 0%, #2a2c30 18%, #1a1b1e 50%, #34373c 82%, #616469 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 0 0 3px #0b0b0c,
+    0 40px 70px -30px rgba(0, 0, 0, 0.9),
+    0 12px 24px -12px rgba(0, 0, 0, 0.6);
+  flex-shrink: 0;
+}
+.ls-cel__botao {
+  position: absolute;
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #202225, #55585e 60%, #2a2c30);
+}
+.ls-cel__botao--acao { left: -2px; top: 17%; height: 5%; }
+.ls-cel__botao--vol1 { left: -2px; top: 25%; height: 9%; }
+.ls-cel__botao--vol2 { left: -2px; top: 36%; height: 9%; }
+.ls-cel__botao--power { right: -2px; top: 28%; height: 13%; }
+.ls-cel__tela {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: calc(var(--r) - var(--w) * 0.034);
+  background: rgb(var(--ink-950));
+  box-shadow: 0 0 0 2px #050506;
+  text-align: left;
+}
+.ls-cel__status {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: calc(var(--w) * 0.17);
+  padding: 0 calc(var(--w) * 0.085);
+  color: rgb(var(--fg-strong));
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.ls-cel__hora { font-family: var(--ls-f-text); letter-spacing: -0.01em; }
+.ls-cel__ilha {
+  position: absolute;
+  top: calc(var(--w) * 0.04);
+  left: 50%;
+  width: 33%;
+  height: calc(var(--w) * 0.1);
+  translate: -50% 0;
+  border-radius: 999px;
+  background: #000;
+}
+.ls-cel__icones { display: inline-flex; align-items: center; gap: 5px; }
+.ls-cel__conteudo { flex: 1; min-height: 0; overflow: hidden; padding: 4px 14px 12px; }
+.ls-cel__abas {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 10px 18px 22px;
+  border-top: 1px solid rgb(var(--ink-700) / 0.7);
+  background: rgb(var(--ink-900) / 0.85);
+  flex-shrink: 0;
+}
+.ls-cel__indicador {
+  position: absolute;
+  bottom: 7px;
+  left: 50%;
+  width: 36%;
+  height: 4px;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: rgb(var(--fg-strong) / 0.55);
+}
+.ls-cel__reflexo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(118deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 32%, transparent 33%);
+}
+.ls-cel svg { max-width: none; }
+
+/* ======================================================= janela do painel */
+.ls-janela {
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgb(var(--ink-800));
+  box-shadow:
+    0 0 0 1px rgba(23, 21, 15, 0.12),
+    0 30px 60px -28px rgba(23, 21, 15, 0.45),
+    0 8px 18px -10px rgba(23, 21, 15, 0.2);
+  text-align: left;
+  color: rgb(var(--fg-strong));
+}
+.ls-janela__barra {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  background: rgb(var(--ink-900));
+  border-bottom: 1px solid rgb(var(--ink-600) / 0.8);
+}
+.ls-janela__url {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgb(var(--ink-700));
+  font-family: var(--ls-f-mono);
+  font-size: 10.5px;
+  color: rgb(var(--slate-400));
+}
+.ls-janela__demo {
+  font-family: var(--ls-f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--slate-500));
+  white-space: nowrap;
+}
+.ls-janela__corpo { display: flex; min-height: 0; }
+.ls-janela__menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 8px;
+  background: rgb(var(--ink-900));
+  border-right: 1px solid rgb(var(--ink-600) / 0.8);
+}
+.ls-janela__item {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  color: rgb(var(--slate-500));
+}
+.ls-janela__item.is-ativo { background: #0e0f10; color: #a3e635; }
+.ls-janela__area { flex: 1; min-width: 0; padding: 12px 14px 14px; }
+.ls-janela__titulo {
+  margin-bottom: 10px;
+  font-family: var(--ls-f-display);
+  font-stretch: 80%;
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.ls-bloco-log { border-radius: 8px; border: 1px solid rgb(var(--ink-600) / 0.8); background: rgb(var(--ink-950)); }
+.ls-tabela { display: grid; }
+.ls-tabela__cab, .ls-tabela__linha {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 80px 86px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+}
+.ls-tabela__cab {
+  padding-block: 6px;
+  border-top: 1px solid rgb(var(--ink-600) / 0.8);
+  border-bottom: 1px solid rgb(var(--ink-600) / 0.8);
+  font-family: var(--ls-f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(var(--slate-500));
+}
+.ls-tabela__linha { padding-block: 7px; border-bottom: 1px solid rgb(var(--ink-600) / 0.55); }
+.ls-tabela > :last-child .ls-tabela__linha, .ls-tabela > .ls-tabela__linha:last-child { border-bottom: 0; }
+.ls-situacao {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(var(--volt-300));
+  background: rgb(var(--volt-300) / 0.12);
+}
+.ls-situacao > span { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+.ls-situacao--alerta { color: #b45309; background: rgba(217, 119, 6, 0.12); }
+.ls-col--b .ls-situacao--alerta, .ls-cel .ls-situacao--alerta { color: #fbbf24; }
+.ls-acoes { display: grid; gap: 8px; margin-top: 10px; }
+.ls-acao {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid rgb(var(--ink-600) / 0.8);
+  background: rgb(var(--ink-950));
+}
+.ls-botao-painel {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #0e0f10;
+  color: #f1eee8;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.ls-botao-painel [data-est$=":depois"] { color: #a3e635; }
+.ls-hero__recepcao .ls-tabela__cab, .ls-hero__recepcao .ls-tabela__plano { display: none; }
+.ls-hero__recepcao .ls-tabela__linha { grid-template-columns: 44px minmax(0, 1fr) 86px; }
+.ls-hero__recepcao .ls-janela__area { padding: 10px 4px 6px; }
+.ls-hero__recepcao .ls-janela__titulo { padding-inline: 10px; font-size: 17px; }
+
+@media (max-width: 1023.98px) {
+  .ls-painel-con .ls-janela__menu, .ls-painel-con .ls-janela__demo, .ls-painel-con .ls-tabela__plano { display: none; }
+  .ls-painel-con .ls-tabela__cab, .ls-painel-con .ls-tabela__linha { grid-template-columns: 40px minmax(0, 1fr) 80px; }
+  .ls-painel-con .ls-janela__titulo { display: none; }
+}
+
+/* ================================================================ login ==
+   "Entrar" é de quem já é cliente: fica fixo no canto, sempre à vista, sem
+   competir com o botão comercial (que é o verde). */
+.ls-entrar {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.5rem;
+  z-index: 62;
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border-radius: 6px;
+  border: 1px solid rgba(241, 238, 232, 0.28);
+  background: rgba(14, 15, 16, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #f1eee8;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 160ms var(--ls-ease), background-color 160ms var(--ls-ease);
+}
+.ls-entrar:hover { border-color: var(--ls-sinal); background: #0e0f10; }
+.ls-entrar:active { transform: translateY(1px); }
+.ls-entrar:focus-visible { outline: 2px solid var(--ls-sinal); outline-offset: 3px; }
+.ls-entrar small { font-weight: 400; color: #a9a49b; }
+@media (min-width: 1024px) { .ls-entrar { display: inline-flex; } }
+.ls-menu__direita { display: flex; align-items: center; gap: 0.5rem; }
+.ls-menu__entrar {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border-radius: 6px;
+  background: #17191b;
+  color: #f1eee8;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.7);
+}
+.ls-menu__entrar:focus-visible { outline: 2px solid var(--ls-sinal); outline-offset: 3px; }
+
+/* =============================================================== abertura ==
+   Ao carregar: a divisória se desenha de cima para baixo, cada lado se abre
+   a partir dela (clip-path), os títulos sobem e as telas do produto chegam
+   por último. Só opacidade, clip-path e transform em elementos que não têm
+   outro transform; sob movimento reduzido, nada disso roda. */
+@keyframes ls-linha-desce { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes ls-abre-a { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ls-abre-b { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ls-sobe { from { opacity: 0; transform: translate3d(0, 26px, 0); } to { opacity: 1; transform: none; } }
+@keyframes ls-surge { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ls-espinha__linha { transform-origin: 50% 0; animation: ls-linha-desce 900ms var(--ls-ease) both; }
+  .ls-espinha__topo, .ls-espinha__lados, .ls-espinha__nav, .ls-entrar { animation: ls-surge 500ms var(--ls-ease) 700ms both; }
+  @media (min-width: 1024px) {
+    .ls-hero .ls-col--a { animation: ls-abre-a 1100ms var(--ls-ease) 150ms both; }
+    .ls-hero .ls-col--b { animation: ls-abre-b 1100ms var(--ls-ease) 150ms both; }
+  }
+  .ls-hero__cel .ls-display { animation: ls-sobe 900ms var(--ls-ease) 420ms both; }
+  .ls-hero__cel--b .ls-display { animation-delay: 520ms; }
+  .ls-hero__cel .ls-lede { animation: ls-sobe 800ms var(--ls-ease) 640ms both; }
+  .ls-hero__acoes { animation: ls-sobe 800ms var(--ls-ease) 760ms both; }
+  .ls-hero .ls-superficie > * { animation: ls-sobe 1000ms var(--ls-ease) 900ms both; }
+  .ls-hero .ls-hero__celular > * { animation-delay: 1000ms; }
+}
+
+/* ================================================ cena principal ==
+   Dois vídeos reais (Kling 3.0), um por lado, em loop. O app entra como
+   cartões animados sobre eles, no visual da marca: nada é desenhado pela IA
+   dentro das telas. */
+.ls-con__a, .ls-con__b { position: relative; overflow: clip; padding: 0 !important; display: block !important; }
+.ls-con__video { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: 50% 45%; }
+.ls-con__video--dono { object-position: 30% 50%; }
+.ls-con__scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(to bottom, rgba(14, 15, 16, 0.2), transparent 35%, rgba(14, 15, 16, 0.55)); }
+.ls-con__cab {
+  position: relative;
+  z-index: 5;
+  display: block;
+  margin: 1rem 0 0 1rem;
+  padding: 0.85rem 1.1rem 0.9rem;
+  max-width: 30rem;
+  border-radius: 4px;
+  background: rgba(232, 229, 222, 0.95);
+  box-shadow: 0 16px 36px -22px rgba(23, 21, 15, 0.55);
+  text-align: left;
+}
+.ls-con__cab .ls-h2 { font-size: clamp(1.6rem, 2.2vw, 2.2rem); }
+.ls-con__cab .ls-legendas { min-height: 3.2em; }
+.ls-con__cab .ls-legendas p { color: var(--ls-soft-a); font-size: 0.9rem; inset: 0 auto auto 0 !important; }
+@media (max-width: 1023.98px) {
+  .ls-con__cab { display: none; }
+}
+
+/* cartões: um por vez de cada lado, empilhados no mesmo lugar */
+.ls-cartoes { position: absolute; z-index: 6; width: min(20.5rem, calc(100% - 2.5rem)); }
+/* acima da navegação da divisória (que ocupa o rodapé do centro) */
+.ls-cartoes--a { right: max(var(--ls-gap), 4.5rem); bottom: 12rem; }
+.ls-cartoes--b { left: max(var(--ls-gap), 4.5rem); bottom: 12rem; }
+@media (max-width: 1023.98px) {
+  .ls-cartoes { width: min(19rem, calc(100% - 2rem)); bottom: 1rem !important; }
+  .ls-cartoes--a { right: 1rem; }
+  .ls-cartoes--b { left: 1rem; }
+}
+.ls-cartao {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.85rem 0.95rem 0.95rem;
+  border-radius: 14px;
+  opacity: 0;
+  transform: translate3d(0, 14px, 0) scale(0.97);
+  transition: opacity 320ms var(--ls-ease), transform 420ms var(--ls-ease);
+  pointer-events: none;
+  text-align: left;
+}
+.ls-cartao--claro {
+  background: rgba(244, 242, 237, 0.93);
+  color: #17150f;
+  box-shadow: 0 24px 48px -24px rgba(23, 21, 15, 0.55), inset 0 0 0 1px rgba(23, 21, 15, 0.08);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+.ls-cartao--escuro {
+  background: rgba(23, 25, 27, 0.86);
+  color: #f1eee8;
+  box-shadow: 0 24px 48px -22px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(241, 238, 232, 0.1);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+.ls-root:not([data-ls-cartao-a]) [data-cartao="montagem"],
+.ls-root[data-ls-cartao-a="montagem"] [data-cartao="montagem"],
+.ls-root[data-ls-cartao-a="adesao"] [data-cartao="adesao"],
+.ls-root[data-ls-cartao-a="pagamento"] [data-cartao="pagamento"],
+.ls-root[data-ls-cartao-b="ficha"] [data-cartao="ficha"],
+.ls-root[data-ls-cartao-b="series"] [data-cartao="series"],
+.ls-root[data-ls-cartao-b="mensalidade"] [data-cartao="mensalidade"] { opacity: 1; transform: none; pointer-events: auto; }
+
+.ls-cartao__cab { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.5rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em; }
+.ls-cartao__cab svg { max-width: none; flex-shrink: 0; }
+.ls-cartao__quando { margin-left: auto; font-family: var(--ls-f-mono); font-weight: 500; font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.6; }
+.ls-cartao__titulo { display: flex; align-items: center; gap: 0.4rem; font-weight: 650; font-size: 0.98rem; line-height: 1.3; }
+.ls-cartao__texto { margin-top: 0.2rem; font-size: 0.82rem; line-height: 1.45; opacity: 0.72; }
+.ls-cartao--claro .ls-cartao__ok { color: #3f6212; }
+.ls-cartao--escuro .ls-cartao__ok { color: #a3e635; }
+.ls-cartao__ficha { margin: 0.6rem 0 0.7rem; }
+.ls-cartao__ficha li {
+  display: grid;
+  grid-template-columns: 1.1rem 1fr auto;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.28rem 0;
+  border-top: 1px solid rgba(23, 21, 15, 0.1);
+  font-size: 0.8rem;
+  opacity: 0;
+  transform: translate3d(-8px, 0, 0);
+  transition: opacity 220ms var(--ls-ease), transform 220ms var(--ls-ease);
+}
+.ls-cartao__ficha li b { font-weight: 600; }
+.ls-cartao__ficha li .ls-mono { font-size: 0.72rem; color: #6f695f; }
+.ls-cartao__botao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 38px;
+  border-radius: 9px;
+  background: #0e0f10;
+  color: #f1eee8;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+.ls-cartao__botao > span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.ls-cartao__botao [data-est$=":depois"] { color: #a3e635; }
+.ls-cartao__botao--verde { margin-top: 0.7rem; background: #a3e635; color: #0e0f10; }
+.ls-cartao__botao--verde [data-est$=":depois"] { color: #0e0f10; }
+.ls-cartao__progresso { position: relative; height: 6px; margin-top: 0.6rem; border-radius: 999px; background: rgba(241, 238, 232, 0.12); overflow: hidden; }
+.ls-cartao__progresso > span { position: absolute; inset: 0; border-radius: inherit; background: #a3e635; transform-origin: 0 50%; transform: scaleX(0.5); transition: transform 380ms var(--ls-ease); }
+.ls-root[data-ls-series="1"] .ls-cartao__progresso > span { transform: scaleX(0.667); }
+.ls-root[data-ls-series="2"] .ls-cartao__progresso > span { transform: scaleX(0.833); }
+.ls-root[data-ls-series="3"] .ls-cartao__progresso > span { transform: scaleX(1); }
+[data-series-rotulo] { display: none; }
+.ls-root:not([data-ls-series]) [data-series-rotulo="0"],
+.ls-root[data-ls-series="0"] [data-series-rotulo="0"],
+.ls-root[data-ls-series="1"] [data-series-rotulo="1"],
+.ls-root[data-ls-series="2"] [data-series-rotulo="2"],
+.ls-root[data-ls-series="3"] [data-series-rotulo="3"] { display: inline; }
+/* os estados "depois" dos botões voltam como inline-flex (display: revert
+   daria "inline" e desalinharia ícone e texto) */
+.ls-root[data-ev-ficha] .ls-cartao__botao [data-est="ficha-src:depois"],
+.ls-root[data-ev-treino] .ls-cartao__botao [data-est="treino-src:depois"],
+.ls-root[data-ev-mensalidade] .ls-cartao__botao [data-est="mensalidade-src:depois"] { display: inline-flex; }
+@media (prefers-reduced-motion: reduce) {
+  .ls-cartao, .ls-cartao__ficha li { transition: none; }
+}
+/* montagem da ficha: os exercícios entram um a um */
+.ls-root[data-ls-montagem="1"] .ls-cartao__ficha li:nth-child(-n + 1) { opacity: 1; transform: none; }
+.ls-root[data-ls-montagem="2"] .ls-cartao__ficha li:nth-child(-n + 2) { opacity: 1; transform: none; }
+.ls-root[data-ls-montagem="3"] .ls-cartao__ficha li:nth-child(-n + 3) { opacity: 1; transform: none; }
+.ls-root[data-ls-montagem="4"] .ls-cartao__ficha li:nth-child(-n + 4) { opacity: 1; transform: none; }
+.ls-root[data-ls-montagem="5"] .ls-cartao__ficha li:nth-child(-n + 5) { opacity: 1; transform: none; }
+.ls-root[data-ls-montagem="6"] .ls-cartao__ficha li:nth-child(-n + 6) { opacity: 1; transform: none; }
+
+/* Topo no celular: cada metade tem pouca altura e o texto ocupa quase toda
+   a do lado da academia. O papel fica denso atrás do texto e a foto aparece
+   embaixo; do lado do aluno, o celular de demonstração sai (ele volta mais
+   abaixo na página) para o título e o aluno respirarem. */
+@media (max-width: 1023.98px) {
+  .ls-hero .ls-col--a .ls-plano--fundo { object-position: 70% 100%; }
+  .ls-hero .ls-col--b .ls-plano--fundo { object-position: 60% 30%; }
+  .ls-hero .ls-col--a .ls-hero__scrim { background: linear-gradient(to bottom, rgba(232, 229, 222, 0.97) 0%, rgba(232, 229, 222, 0.93) 62%, rgba(232, 229, 222, 0.4) 86%, transparent 100%); }
+  .ls-hero .ls-col--b .ls-hero__scrim { background: linear-gradient(to bottom, rgba(14, 15, 16, 0.94) 0%, rgba(14, 15, 16, 0.55) 45%, transparent 75%); }
+  .ls-hero__celular { display: none; }
+}
+/* Celular baixo (ex.: 360 × 640): título menor e sem a frase de apoio, para
+   título, botão e link caberem na metade da academia. */
+@media (max-width: 1023.98px) and (max-height: 720px) {
+  .ls-hero .ls-display { font-size: 2.35rem; }
+  .ls-hero__cel { padding-top: 4.4rem; gap: 0.75rem; }
+  .ls-hero__cel--b { padding-top: 1.1rem; }
+  .ls-hero__cel--a .ls-lede { display: none; }
+}
+
+/* contagem da montagem (só no celular, no lugar da lista) */
+[data-montagem-rotulo] { display: none; }
+.ls-root:not([data-ls-montagem]) [data-montagem-rotulo="0"] { display: inline; }
+.ls-root[data-ls-montagem="0"] [data-montagem-rotulo="0"] { display: inline; }
+.ls-root[data-ls-montagem="1"] [data-montagem-rotulo="1"] { display: inline; }
+.ls-root[data-ls-montagem="2"] [data-montagem-rotulo="2"] { display: inline; }
+.ls-root[data-ls-montagem="3"] [data-montagem-rotulo="3"] { display: inline; }
+.ls-root[data-ls-montagem="4"] [data-montagem-rotulo="4"] { display: inline; }
+.ls-root[data-ls-montagem="5"] [data-montagem-rotulo="5"] { display: inline; }
+.ls-root[data-ls-montagem="6"] [data-montagem-rotulo="6"] { display: inline; }
+.ls-cartao__contagem { display: none; }
+@media (max-width: 1023.98px) {
+  .ls-cartao__ficha { display: none; }
+  .ls-cartao__contagem { display: block; margin: 0.35rem 0 0.6rem; }
+  .ls-cartao { padding: 0.7rem 0.8rem 0.8rem; }
+  .ls-cartao__titulo { font-size: 0.9rem; }
+}
