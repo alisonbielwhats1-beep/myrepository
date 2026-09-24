@@ -28,9 +28,10 @@ test.describe("Landing — CTAs públicos", () => {
   }) => {
     await page.goto("/");
 
-    // Não clicamos: o destino é um link externo (WhatsApp).
+    // Não clicamos: o destino é um link externo (WhatsApp). O mesmo rótulo
+    // se repete no plano e no fechamento; o do topo é o primeiro.
     await expect(
-      page.getByRole("link", { name: "Quero conhecer o GestAcad" })
+      page.getByRole("link", { name: "Quero conhecer o GestAcad" }).first()
     ).toBeVisible();
   });
 });

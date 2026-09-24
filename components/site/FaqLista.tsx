@@ -23,7 +23,7 @@ const PERGUNTAS: { p: string; r: string }[] = [
   },
   {
     p: "A equipe da academia pode ter acessos diferentes?",
-    r: "Sim. Cada pessoa recebe um perfil — proprietário, gerente, recepção ou instrutor — e só enxerga as seções liberadas para aquele perfil. O financeiro, por exemplo, é exclusivo do proprietário.",
+    r: "Sim. Cada pessoa recebe um perfil (proprietário, gerente, recepção ou instrutor) e só enxerga as seções liberadas para aquele perfil. O financeiro, por exemplo, é exclusivo do proprietário.",
   },
   {
     p: "Como os alunos acessam?",
@@ -43,7 +43,7 @@ const PERGUNTAS: { p: string; r: string }[] = [
   },
   {
     p: "Meus dados ficam separados dos dados de outras academias?",
-    r: "Sim. Cada academia tem seu próprio ambiente, com usuários, permissões e dados separados — uma academia não enxerga informações de alunos de outra.",
+    r: "Sim. Cada academia tem seu próprio ambiente, com usuários, permissões e dados separados. Uma academia não enxerga informações de alunos de outra.",
   },
   {
     p: "Como solicito uma demonstração?",
@@ -53,7 +53,7 @@ const PERGUNTAS: { p: string; r: string }[] = [
 
 export default function FaqLista() {
   return (
-    <div className="mx-auto max-w-3xl divide-y divide-ink-700/60 overflow-hidden rounded-2xl border border-ink-600/60 bg-ink-900/40">
+    <div className="w-full divide-y divide-ink-700/60 overflow-hidden rounded-2xl border border-ink-600/60 bg-ink-900/40">
       {PERGUNTAS.map(({ p, r }) => (
         <details key={p} className="group">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-left text-sm font-medium text-white transition hover:bg-ink-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt-500/50 [&::-webkit-details-marker]:hidden">
