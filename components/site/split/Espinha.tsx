@@ -1,5 +1,4 @@
 import { List, SignIn } from "@phosphor-icons/react/dist/ssr";
-import { EVENTOS } from "./demo";
 import Marca, { Simbolo } from "./Marca";
 
 const NAV = [
@@ -12,8 +11,8 @@ const NAV = [
 /**
  * A divisória é a navegação da página (gramática "split stage": sem barra no
  * topo). Fica fixa entre as duas colunas no desktop, carrega os rótulos dos
- * dois lados, as âncoras do percurso e as marcas que cada evento sincronizado
- * deixa ao atravessar. Abaixo de 1024px vira um menu compacto.
+ * dois lados e as âncoras do percurso. Abaixo de 1024px vira um menu
+ * compacto.
  *
  * "Entrar" é <a> comum, não <Link>: a landing carrega o engine e uma folha de
  * estilos própria, e uma navegação completa garante que nada disso siga para
@@ -36,15 +35,6 @@ export default function Espinha() {
         <div className="ls-espinha__lados" aria-hidden="true">
           <span>A academia</span>
           <span>O aluno</span>
-        </div>
-
-        <div className="ls-espinha__marcas" aria-hidden="true">
-          {EVENTOS.map((ev, i) => (
-            <span key={ev.id} className="ls-marca" data-ev={ev.id} style={{ ["--y" as string]: `${34 + i * 9}%` }}>
-              <i />
-              <b>{ev.rotulo}</b>
-            </span>
-          ))}
         </div>
 
         <div className="ls-espinha__nav">

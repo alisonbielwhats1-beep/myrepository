@@ -21,9 +21,10 @@
   --sc-font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-.ls-root {
+.ls-root, .ls-escuro {
   /* Tokens do app redefinidos só aqui dentro. Base escura (lado do aluno);
-     .ls-claro troca para a versão clara (lado da academia). O "volt" do app
+     .ls-claro troca para a versão clara (lado da academia) e .ls-escuro
+     volta para a escura dentro de uma coluna clara. O "volt" do app
      vira o verde da landing, para as telas de demonstração falarem a mesma
      língua da página. */
   --ink-950: 14 15 16;
@@ -279,36 +280,6 @@
 .ls-chip:focus-visible { outline: 2px solid var(--ls-sinal); outline-offset: 3px; }
 .ls-chip[aria-current="true"] { background: var(--ls-sinal); color: var(--ls-sinal-ink); border-color: var(--ls-sinal); }
 
-/* As marcas do sinal: cada travessia deixa um ponto na altura em que cruzou. */
-.ls-espinha__marcas { position: absolute; inset: 0; }
-.ls-marca {
-  position: absolute;
-  left: 0;
-  top: var(--y, 50%);
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  translate: -5px -50%;
-  opacity: 0;
-  transition: opacity 220ms var(--ls-ease);
-}
-.ls-marca i {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background: var(--ls-sinal);
-  box-shadow: 0 0 0 3px rgba(14, 15, 16, 0.9);
-}
-.ls-marca b {
-  font-family: var(--ls-f-mono);
-  font-size: 0.625rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ls-ink-b);
-}
-.ls-marca.is-on { opacity: 1; }
-
 /* Menu do celular (a divisória some abaixo de 1024px). */
 .ls-menu {
   position: fixed;
@@ -323,6 +294,9 @@
 }
 .ls-menu > * { pointer-events: auto; }
 @media (min-width: 1024px) { .ls-menu { display: none; } }
+/* Âncoras param abaixo da barra fixa (0.75rem + 44px), senão "Ver o sistema"
+   e os links do menu deixam o título da seção escondido atrás dela. */
+@media (max-width: 1023.98px) { .ls-root [id] { scroll-margin-top: 4.5rem; } }
 .ls-menu__marca, .ls-menu__botao {
   display: inline-flex;
   align-items: center;
@@ -439,7 +413,10 @@
   transform-origin: var(--ls-fundo-origem, 50% 70%);
 }
 @media (min-width: 1024px) {
-  .ls-hero .ls-col--a .ls-plano--fundo { --ls-fundo-escala: 1.2; --ls-fundo-origem: 0% 0%; }
+  /* A dona cresce a partir do canto de cima à DIREITA: vai para baixo e para
+     a borda de fora, e o título/frase/botão (alinhados à divisória) ficam na
+     parede lisa em vez de cortar o rosto dela. */
+  .ls-hero .ls-col--a .ls-plano--fundo { --ls-fundo-escala: 1.16; --ls-fundo-origem: 100% 0%; }
   .ls-hero .ls-col--b .ls-plano--fundo { --ls-fundo-escala: 1.32; --ls-fundo-origem: 0% 0%; }
 }
 .ls-plano--sujeito {
@@ -486,6 +463,7 @@
 .ls-hero__acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.25rem; margin-top: 0.5rem; }
 
 @media (min-width: 1024px) {
+  .ls-hero__cel--b .ls-lede { display: none; }
   .ls-hero__split { grid-template-rows: none; }
   .ls-hero__copy { grid-template-rows: none; grid-template-columns: 1fr 1fr; }
   .ls-hero__cel { padding: 20vh var(--ls-gap) 0; gap: 1.25rem; }
@@ -495,7 +473,13 @@
   .ls-hero__recepcao { display: block; left: clamp(1.5rem, 3vw, 3rem); bottom: 3rem; width: 23rem; }
   .ls-hero__celular { right: auto; left: var(--ls-gap); bottom: -12rem; }
   .ls-col--a .ls-hero__scrim { background: linear-gradient(to left, rgba(232, 229, 222, 0.97) 0%, rgba(232, 229, 222, 0.72) 40%, transparent 66%); }
-  .ls-col--b .ls-hero__scrim { background: linear-gradient(to right, rgba(14, 15, 16, 0.92) 0%, rgba(14, 15, 16, 0.45) 36%, transparent 60%); }
+  /* + sombra no canto de cima à direita: o teto claro da foto competia com o
+     botão "Entrar", que fica ali. */
+  .ls-col--b .ls-hero__scrim {
+    background:
+      radial-gradient(38% 30% at 100% 0%, rgba(14, 15, 16, 0.85), transparent 72%),
+      linear-gradient(to right, rgba(14, 15, 16, 0.92) 0%, rgba(14, 15, 16, 0.45) 36%, transparent 60%);
+  }
 }
 
 /* ================================================================ ATO 2 == */
@@ -515,39 +499,135 @@
 .ls-col--b .ls-sem__lista small { color: var(--ls-soft-b); }
 
 /* ================================================================ ATO 3 ==
-   O pico. Esquerda: painel da recepção. Direita: clipe scrub + celular.
-   O sinal é posicionado pelo JS da página (palco.ts).                     */
-.ls-con .sc-stage { background: var(--ls-b); }
-.ls-con__split { height: 100%; grid-template-rows: 1fr 1fr; }
-.ls-con__a { display: flex; flex-direction: column; justify-content: center; gap: 1rem; padding: 4.5rem 1.25rem 1rem; }
-.ls-con__b { overflow: clip; display: flex; align-items: center; justify-content: center; }
-.ls-con__b :is(video[data-sc-scrub], .sc-stage__poster) { object-position: 50% 40%; }
-.ls-con__cab { display: none; }
-.ls-con__scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(60% 60% at 50% 50%, rgba(14, 15, 16, 0.6), rgba(14, 15, 16, 0.2) 70%); }
-
-.ls-legendas { position: relative; min-height: 4.2em; }
-.ls-legendas p {
+   Três passos, sem pin. Topo: o título e os dois vídeos, um por lado. Cada
+   passo é uma linha nas duas colunas: a peça de origem troca de estado, o
+   sinal atravessa a divisória e a peça de destino acende. palco.ts só marca
+   data-on na linha quando ela entra; o resto é CSS e toca uma vez.        */
+.ls-con__topo .ls-inner { height: 100%; justify-content: flex-end; padding-bottom: 2.5rem; }
+/* Moldura dos clipes: cantos largos, filete de luz por dentro, sombra em
+   camadas e uma placa de contorno deslocada na direção da divisória (o
+   eixo da página). O selo em vidro diz de que lado e em que hora a cena
+   acontece, a mesma 19:02 dos cartões. Os clipes são em retrato (3:4):
+   quadro 4:5 no desktop e quadrado no celular, foco no alto para não
+   cortar a cabeça. Ao entrar na tela, o clipe assenta num zoom lento. */
+.ls-con__quadro { position: relative; width: 100%; max-width: 26rem; margin-top: 1.75rem; }
+.ls-con__quadro::before {
+  content: "";
   position: absolute;
-  inset: 0 auto auto 0;
-  opacity: 0;
-  transform: translate3d(0, 8px, 0);
-  transition: opacity 240ms var(--ls-ease), transform 240ms var(--ls-ease);
-  font-size: 1rem;
-  line-height: 1.5;
-  max-width: 34ch;
+  inset: 0;
+  border-radius: 26px;
+  border: 1px solid rgba(63, 98, 18, 0.4);
+  transform: translate3d(14px, 14px, 0);
+  pointer-events: none;
 }
-.ls-col--a .ls-legendas p { color: var(--ls-soft-a); }
-.ls-legendas p.is-on { opacity: 1; transform: none; }
-
-.ls-sinal {
+.ls-con__quadro--b::before { border-color: rgba(163, 230, 53, 0.35); transform: translate3d(-14px, 14px, 0); }
+.ls-con__midia {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 22px;
+  isolation: isolate;
+}
+.ls-con__midia::after {
+  content: "";
   position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 30;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.3), transparent 24%, transparent 72%, rgba(0, 0, 0, 0.22));
+}
+.ls-col--a .ls-con__midia { background: var(--ls-a-2); box-shadow: 0 50px 90px -45px rgba(23, 21, 15, 0.6), 0 0 0 1px rgba(23, 21, 15, 0.06); }
+.ls-col--b .ls-con__midia { background: var(--ls-b-2); box-shadow: 0 50px 100px -40px rgba(0, 0, 0, 0.95), 0 0 90px -30px rgba(163, 230, 53, 0.28); }
+.ls-con__midia video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: 50% 20%;
+  transform: scale(1.1);
+  transition: transform 1800ms var(--ls-ease);
+}
+.sc-in .ls-con__midia video { transform: none; }
+.ls-con__selo {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  left: 14px;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  padding: 0.35rem 0.7rem 0.35rem 0.45rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(14, 15, 16, 0.55);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  box-shadow: inset 0 0 0 1px rgba(241, 238, 232, 0.16);
+  color: #f1eee8;
+  font-family: var(--ls-f-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.ls-con__selo i { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: #a3e635; animation: ls-pulso 2.2s ease-out infinite; }
+@keyframes ls-pulso {
+  0% { box-shadow: 0 0 0 0 rgba(163, 230, 53, 0.55); }
+  80%, 100% { box-shadow: 0 0 0 8px rgba(163, 230, 53, 0); }
+}
+
+.ls-passo > .ls-col--a { border-top: 1px solid var(--ls-hair-a); }
+.ls-passo > .ls-col--b { border-top: 1px solid var(--ls-hair-b); }
+.ls-passo__inner { padding-block: 2.5rem 2.75rem; gap: 0.6rem; }
+.ls-passo__num { font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+.ls-col--a .ls-passo__num { color: var(--ls-acc-a); }
+.ls-col--b .ls-passo__num { color: var(--ls-acc-b); }
+.ls-passo__titulo {
+  font-family: var(--ls-f-display);
+  font-stretch: 78%;
+  font-weight: 800;
+  font-size: clamp(1.5rem, 2.1vw, 2rem);
+  line-height: 1.02;
+  max-width: 20ch;
+  text-wrap: balance;
+}
+.ls-passo__origem, .ls-passo__destino { width: 100%; max-width: 22rem; margin-top: 0.9rem; }
+
+/* antes → depois no mesmo lugar (botão e contagem da peça de origem) */
+.ls-troca { display: grid; }
+.ls-troca > * { grid-area: 1 / 1; }
+.ls-passo__antes, .ls-passo__depois { transition: opacity 240ms var(--ls-ease) 350ms, transform 240ms var(--ls-ease) 350ms; }
+.ls-passo__depois { opacity: 0; transform: translate3d(0, 6px, 0); }
+.ls-passo[data-on] .ls-passo__antes { opacity: 0; transform: translate3d(0, -6px, 0); }
+.ls-passo[data-on] .ls-passo__depois { opacity: 1; transform: none; }
+
+/* o destino espera "apagado" e acende quando o sinal chega */
+.ls-passo__destino {
+  opacity: 0.2;
+  filter: saturate(0.2);
+  transform: translate3d(0, 10px, 0);
+  transition: opacity 420ms var(--ls-ease) 1250ms, filter 420ms var(--ls-ease) 1250ms, transform 420ms var(--ls-ease) 1250ms;
+}
+.ls-passo[data-on] .ls-passo__destino { opacity: 1; filter: none; transform: none; }
+.ls-passo[data-on] .ls-passo__destino .ls-cartao { animation: ls-chega 1100ms var(--ls-ease) 1300ms both; }
+@keyframes ls-chega {
+  from { outline: 2px solid rgba(163, 230, 53, 0.95); outline-offset: 0; }
+  to { outline: 2px solid rgba(163, 230, 53, 0); outline-offset: 12px; }
+}
+
+/* o que atravessa: no desktop corre até a divisória e fica nela */
+.ls-passo__sinal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 61;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
   border-radius: 4px;
   background: var(--ls-sinal);
   color: var(--ls-sinal-ink);
@@ -558,77 +638,108 @@
   text-transform: uppercase;
   white-space: nowrap;
   pointer-events: none;
-  opacity: 0;
   translate: -50% -50%;
-  will-change: transform, opacity;
+  opacity: 0;
   box-shadow: 0 10px 22px -10px rgba(0, 0, 0, 0.75);
+  transition: transform 800ms var(--ls-ease) 450ms, opacity 200ms linear 450ms;
 }
-.ls-sinal i { width: 0.5rem; height: 0.5rem; border-radius: 1px; background: var(--ls-sinal-ink); }
+.ls-passo__sinal svg { max-width: none; flex-shrink: 0; }
+.ls-passo__seta-m { display: none; }
+.ls-passo--ab .ls-passo__sinal { transform: translate3d(-11rem, 0, 0); }
+.ls-passo--ba .ls-passo__sinal { transform: translate3d(11rem, 0, 0); }
+.ls-passo[data-on] .ls-passo__sinal { opacity: 1; transform: none; }
 
-/* Estados vindos dos eventos. O root recebe data-ev-<id>="viajando" ou
-   "chegou" (ausente = antes). Cada peça marca a qual evento responde:
-   data-est="<id>:antes|depois" muda quando o sinal CHEGA; data-est=
-   "<id>-src:antes|depois" muda quando o sinal SAI. data-dest="<id>" pisca
-   o destino na chegada. */
-/* Mais específico que as classes de layout (ex.: .ls-cel-ficha), para o
-   estado "depois" nunca aparecer antes da hora. */
-.ls-root [data-est$=":depois"] { display: none; }
-.ls-root[data-ev-checkin="chegou"] [data-est="checkin:antes"],
-.ls-root[data-ev-checkin] [data-est="checkin-src:antes"] { display: none; }
-.ls-root[data-ev-checkin="chegou"] [data-est="checkin:depois"],
-.ls-root[data-ev-checkin] [data-est="checkin-src:depois"] { display: revert; }
-.ls-root[data-ev-ficha="chegou"] [data-est="ficha:antes"],
-.ls-root[data-ev-ficha] [data-est="ficha-src:antes"] { display: none; }
-.ls-root[data-ev-ficha="chegou"] [data-est="ficha:depois"],
-.ls-root[data-ev-ficha] [data-est="ficha-src:depois"] { display: revert; }
-.ls-root[data-ev-treino="chegou"] [data-est="treino:antes"],
-.ls-root[data-ev-treino] [data-est="treino-src:antes"] { display: none; }
-.ls-root[data-ev-treino="chegou"] [data-est="treino:depois"],
-.ls-root[data-ev-treino] [data-est="treino-src:depois"] { display: revert; }
-.ls-root[data-ev-mensalidade="chegou"] [data-est="mensalidade:antes"],
-.ls-root[data-ev-mensalidade] [data-est="mensalidade-src:antes"] { display: none; }
-.ls-root[data-ev-mensalidade="chegou"] [data-est="mensalidade:depois"],
-.ls-root[data-ev-mensalidade] [data-est="mensalidade-src:depois"] { display: revert; }
-[data-dest] { transition: background-color 400ms var(--ls-ease), box-shadow 400ms var(--ls-ease); }
-.ls-root[data-ev-checkin="chegou"] [data-dest="checkin"],
-.ls-root[data-ev-ficha="chegou"] [data-dest="ficha"],
-.ls-root[data-ev-treino="chegou"] [data-dest="treino"],
-.ls-root[data-ev-mensalidade="chegou"] [data-dest="mensalidade"] {
-  box-shadow: inset 0 0 0 1.5px rgb(var(--volt-300) / 0.7);
-  background-color: rgb(var(--volt-300) / 0.08);
-}
-
-/* A linha nova do log entra fechada e abre quando o check-in chega. */
-.ls-log-novo { display: grid; grid-template-rows: 0fr; opacity: 0; transition: opacity 260ms var(--ls-ease); }
-.ls-log-novo > * { overflow: hidden; }
-.ls-root[data-ev-checkin="chegou"] .ls-log-novo { grid-template-rows: 1fr; opacity: 1; }
-
-/* No celular a tela é curta: cada lado mostra só o que o evento da vez usa. */
+/* No celular as colunas empilham na ordem do acontecimento (origem, sinal,
+   destino) e o sinal desce na emenda entre as duas. */
 @media (max-width: 1023.98px) {
-  .ls-con__legenda-movel {
-    position: absolute;
-    left: 1.25rem;
-    right: 1.25rem;
-    top: 50%;
-    z-index: 25;
-    translate: 0 -50%;
-    padding: 0.625rem 0.875rem;
-    border-radius: 6px;
-    background: #17191b;
-    color: var(--ls-ink-b);
+  .ls-con__topo .ls-inner { padding-block: 2.75rem 2.25rem; }
+  .ls-con__midia { aspect-ratio: 1 / 1; }
+  .ls-con__quadro::before { transform: translate3d(10px, 10px, 0); }
+  .ls-con__quadro--b::before { transform: translate3d(10px, 10px, 0); }
+  .ls-passo__inner { padding-block: 2.25rem 2.5rem; }
+  .ls-passo--ab > .ls-col--a, .ls-passo--ba > .ls-col--b { order: 1; }
+  .ls-passo__sinal { order: 2; }
+  .ls-passo--ab > .ls-col--b, .ls-passo--ba > .ls-col--a { order: 3; }
+  .ls-passo__sinal {
+    position: relative;
+    top: auto;
+    left: auto;
+    z-index: 2;
+    justify-self: center;
+    margin: -1rem 0;
+    translate: none;
   }
-  .ls-con__legenda-movel .ls-legendas { min-height: 3.2em; }
-  .ls-con__legenda-movel .ls-legendas p { font-size: 0.875rem; max-width: none; }
-  .ls-painel-con .ls-opcional { display: none; }
+  .ls-passo__seta-d { display: none; }
+  .ls-passo__seta-m { display: block; }
+  .ls-passo--ab .ls-passo__sinal, .ls-passo--ba .ls-passo__sinal { transform: translate3d(0, -1.25rem, 0); }
 }
-@media (min-width: 1024px) {
-  .ls-con__legenda-movel { display: none; }
-  .ls-con__split { grid-template-rows: none; }
-  .ls-con__a { padding: 6rem var(--ls-gap) 3rem clamp(2rem, 4vw, 4rem); gap: 1.75rem; align-items: flex-end; }
-  .ls-con__cab { display: block; width: 100%; max-width: 32rem; text-align: right; }
-  .ls-con__cab .ls-legendas p { inset: 0 0 auto auto; }
-  .ls-painel-con { width: 100%; max-width: 32rem; }
-  .ls-con__scrim { background: linear-gradient(to right, rgba(14, 15, 16, 0.78) 0%, rgba(14, 15, 16, 0.35) 45%, rgba(14, 15, 16, 0.15) 100%); }
+
+/* cartões do app: markup real, dados de demonstração rotulados */
+.ls-cartao {
+  position: relative;
+  padding: 0.85rem 0.95rem 0.95rem;
+  border-radius: 14px;
+  text-align: left;
+}
+.ls-cartao--claro {
+  background: #f4f2ed;
+  color: #17150f;
+  box-shadow: 0 24px 48px -24px rgba(23, 21, 15, 0.45), inset 0 0 0 1px rgba(23, 21, 15, 0.08);
+}
+.ls-cartao--escuro {
+  background: #17191b;
+  color: #f1eee8;
+  box-shadow: 0 24px 48px -22px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(241, 238, 232, 0.1);
+}
+.ls-cartao__cab { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.5rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em; }
+.ls-cartao__cab svg { max-width: none; flex-shrink: 0; }
+.ls-cartao__quando { margin-left: auto; font-family: var(--ls-f-mono); font-weight: 500; font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.6; }
+.ls-cartao__titulo { display: flex; align-items: center; gap: 0.4rem; font-weight: 650; font-size: 0.98rem; line-height: 1.3; }
+.ls-cartao__texto { margin-top: 0.2rem; font-size: 0.82rem; line-height: 1.45; opacity: 0.72; }
+.ls-cartao--claro .ls-cartao__ok { color: #3f6212; }
+.ls-cartao--escuro .ls-cartao__ok { color: #a3e635; }
+.ls-cartao__ficha { margin: 0.6rem 0 0.7rem; }
+.ls-cartao__ficha li {
+  display: grid;
+  grid-template-columns: 1.1rem 1fr auto;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.28rem 0;
+  border-top: 1px solid rgba(23, 21, 15, 0.1);
+  font-size: 0.8rem;
+}
+.ls-cartao__ficha li b { font-weight: 600; }
+.ls-cartao__ficha li .ls-mono { font-size: 0.72rem; color: #6f695f; }
+.ls-cartao__botao {
+  display: grid;
+  place-items: center;
+  min-height: 38px;
+  border-radius: 9px;
+  background: #0e0f10;
+  color: #f1eee8;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+.ls-cartao__botao > span { grid-area: 1 / 1; display: inline-flex; align-items: center; gap: 0.4rem; }
+.ls-cartao__botao .ls-passo__depois { color: #a3e635; }
+.ls-cartao__botao--verde { margin-top: 0.7rem; background: #a3e635; color: #0e0f10; }
+.ls-cartao__botao--verde .ls-passo__depois { color: #0e0f10; }
+.ls-cartao__progresso { position: relative; height: 6px; margin-top: 0.6rem; border-radius: 999px; background: rgba(241, 238, 232, 0.12); overflow: hidden; }
+.ls-cartao__progresso > span {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #a3e635;
+  transform-origin: 0 50%;
+  transform: scaleX(var(--de, 0.5));
+  transition: transform 700ms var(--ls-ease) 150ms;
+}
+.ls-passo[data-on] .ls-cartao__progresso > span { transform: scaleX(1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ls-passo *, .ls-passo__sinal { transition: none !important; animation: none !important; }
+  .ls-con__midia video { transform: none; transition: none; }
+  .ls-con__selo i { animation: none; }
 }
 
 /* ================================================================ ATO 4 == */
@@ -662,7 +773,9 @@
 .ls-rec__lista span { grid-column: 2; font-size: 0.875rem; line-height: 1.5; }
 .ls-col--a .ls-rec__lista span { color: var(--ls-soft-a); }
 .ls-col--b .ls-rec__lista span { color: var(--ls-soft-b); }
-.ls-rec__h2 { margin-top: 2.5rem; }
+.ls-rec__fig { width: 100%; max-width: 32rem; margin-top: 1.5rem; }
+.ls-rec__fig figcaption { margin-top: 0.75rem; max-width: 40ch; }
+@media (min-width: 1024px) { .ls-inner--a .ls-rec__fig figcaption { margin-left: auto; } }
 
 /* ================================================================ ATO 5 == */
 .ls-bloco { width: 100%; max-width: 32rem; text-align: left; }
@@ -713,8 +826,11 @@
 .ls-fim__palco { position: relative; height: 100%; }
 .ls-fim__a { height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 5rem 1.25rem 2rem; background: var(--ls-a); }
 .ls-fim__plano { width: 100%; max-width: 44rem; }
-.ls-fim__preco { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.5rem; margin-top: 1.75rem; }
-.ls-fim__preco strong { font-family: var(--ls-f-display); font-stretch: 72%; font-size: clamp(3rem, 5vw, 4.75rem); font-weight: 800; line-height: 0.9; font-variant-numeric: tabular-nums; color: var(--ls-ink-a); }
+/* "Planos a partir de" numa linha e o valor com "/mês" na de baixo: na mesma
+   linha o rótulo espremia e a vírgula do valor encostava no parágrafo. */
+.ls-fim__preco { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 0.15rem 0.5rem; margin: 1.75rem 0 0.75rem; }
+.ls-fim__preco > span:first-child { grid-column: 1 / -1; }
+.ls-fim__preco strong { font-family: var(--ls-f-display); font-stretch: 72%; font-size: clamp(3rem, 5vw, 4.75rem); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ls-ink-a); }
 .ls-fim__incluso { display: grid; gap: 0.55rem 2rem; margin-top: 1.5rem; }
 .ls-fim__incluso li { display: flex; gap: 0.625rem; font-size: 0.9375rem; line-height: 1.45; color: var(--ls-soft-a); }
 .ls-fim__incluso svg { flex-shrink: 0; margin-top: 0.15rem; color: var(--ls-acc-a); }
@@ -726,8 +842,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 1.5rem;
-  margin-top: 2.5rem;
-  padding-top: 1.25rem;
+  padding: 1.25rem 1.25rem 1.5rem;
   border-top: 1px solid var(--ls-hair-a);
   font-size: 0.8125rem;
   color: var(--ls-mute-a);
@@ -755,6 +870,11 @@
   .ls-fim__cel-movel { display: none; }
   .ls-fim__a { padding: 4.5rem calc(min(26rem, 34vw) + var(--ls-gap)) 2rem clamp(2rem, 5vw, 6rem); }
   .ls-fim__incluso { grid-template-columns: 1fr 1fr; }
+  .ls-colofao { padding-inline: clamp(2rem, 5vw, 6rem); }
+  /* A cortina escura começa no meio da tela e só recua com o scroll: o plano
+     cabe na metade da esquerda, senão a segunda coluna do "incluso" chega
+     cortada pela divisória. */
+  .ls-fim__plano { max-width: min(44rem, calc(var(--ls-vw, 100vw) * 0.5 - clamp(2rem, 5vw, 6rem) - var(--ls-gap))); }
   .ls-fim__cortina {
     display: flex;
     align-items: center;
@@ -777,12 +897,19 @@
   }
   .ls-fim__frase { text-align: center; color: var(--ls-soft-b); font-size: 1rem; line-height: 1.5; max-width: 22ch; }
 }
+/* O fechamento é pinado (uma tela): em telas baixas o plano, agora mais
+   estreito e mais alto, precisa de espaçamento mais justo para caber. */
+@media (min-width: 1024px) and (max-height: 860px) {
+  .ls-fim__a { padding-top: 3.25rem; padding-bottom: 1.25rem; }
+  .ls-fim__preco { margin-top: 1.1rem; }
+  .ls-fim__incluso { margin-top: 1rem; gap: 0.4rem 1.5rem; }
+  .ls-fim__incluso li { font-size: 0.875rem; }
+  .ls-fim__aviso, .ls-fim__acoes { margin-top: 1.25rem; }
+}
 
 /* ------------------------------------------------------- movimento reduzido */
 @media (prefers-reduced-motion: reduce) {
   .ls-plano, .ls-superficie, .ls-atmos, .ls-rec__midia img { transform: none !important; }
-  .ls-sinal { display: none; }
-  .ls-legendas p { transition: none; }
 }
 
 /* O "alerta" das telas usa âmbar fixo do Tailwind: no lado claro precisa do
@@ -793,7 +920,6 @@
 /* A divisória tem largura zero; a regra do engine svg { max-width: 100% }
    espremeria o símbolo para nada. */
 .ls-espinha svg { max-width: none; }
-.ls-marca b { white-space: nowrap; }
 
 /* =================================================== celular realista ==
    Proporção 19,5:9. Borda de titânio escovado, tela concêntrica, ilha,
@@ -1012,21 +1138,15 @@
   font-size: 11.5px;
   font-weight: 600;
 }
-.ls-botao-painel [data-est$=":depois"] { color: #a3e635; }
 .ls-hero__recepcao .ls-tabela__cab, .ls-hero__recepcao .ls-tabela__plano { display: none; }
 .ls-hero__recepcao .ls-tabela__linha { grid-template-columns: 44px minmax(0, 1fr) 86px; }
 .ls-hero__recepcao .ls-janela__area { padding: 10px 4px 6px; }
 .ls-hero__recepcao .ls-janela__titulo { padding-inline: 10px; font-size: 17px; }
 
-@media (max-width: 1023.98px) {
-  .ls-painel-con .ls-janela__menu, .ls-painel-con .ls-janela__demo, .ls-painel-con .ls-tabela__plano { display: none; }
-  .ls-painel-con .ls-tabela__cab, .ls-painel-con .ls-tabela__linha { grid-template-columns: 40px minmax(0, 1fr) 80px; }
-  .ls-painel-con .ls-janela__titulo { display: none; }
-}
-
 /* ================================================================ login ==
    "Entrar" é de quem já é cliente: fica fixo no canto, sempre à vista, sem
-   competir com o botão comercial (que é o verde). */
+   competir com o botão comercial (que é o verde). Sólido e claro: sobre as
+   fotos escuras um botão translúcido desaparecia. */
 .ls-entrar {
   position: fixed;
   top: 1.25rem;
@@ -1035,23 +1155,22 @@
   display: none;
   align-items: center;
   gap: 0.5rem;
-  min-height: 44px;
-  padding: 0 1.1rem;
+  min-height: 46px;
+  padding: 0 1.2rem;
   border-radius: 6px;
-  border: 1px solid rgba(241, 238, 232, 0.28);
-  background: rgba(14, 15, 16, 0.72);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: #f1eee8;
-  font-size: 0.9rem;
-  font-weight: 600;
+  border: 1px solid #f1eee8;
+  background: #f1eee8;
+  color: #0e0f10;
+  font-size: 0.95rem;
+  font-weight: 650;
   text-decoration: none;
+  box-shadow: 0 12px 28px -14px rgba(0, 0, 0, 0.8);
   transition: border-color 160ms var(--ls-ease), background-color 160ms var(--ls-ease);
 }
-.ls-entrar:hover { border-color: var(--ls-sinal); background: #0e0f10; }
+.ls-entrar:hover { border-color: var(--ls-sinal); background: #fff; }
 .ls-entrar:active { transform: translateY(1px); }
 .ls-entrar:focus-visible { outline: 2px solid var(--ls-sinal); outline-offset: 3px; }
-.ls-entrar small { font-weight: 400; color: #a9a49b; }
+.ls-entrar small { font-size: 0.85rem; font-weight: 500; color: #555048; }
 @media (min-width: 1024px) { .ls-entrar { display: inline-flex; } }
 .ls-menu__direita { display: flex; align-items: center; gap: 0.5rem; }
 .ls-menu__entrar {
@@ -1060,10 +1179,10 @@
   min-height: 44px;
   padding: 0 0.9rem;
   border-radius: 6px;
-  background: #17191b;
-  color: #f1eee8;
+  background: #f1eee8;
+  color: #0e0f10;
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 650;
   text-decoration: none;
   box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.7);
 }
@@ -1095,177 +1214,34 @@
   .ls-hero .ls-hero__celular > * { animation-delay: 1000ms; }
 }
 
-/* ================================================ cena principal ==
-   Dois vídeos reais (Kling 3.0), um por lado, em loop. O app entra como
-   cartões animados sobre eles, no visual da marca: nada é desenhado pela IA
-   dentro das telas. */
-.ls-con__a, .ls-con__b { position: relative; overflow: clip; padding: 0 !important; display: block !important; }
-.ls-con__video { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: 50% 45%; }
-.ls-con__video--dono { object-position: 30% 50%; }
-.ls-con__scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(to bottom, rgba(14, 15, 16, 0.2), transparent 35%, rgba(14, 15, 16, 0.55)); }
-.ls-con__cab {
-  position: relative;
-  z-index: 5;
-  display: block;
-  margin: 1rem 0 0 1rem;
-  padding: 0.85rem 1.1rem 0.9rem;
-  max-width: 30rem;
-  border-radius: 4px;
-  background: rgba(232, 229, 222, 0.95);
-  box-shadow: 0 16px 36px -22px rgba(23, 21, 15, 0.55);
-  text-align: left;
-}
-.ls-con__cab .ls-h2 { font-size: clamp(1.6rem, 2.2vw, 2.2rem); }
-.ls-con__cab .ls-legendas { min-height: 3.2em; }
-.ls-con__cab .ls-legendas p { color: var(--ls-soft-a); font-size: 0.9rem; inset: 0 auto auto 0 !important; }
+/* Topo no celular: duas metades de 100svh não cabem título, frase, botão e
+   foto sem pôr o texto em cima da pessoa (a foto sumia atrás de um papel
+   quase opaco). Aqui o topo deixa de ser pinado e vira fluxo: texto da
+   academia, foto dela, texto do aluno, foto dele. Nada se sobrepõe. As
+   colunas e a camada de texto viram "contents" para que os quatro blocos
+   sejam irmãos e a ordem venha do CSS. */
 @media (max-width: 1023.98px) {
-  .ls-con__cab { display: none; }
-}
-
-/* cartões: um por vez de cada lado, empilhados no mesmo lugar */
-.ls-cartoes { position: absolute; z-index: 6; width: min(20.5rem, calc(100% - 2.5rem)); }
-/* acima da navegação da divisória (que ocupa o rodapé do centro) */
-.ls-cartoes--a { right: max(var(--ls-gap), 4.5rem); bottom: 12rem; }
-.ls-cartoes--b { left: max(var(--ls-gap), 4.5rem); bottom: 12rem; }
-@media (max-width: 1023.98px) {
-  .ls-cartoes { width: min(19rem, calc(100% - 2rem)); bottom: 1rem !important; }
-  .ls-cartoes--a { right: 1rem; }
-  .ls-cartoes--b { left: 1rem; }
-}
-.ls-cartao {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 0.85rem 0.95rem 0.95rem;
-  border-radius: 14px;
-  opacity: 0;
-  transform: translate3d(0, 14px, 0) scale(0.97);
-  transition: opacity 320ms var(--ls-ease), transform 420ms var(--ls-ease);
-  pointer-events: none;
-  text-align: left;
-}
-.ls-cartao--claro {
-  background: rgba(244, 242, 237, 0.93);
-  color: #17150f;
-  box-shadow: 0 24px 48px -24px rgba(23, 21, 15, 0.55), inset 0 0 0 1px rgba(23, 21, 15, 0.08);
-  backdrop-filter: blur(14px) saturate(1.2);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-}
-.ls-cartao--escuro {
-  background: rgba(23, 25, 27, 0.86);
-  color: #f1eee8;
-  box-shadow: 0 24px 48px -22px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(241, 238, 232, 0.1);
-  backdrop-filter: blur(14px) saturate(1.2);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-}
-.ls-root:not([data-ls-cartao-a]) [data-cartao="montagem"],
-.ls-root[data-ls-cartao-a="montagem"] [data-cartao="montagem"],
-.ls-root[data-ls-cartao-a="adesao"] [data-cartao="adesao"],
-.ls-root[data-ls-cartao-a="pagamento"] [data-cartao="pagamento"],
-.ls-root[data-ls-cartao-b="ficha"] [data-cartao="ficha"],
-.ls-root[data-ls-cartao-b="series"] [data-cartao="series"],
-.ls-root[data-ls-cartao-b="mensalidade"] [data-cartao="mensalidade"] { opacity: 1; transform: none; pointer-events: auto; }
-
-.ls-cartao__cab { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.5rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em; }
-.ls-cartao__cab svg { max-width: none; flex-shrink: 0; }
-.ls-cartao__quando { margin-left: auto; font-family: var(--ls-f-mono); font-weight: 500; font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.6; }
-.ls-cartao__titulo { display: flex; align-items: center; gap: 0.4rem; font-weight: 650; font-size: 0.98rem; line-height: 1.3; }
-.ls-cartao__texto { margin-top: 0.2rem; font-size: 0.82rem; line-height: 1.45; opacity: 0.72; }
-.ls-cartao--claro .ls-cartao__ok { color: #3f6212; }
-.ls-cartao--escuro .ls-cartao__ok { color: #a3e635; }
-.ls-cartao__ficha { margin: 0.6rem 0 0.7rem; }
-.ls-cartao__ficha li {
-  display: grid;
-  grid-template-columns: 1.1rem 1fr auto;
-  gap: 0.5rem;
-  align-items: baseline;
-  padding: 0.28rem 0;
-  border-top: 1px solid rgba(23, 21, 15, 0.1);
-  font-size: 0.8rem;
-  opacity: 0;
-  transform: translate3d(-8px, 0, 0);
-  transition: opacity 220ms var(--ls-ease), transform 220ms var(--ls-ease);
-}
-.ls-cartao__ficha li b { font-weight: 600; }
-.ls-cartao__ficha li .ls-mono { font-size: 0.72rem; color: #6f695f; }
-.ls-cartao__botao {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  min-height: 38px;
-  border-radius: 9px;
-  background: #0e0f10;
-  color: #f1eee8;
-  font-size: 0.85rem;
-  font-weight: 650;
-}
-.ls-cartao__botao > span { display: inline-flex; align-items: center; gap: 0.4rem; }
-.ls-cartao__botao [data-est$=":depois"] { color: #a3e635; }
-.ls-cartao__botao--verde { margin-top: 0.7rem; background: #a3e635; color: #0e0f10; }
-.ls-cartao__botao--verde [data-est$=":depois"] { color: #0e0f10; }
-.ls-cartao__progresso { position: relative; height: 6px; margin-top: 0.6rem; border-radius: 999px; background: rgba(241, 238, 232, 0.12); overflow: hidden; }
-.ls-cartao__progresso > span { position: absolute; inset: 0; border-radius: inherit; background: #a3e635; transform-origin: 0 50%; transform: scaleX(0.5); transition: transform 380ms var(--ls-ease); }
-.ls-root[data-ls-series="1"] .ls-cartao__progresso > span { transform: scaleX(0.667); }
-.ls-root[data-ls-series="2"] .ls-cartao__progresso > span { transform: scaleX(0.833); }
-.ls-root[data-ls-series="3"] .ls-cartao__progresso > span { transform: scaleX(1); }
-[data-series-rotulo] { display: none; }
-.ls-root:not([data-ls-series]) [data-series-rotulo="0"],
-.ls-root[data-ls-series="0"] [data-series-rotulo="0"],
-.ls-root[data-ls-series="1"] [data-series-rotulo="1"],
-.ls-root[data-ls-series="2"] [data-series-rotulo="2"],
-.ls-root[data-ls-series="3"] [data-series-rotulo="3"] { display: inline; }
-/* os estados "depois" dos botões voltam como inline-flex (display: revert
-   daria "inline" e desalinharia ícone e texto) */
-.ls-root[data-ev-ficha] .ls-cartao__botao [data-est="ficha-src:depois"],
-.ls-root[data-ev-treino] .ls-cartao__botao [data-est="treino-src:depois"],
-.ls-root[data-ev-mensalidade] .ls-cartao__botao [data-est="mensalidade-src:depois"] { display: inline-flex; }
-@media (prefers-reduced-motion: reduce) {
-  .ls-cartao, .ls-cartao__ficha li { transition: none; }
-}
-/* montagem da ficha: os exercícios entram um a um */
-.ls-root[data-ls-montagem="1"] .ls-cartao__ficha li:nth-child(-n + 1) { opacity: 1; transform: none; }
-.ls-root[data-ls-montagem="2"] .ls-cartao__ficha li:nth-child(-n + 2) { opacity: 1; transform: none; }
-.ls-root[data-ls-montagem="3"] .ls-cartao__ficha li:nth-child(-n + 3) { opacity: 1; transform: none; }
-.ls-root[data-ls-montagem="4"] .ls-cartao__ficha li:nth-child(-n + 4) { opacity: 1; transform: none; }
-.ls-root[data-ls-montagem="5"] .ls-cartao__ficha li:nth-child(-n + 5) { opacity: 1; transform: none; }
-.ls-root[data-ls-montagem="6"] .ls-cartao__ficha li:nth-child(-n + 6) { opacity: 1; transform: none; }
-
-/* Topo no celular: cada metade tem pouca altura e o texto ocupa quase toda
-   a do lado da academia. O papel fica denso atrás do texto e a foto aparece
-   embaixo; do lado do aluno, o celular de demonstração sai (ele volta mais
-   abaixo na página) para o título e o aluno respirarem. */
-@media (max-width: 1023.98px) {
-  .ls-hero .ls-col--a .ls-plano--fundo { object-position: 70% 100%; }
-  .ls-hero .ls-col--b .ls-plano--fundo { object-position: 60% 30%; }
-  .ls-hero .ls-col--a .ls-hero__scrim { background: linear-gradient(to bottom, rgba(232, 229, 222, 0.97) 0%, rgba(232, 229, 222, 0.93) 62%, rgba(232, 229, 222, 0.4) 86%, transparent 100%); }
-  .ls-hero .ls-col--b .ls-hero__scrim { background: linear-gradient(to bottom, rgba(14, 15, 16, 0.94) 0%, rgba(14, 15, 16, 0.55) 45%, transparent 75%); }
-  .ls-hero__celular { display: none; }
-}
-/* Celular baixo (ex.: 360 × 640): título menor e sem a frase de apoio, para
-   título, botão e link caberem na metade da academia. */
-@media (max-width: 1023.98px) and (max-height: 720px) {
-  .ls-hero .ls-display { font-size: 2.35rem; }
-  .ls-hero__cel { padding-top: 4.4rem; gap: 0.75rem; }
-  .ls-hero__cel--b { padding-top: 1.1rem; }
-  .ls-hero__cel--a .ls-lede { display: none; }
-}
-
-/* contagem da montagem (só no celular, no lugar da lista) */
-[data-montagem-rotulo] { display: none; }
-.ls-root:not([data-ls-montagem]) [data-montagem-rotulo="0"] { display: inline; }
-.ls-root[data-ls-montagem="0"] [data-montagem-rotulo="0"] { display: inline; }
-.ls-root[data-ls-montagem="1"] [data-montagem-rotulo="1"] { display: inline; }
-.ls-root[data-ls-montagem="2"] [data-montagem-rotulo="2"] { display: inline; }
-.ls-root[data-ls-montagem="3"] [data-montagem-rotulo="3"] { display: inline; }
-.ls-root[data-ls-montagem="4"] [data-montagem-rotulo="4"] { display: inline; }
-.ls-root[data-ls-montagem="5"] [data-montagem-rotulo="5"] { display: inline; }
-.ls-root[data-ls-montagem="6"] [data-montagem-rotulo="6"] { display: inline; }
-.ls-cartao__contagem { display: none; }
-@media (max-width: 1023.98px) {
-  .ls-cartao__ficha { display: none; }
-  .ls-cartao__contagem { display: block; margin: 0.35rem 0 0.6rem; }
-  .ls-cartao { padding: 0.7rem 0.8rem 0.8rem; }
-  .ls-cartao__titulo { font-size: 0.9rem; }
+  .ls-hero { height: auto !important; }
+  .ls-hero .sc-stage { position: relative; height: auto; overflow: visible; display: flex; flex-direction: column; }
+  .ls-hero__split, .ls-hero__copy { display: contents; }
+  .ls-hero__cel--a { order: 1; background: var(--ls-a); padding: 5.5rem 1.25rem 2rem; }
+  .ls-hero .ls-col--a { order: 2; }
+  .ls-hero__cel--b { order: 3; background: var(--ls-b); padding: 2.75rem 1.25rem 1.75rem; }
+  .ls-hero .ls-col--b { order: 4; }
+  .ls-hero__col { aspect-ratio: 4 / 3.3; }
+  /* Lado do aluno: a foto ganha altura e o app entra por cima dela, abaixo
+     do rosto. É o que liga "conectados" à pessoa treinando. */
+  .ls-hero .ls-col--b { aspect-ratio: 2 / 3; }
+  .ls-hero__celular { display: block; top: 46%; right: 1rem; bottom: auto; transform: scale(0.8); transform-origin: 100% 0; }
+  .ls-hero .ls-plano--fundo { transform: none; }
+  .ls-hero .ls-col--a .ls-plano--fundo { object-position: 30% 58%; }
+  .ls-hero .ls-col--b .ls-plano--fundo { object-position: 40% 30%; }
+  .ls-hero__scrim, .ls-hero .ls-atmos { display: none; }
+  .ls-hero__cel--b .ls-lede { color: var(--ls-soft-b); }
+  /* #9: no celular o ato de recursos é alto demais para uma cortina ligada
+     ao progresso da seção inteira (a foto de baixo ficava pela metade). */
+  .ls-rec__midia[data-sc-reveal] { clip-path: none !important; }
+  .ls-rec__midia { aspect-ratio: 4 / 3; }
+  /* O plano e o preço vêm primeiro; o celular fica depois deles. */
+  .ls-fim__a .ls-fim__cel-movel { margin: 2.5rem -1.25rem 0; padding: 2.75rem 1.25rem; }
 }

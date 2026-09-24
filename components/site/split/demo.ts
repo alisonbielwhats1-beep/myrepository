@@ -20,6 +20,10 @@ export const LOG_INICIAL: LinhaLog[] = [
   { hora: "18:44", nome: "Diego Nunes", plano: "Mensal", resultado: "Alerta" },
 ];
 
+/** O aluno da foto do topo: o mesmo Rafael que acabou de passar pela
+ *  recepção no log ao lado (primeira linha). */
+export const ALUNO_TOPO = { primeiroNome: LOG_INICIAL[0].nome.split(" ")[0] };
+
 /** A linha que chega pelo check-in do evento 1. */
 export const LOG_CHECKIN: LinhaLog = {
   hora: "19:02",
@@ -49,39 +53,4 @@ export const FICHA = [
   { nome: "Pulldown na corda", meta: "3 × 12 · 25 kg", feito: false },
   { nome: "Rosca direta", meta: "3 × 10 · 20 kg", feito: false },
   { nome: "Rosca martelo", meta: "3 × 12 · 12 kg", feito: false },
-];
-
-/** Janela (progresso do ato) em que o dono monta a ficha no painel. */
-export const JANELA_MONTAGEM: [number, number] = [0.04, 0.2];
-
-/** Janela (progresso do ato) em que ela marca os três exercícios restantes. */
-export const JANELA_SERIES: [number, number] = [0.4, 0.56];
-
-/**
- * Os três eventos que atravessam a divisória no ato "Conexão". `de` e
- * `para` são os ids dos elementos de origem e destino; `janela` é a fatia do
- * progresso do ato (0..1) em que o sinal viaja.
- */
-export type EventoConexao = {
-  id: string;
-  sentido: "aluno-academia" | "academia-aluno";
-  rotulo: string;
-  janela: [number, number];
-  de: string;
-  para: string;
-};
-
-export const EVENTOS: EventoConexao[] = [
-  { id: "ficha", sentido: "academia-aluno", rotulo: "Ficha", janela: [0.24, 0.36], de: "ls-painel-ficha", para: "ls-cel-treino" },
-  { id: "treino", sentido: "aluno-academia", rotulo: "Treino", janela: [0.6, 0.72], de: "ls-cel-finalizar", para: "ls-painel-adesao" },
-  { id: "mensalidade", sentido: "academia-aluno", rotulo: "Pagamento", janela: [0.8, 0.92], de: "ls-painel-pagamento", para: "ls-cel-mensalidade" },
-];
-
-/** Legendas do ato, na ordem em que aparecem. */
-export const LEGENDAS: { inicio: number; texto: string }[] = [
-  { inicio: JANELA_MONTAGEM[0], texto: "Na recepção, o dono monta a ficha da Marina no painel." },
-  { inicio: EVENTOS[0].janela[0], texto: "Ele publica. A ficha chega na hora no celular dela." },
-  { inicio: JANELA_SERIES[0], texto: "Entre uma série e outra, ela marca o que fez, com a carga que usou." },
-  { inicio: EVENTOS[1].janela[0], texto: "Ela finaliza o treino. O dono vê quem está seguindo a ficha." },
-  { inicio: EVENTOS[2].janela[0], texto: "A recepção registra o pagamento. A mensalidade aparece paga para ela." },
 ];

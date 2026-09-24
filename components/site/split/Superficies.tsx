@@ -7,7 +7,7 @@ import {
   Users,
 } from "@phosphor-icons/react/dist/ssr";
 import Celular from "./Celular";
-import { ACESSOS_ANTES, ALUNA, FICHA, LOG_CHECKIN, LOG_INICIAL, type LinhaLog } from "./demo";
+import { ACESSOS_ANTES, ALUNA, ALUNO_TOPO, FICHA, LOG_CHECKIN, LOG_INICIAL, type LinhaLog } from "./demo";
 
 /**
  * Superfícies do produto usadas na landing em tela dividida. São markup real
@@ -146,7 +146,7 @@ export function HeroCelular() {
       <div className="space-y-3">
         <div>
           <p className="text-[11px] font-medium text-volt-300">{ALUNA.academia}</p>
-          <p className="text-[19px] font-extrabold tracking-[-0.02em] text-white">Bom treino, {ALUNA.primeiroNome}.</p>
+          <p className="text-[19px] font-extrabold tracking-[-0.02em] text-white">Bom treino, {ALUNO_TOPO.primeiroNome}.</p>
         </div>
         <div className="rounded-[18px] border border-volt-400/45 bg-gradient-to-b from-volt-300/[.16] to-volt-300/[.04] p-3.5">
           <p className="text-[10px] font-bold tracking-[.09em] text-volt-300">TREINO DE HOJE</p>

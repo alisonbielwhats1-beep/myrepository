@@ -29,8 +29,7 @@ import {
   HeroCelular,
   HeroRecepcao,
 } from "@/components/site/split/Superficies";
-import { EVENTOS, LEGENDAS } from "@/components/site/split/demo";
-import { CartoesAcademia, CartoesAluno } from "@/components/site/split/Cartoes";
+import Conexao from "@/components/site/split/Conexao";
 import { PRECO_MENSAL_LABEL, linkWhatsappComercial } from "@/lib/site-config";
 import { anoSaoPaulo } from "@/lib/utils";
 // Ordem importa: o engine primeiro, os estilos da landing por cima.
@@ -297,6 +296,7 @@ export default function Home() {
                 <p className="ls-display" aria-hidden="true">
                   Seus alunos mais <span className="ls-acento">conectados.</span>
                 </p>
+                <p className="ls-lede">A ficha, a mensalidade e o QR de acesso no celular de cada aluno.</p>
               </div>
             </div>
           </div>
@@ -337,101 +337,103 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ============================================ ATO 3 · CONEXÃO (pico)
-            O único scrub da página. Cada evento sai de um lado, atravessa a
-            divisória e vira uma linha real do outro (palco.ts). */}
-        <section
-          id="painel"
-          className="ls-con"
-          data-sc-act="pin"
-          data-sc-span="3.4"
-          aria-labelledby="ls-con-titulo"
-        >
-          <div data-sc-stage>
-            <div className="ls-split ls-con__split">
-              <div className="ls-col ls-col--a ls-con__a">
-                <video
-                  className="ls-loop ls-con__video ls-con__video--dono"
-                  data-src={M.dono}
-                  data-src-movel={M.donoMovel}
-                  poster={M.donoPoster}
-                  muted
-                  loop
-                  playsInline
-                  preload="none"
-                  aria-hidden="true"
-                />
-                <div className="ls-con__cab">
-                  <h2 id="ls-con-titulo" className="ls-h2">
-                    O que o aluno faz no celular, a academia vê na hora.
-                  </h2>
-                  <div className="ls-legendas mt-4" aria-live="polite">
-                    {LEGENDAS.map((l, i) => (
-                      <p key={l.inicio} data-leg={i}>
-                        {l.texto}
-                      </p>
-                    ))}
+        {/* ============================================ ATO 3 · CONEXÃO
+            Três momentos da semana, um por linha, sem pin: de onde a ação
+            sai, o que atravessa a divisória e onde chega. Os vídeos abrem o
+            ato como cena; a explicação fica nos passos (Conexao.tsx). */}
+        <section id="painel" className="ls-con scroll-mt-4" data-sc-act="flow" aria-labelledby="ls-con-titulo">
+          <Regua />
+          <div className="ls-split ls-con__topo">
+            <div className="ls-col ls-col--a">
+              <div className="ls-inner ls-inner--a" data-sc-in>
+                <h2 id="ls-con-titulo" className="ls-h2">
+                  O que o aluno faz no celular, a academia vê na hora.
+                </h2>
+                <figure className="ls-con__quadro ls-con__quadro--a">
+                  <div className="ls-con__midia">
+                    <video
+                      className="ls-loop"
+                      data-src={M.dono}
+                      data-src-movel={M.donoMovel}
+                      poster={M.donoPoster}
+                      muted
+                      loop
+                      playsInline
+                      preload="none"
+                      aria-hidden="true"
+                    />
                   </div>
-                </div>
-                <CartoesAcademia />
-              </div>
-              <div className="ls-col ls-col--b ls-con__b">
-                <video
-                  className="ls-loop ls-con__video"
-                  data-src={M.aluna}
-                  data-src-movel={M.alunaMovel}
-                  poster={M.alunaPoster}
-                  muted
-                  loop
-                  playsInline
-                  preload="none"
-                  aria-hidden="true"
-                />
-                <div className="ls-con__scrim" aria-hidden="true" />
-                <CartoesAluno />
+                  <figcaption className="ls-con__selo">
+                    <i aria-hidden="true" />
+                    Recepção · 19:02
+                  </figcaption>
+                </figure>
               </div>
             </div>
-            <div className="ls-con__legenda-movel" aria-hidden="true">
-              <div className="ls-legendas">
-                {LEGENDAS.map((l, i) => (
-                  <p key={l.inicio} data-leg={i}>
-                    {l.texto}
-                  </p>
-                ))}
+            <div className="ls-col ls-col--b">
+              <div className="ls-inner ls-inner--b" data-sc-in>
+                <p className="ls-lede">
+                  Três momentos de uma semana normal, dos dois lados da mesma academia. Os dados são de demonstração.
+                </p>
+                <figure className="ls-con__quadro ls-con__quadro--b">
+                  <div className="ls-con__midia">
+                    <video
+                      className="ls-loop"
+                      data-src={M.aluna}
+                      data-src-movel={M.alunaMovel}
+                      poster={M.alunaPoster}
+                      muted
+                      loop
+                      playsInline
+                      preload="none"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <figcaption className="ls-con__selo">
+                    <i aria-hidden="true" />
+                    Marina · Treino B
+                  </figcaption>
+                </figure>
               </div>
             </div>
-            {EVENTOS.map((ev) => (
-              <span key={ev.id} className="ls-sinal" data-ev={ev.id} aria-hidden="true">
-                <i />
-                {ev.rotulo}
-              </span>
-            ))}
           </div>
+          <Conexao />
         </section>
 
         {/* ============================================ ATO 4 · CONFIANÇA
-            As duas cenas se abrem por wipe, uma de cada lado, em sentidos
-            opostos, e seguem num zoom lento. */}
+            Cada lado abre com o título, e a foto vem com a legenda do que
+            está acontecendo nela (sem legenda ela parecia solta). As cenas
+            se abrem por wipe, em sentidos opostos, e seguem num zoom lento. */}
         <section id="funcionalidades" className="ls-rec scroll-mt-4" data-sc-act="flow">
           <Regua />
           <div className="ls-split">
             <div className="ls-col ls-col--a">
               <div className="ls-inner ls-inner--a">
-                <figure className="ls-rec__midia" data-sc-reveal="up" data-sc-reveal-at="0.1 0.38">
-                  <img src={M.recAPoster} alt="Dono da academia e professor revisando um treino no notebook da recepção" width={1080} height={1350} loading="lazy" />
+                <h2 className="ls-h2">Para quem gerencia</h2>
+                <figure className="ls-rec__fig">
+                  <div className="ls-rec__midia" data-sc-reveal="up" data-sc-reveal-at="0.1 0.38">
+                    <img src={M.recAPoster} alt="Dono da academia e professor revisando um treino no notebook da recepção" width={1080} height={1350} loading="lazy" />
+                  </div>
+                  <figcaption className="ls-fine">
+                    Na recepção, o dono e o professor revisam no painel a ficha que vai para o celular do aluno.
+                  </figcaption>
                 </figure>
-                <h2 className="ls-h2 ls-rec__h2">Para quem gerencia</h2>
                 <ListaRecursos itens={RECURSOS_ACADEMIA} />
               </div>
             </div>
             <div className="ls-col ls-col--b">
               <div className="ls-inner ls-inner--b">
-                <figure className="ls-rec__midia" data-sc-reveal="down" data-sc-reveal-at="0.16 0.44">
-                  <img src={M.recBPoster} alt="Aluna passando pela catraca da academia, à noite" width={1080} height={1350} loading="lazy" />
-                </figure>
-                <h2 id="aplicativo" className="ls-h2 ls-rec__h2">
+                <h2 id="aplicativo" className="ls-h2">
                   Para quem treina
                 </h2>
+                <figure className="ls-rec__fig">
+                  <div className="ls-rec__midia" data-sc-reveal="down" data-sc-reveal-at="0.16 0.44">
+                    <img src={M.recBPoster} alt="Aluna passando pela catraca da academia, à noite" width={1080} height={1350} loading="lazy" />
+                  </div>
+                  <figcaption className="ls-fine">
+                    Na entrada, a recepção valida o QR da aluna e o acesso vai para o histórico.
+                  </figcaption>
+                </figure>
                 <ListaRecursos itens={RECURSOS_ALUNO} />
               </div>
             </div>
@@ -491,9 +493,6 @@ export default function Home() {
             o celular dentro da tela do dono. O plano e o botão ficam. */}
         <section id="planos" className="ls-fim" data-sc-act="pin" data-sc-span="2" aria-labelledby="ls-fim-titulo">
           <div data-sc-stage>
-            <div className="ls-fim__cel-movel" aria-hidden="true">
-              <CelularFechamento />
-            </div>
             <div className="ls-fim__palco">
               <div className="ls-fim__a ls-col--a">
                 <div id="contato" className="ls-fim__plano scroll-mt-4">
@@ -542,13 +541,10 @@ export default function Home() {
                     personalizados podem ter condições adicionais.
                   </p>
                 </div>
-                <footer className="ls-colofao">
-                  <Marca tom="claro" tamanho={32} />
-                  <span>© {ano} GestAcad</span>
-                  <a href="/login">Entrar</a>
-                  <a href="/termos">Termos de Uso</a>
-                  <a href="/privacidade">Política de Privacidade</a>
-                </footer>
+                {/* Só no celular: vem depois do preço, não antes. */}
+                <div className="ls-fim__cel-movel ls-escuro" aria-hidden="true">
+                  <CelularFechamento />
+                </div>
               </div>
 
               <div className="ls-fim__cortina" aria-hidden="true">
@@ -561,9 +557,18 @@ export default function Home() {
           </div>
         </section>
       </main>
+      {/* Fora do fechamento pinado: dentro dele o rodapé não cabia numa tela
+          baixa (1024 × 768) junto com o plano. */}
+      <footer className="ls-colofao ls-col--a">
+        <Marca tom="claro" tamanho={32} />
+        <span>© {ano} GestAcad</span>
+        <a href="/login">Entrar</a>
+        <a href="/termos">Termos de Uso</a>
+        <a href="/privacidade">Política de Privacidade</a>
+      </footer>
       <Motor />
       <noscript>
-        <style>{`[data-sc-cue],[data-sc-in],[data-sc-stagger]>*{opacity:1!important;transform:none!important}[data-sc-reveal]{clip-path:none!important}`}</style>
+        <style>{`[data-sc-cue],[data-sc-in],[data-sc-stagger]>*{opacity:1!important;transform:none!important}[data-sc-reveal]{clip-path:none!important}.ls-passo__destino,.ls-passo__sinal,.ls-passo__depois{opacity:1!important;filter:none!important;transform:none!important}.ls-passo__antes{opacity:0!important}.ls-cartao__progresso>span{transform:none!important}`}</style>
       </noscript>
     </div>
   );
