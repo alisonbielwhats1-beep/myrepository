@@ -47,8 +47,10 @@
     "auditoria-acesso": "node scripts/auditoria-acesso-alunos.mjs"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
+    "geist": "^1.7.2",
     "lucide-react": "^0.441.0",
     "next": "^14.2.35",
     "qrcode.react": "^4.0.1",

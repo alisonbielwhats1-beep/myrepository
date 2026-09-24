@@ -42,16 +42,16 @@ const config: Config = {
           50: "#f2ffe0",
           100: "#e3ffc2",
           // As faixas usadas como acento/primária trocam por tema (via CSS var):
-          // no escuro ficam lima-neon; no claro, um verde profundo e legível
-          // que não "queima" a vista sobre fundo branco.
+          // no escuro, o verde-limão da identidade; no claro, um verde-oliva
+          // escuro e legível sobre fundo branco.
           200: v("volt-200"),
           300: v("volt-300"),
           400: v("volt-400"),
           500: v("volt-500"),
-          600: "#5faa00",
-          700: "#487f06",
-          800: "#3a640c",
-          900: "#31540f",
+          600: "#65a30d",
+          700: "#4d7c0f",
+          800: "#3f6212",
+          900: "#365314",
         },
         magenta: {
           400: "#ff4dd8",
@@ -68,9 +68,9 @@ const config: Config = {
         display: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        // Glow discreto (não mais halo lima-neon): sombra suave no tom do verde
-        // calmo. Vale para todo o app (aluno e painel).
-        glow: "0 6px 22px -14px rgba(120, 160, 72, 0.35)",
+        // Sombra suave no tom do verde da marca (não é halo neon). Vale para
+        // todo o app (aluno e painel).
+        glow: "0 6px 22px -14px rgba(132, 204, 22, 0.4)",
         "glow-magenta": "0 0 40px -8px rgba(248, 28, 192, 0.45)",
         card: "0 20px 60px -25px rgba(0, 0, 0, 0.85)",
       },
