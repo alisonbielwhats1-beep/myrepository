@@ -4,8 +4,12 @@
 // regra antes de qualquer coisa sair do dispositivo. NUNCA importar em um
 // arquivo de Server Action/Server Component: depende de `window`/`canvas`.
 
-export const TIPOS_ACEITOS = ["image/jpeg", "image/png", "image/webp"] as const;
-export const TAMANHO_MAXIMO_BYTES = 5 * 1024 * 1024; // 5 MB — teto do ARQUIVO ORIGINAL, escolhido no aparelho
+// Qualquer formato que o aparelho consiga abrir é aceito: JPG, PNG, WebP, GIF,
+// AVIF, BMP e também HEIC/HEIF (padrão da câmera do iPhone e de vários
+// Android), que o Chrome não sabe abrir — para esse caso um decodificador
+// (heic-to, WASM) é baixado sob demanda, só quando aparece um HEIC. O arquivo
+// original nunca sai do aparelho: sempre vira um JPEG pequeno aqui.
+export const TAMANHO_MAXIMO_BYTES = 50 * 1024 * 1024; // 50 MB — teto do ARQUIVO ORIGINAL, escolhido no aparelho
 const LADO_MAXIMO_PX = 512; // nunca sai do navegador maior que isto
 const QUALIDADE_INICIAL = 0.78;
 const QUALIDADE_MINIMA = 0.4; // piso de compressão — abaixo disso a foto fica ruim demais
@@ -13,25 +17,130 @@ const ALVO_BYTES = 500 * 1024; // 500 KB — meta: tenta chegar aqui reduzindo q
 const LIMITE_REJEICAO_BYTES = 800 * 1024; // 800 KB — acima disso, recusa antes de enviar
 
 class ImagemGrandeDemaisError extends Error {}
+class FormatoIlegivelError extends Error {}
 
-/** Validação rápida antes de processar — mesma checagem que o servidor repete depois. */
+const ERRO_NAO_E_FOTO =
+  "Esse arquivo não é uma foto. Escolha uma imagem da galeria ou tire uma foto.";
+const ERRO_FORMATO_ILEGIVEL =
+  "Não conseguimos abrir essa foto neste aparelho. Tire um print dela e envie o print.";
+
+/**
+ * Validação rápida antes de processar. NÃO filtra por formato: o tipo que o
+ * aparelho informa não é confiável (HEIC chega como "image/heic", "image/heif"
+ * ou até vazio em alguns seletores do Android). Quem decide se a imagem serve
+ * é a tentativa real de abri-la (carregarImagem). Aqui só barra o que com
+ * certeza não é foto (vídeo, áudio, texto, PDF) e o tamanho absurdo.
+ */
 export function erroDoArquivo(file: File): string | null {
-  if (!TIPOS_ACEITOS.includes(file.type as (typeof TIPOS_ACEITOS)[number])) {
-    return "Envie uma imagem JPG, PNG ou WebP.";
+  if (/^(video|audio|text)\//.test(file.type) || file.type === "application/pdf") {
+    return ERRO_NAO_E_FOTO;
   }
+  if (file.size === 0) return ERRO_FORMATO_ILEGIVEL;
   if (file.size > TAMANHO_MAXIMO_BYTES) {
-    return "A imagem deve ter no máximo 5 MB.";
+    return "A foto deve ter no máximo 50 MB.";
   }
   return null;
 }
 
-async function carregarBitmap(file: File): Promise<ImageBitmap> {
+type ImagemAberta = {
+  fonte: CanvasImageSource;
+  largura: number;
+  altura: number;
+  liberar: () => void;
+};
+
+function deBitmap(bitmap: ImageBitmap): ImagemAberta {
+  return {
+    fonte: bitmap,
+    largura: bitmap.width,
+    altura: bitmap.height,
+    liberar: () => bitmap.close?.(),
+  };
+}
+
+/**
+ * Abre a imagem com o que o próprio navegador sabe decodificar. Três
+ * tentativas, da mais rápida à mais tolerante: createImageBitmap respeitando a
+ * orientação EXIF (foto de celular deitada), createImageBitmap simples e, por
+ * fim, um <img> — o Safari abre HEIC/TIFF por <img> mesmo quando
+ * createImageBitmap recusa. Devolve null se nenhuma funcionar.
+ */
+async function abrirNoNavegador(blob: Blob): Promise<ImagemAberta | null> {
   try {
-    // "from-image" respeita a orientação EXIF da foto (comum em câmera de celular).
-    return await createImageBitmap(file, { imageOrientation: "from-image" });
+    return deBitmap(await createImageBitmap(blob, { imageOrientation: "from-image" }));
+  } catch {}
+  try {
+    return deBitmap(await createImageBitmap(blob));
+  } catch {}
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = url;
+    await img.decode();
+    if (!img.naturalWidth || !img.naturalHeight) throw new Error("sem dimensões");
+    return {
+      fonte: img,
+      largura: img.naturalWidth,
+      altura: img.naturalHeight,
+      liberar: () => URL.revokeObjectURL(url),
+    };
   } catch {
-    return await createImageBitmap(file);
+    URL.revokeObjectURL(url);
+    return null;
   }
+}
+
+/**
+ * HEIC/HEIF são contêineres ISO-BMFF: bytes 4–8 = "ftyp". Olha a assinatura
+ * em vez de confiar só no tipo informado, que pode vir vazio.
+ */
+async function pareceHeif(file: File): Promise<boolean> {
+  if (/^image\/hei[cf]/.test(file.type) || /\.(heic|heif|hif)$/i.test(file.name)) {
+    return true;
+  }
+  try {
+    const cabecalho = new Uint8Array(await file.slice(4, 8).arrayBuffer());
+    return String.fromCharCode(...Array.from(cabecalho)) === "ftyp";
+  } catch {
+    return false;
+  }
+}
+
+/** Abre qualquer imagem que o aparelho consiga ler — ou lança FormatoIlegivelError. */
+export async function carregarImagem(file: File): Promise<ImagemAberta> {
+  const nativa = await abrirNoNavegador(file);
+  if (nativa) return nativa;
+
+  if (await pareceHeif(file)) {
+    try {
+      // Import dinâmico: o decodificador (WASM, alguns MB) só é baixado por
+      // quem de fato escolheu um HEIC que o navegador não abre sozinho.
+      const { heicTo } = await import("heic-to/next");
+      return deBitmap(await heicTo({ blob: file, type: "bitmap" }));
+    } catch {}
+  }
+  throw new FormatoIlegivelError();
+}
+
+/** Canvas já com fundo branco — PNG/GIF transparentes não viram fundo preto no JPEG. */
+export function criarCanvas(largura: number, altura: number) {
+  const canvas = document.createElement("canvas");
+  canvas.width = largura;
+  canvas.height = altura;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas indisponível neste navegador.");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, largura, altura);
+  return { canvas, ctx };
+}
+
+function mensagemDeErro(e: unknown, limiteKb: number): string {
+  if (e instanceof ImagemGrandeDemaisError) {
+    return `Mesmo comprimida, essa imagem ficou acima de ${limiteKb} KB. Tente uma foto mais simples ou com menos detalhe.`;
+  }
+  if (e instanceof FormatoIlegivelError) return ERRO_FORMATO_ILEGIVEL;
+  return "Não foi possível processar essa imagem. Tente outra foto.";
 }
 
 function codificarJpeg(canvas: HTMLCanvasElement, qualidade: number): Promise<Blob | null> {
@@ -46,19 +155,18 @@ function codificarJpeg(canvas: HTMLCanvasElement, qualidade: number): Promise<Bl
  * mesmo no piso de qualidade, a foto é recusada ali mesmo, antes do envio.
  */
 async function recortarQuadradoEComprimir(file: File): Promise<Blob> {
-  const bitmap = await carregarBitmap(file);
-  const lado = Math.min(bitmap.width, bitmap.height);
-  const origemX = (bitmap.width - lado) / 2;
-  const origemY = (bitmap.height - lado) / 2;
+  const imagem = await carregarImagem(file);
+  const lado = Math.min(imagem.largura, imagem.altura);
+  const origemX = (imagem.largura - lado) / 2;
+  const origemY = (imagem.altura - lado) / 2;
   const destino = Math.min(lado, LADO_MAXIMO_PX);
 
-  const canvas = document.createElement("canvas");
-  canvas.width = destino;
-  canvas.height = destino;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas indisponível neste navegador.");
-  ctx.drawImage(bitmap, origemX, origemY, lado, lado, 0, 0, destino, destino);
-  bitmap.close?.();
+  const { canvas, ctx } = criarCanvas(destino, destino);
+  try {
+    ctx.drawImage(imagem.fonte, origemX, origemY, lado, lado, 0, 0, destino, destino);
+  } finally {
+    imagem.liberar();
+  }
 
   let qualidade = QUALIDADE_INICIAL;
   let blob = await codificarJpeg(canvas, qualidade);
@@ -95,13 +203,7 @@ export async function prepararFotoParaEnvio(
     const blob = await recortarQuadradoEComprimir(file);
     return { blob, previewUrl: URL.createObjectURL(blob) };
   } catch (e) {
-    if (e instanceof ImagemGrandeDemaisError) {
-      return {
-        erro:
-          "Mesmo comprimida, essa imagem ficou acima de 800 KB. Tente uma foto mais simples ou com menos detalhe.",
-      };
-    }
-    return { erro: "Não foi possível processar essa imagem. Tente outra foto." };
+    return { erro: mensagemDeErro(e, 800) };
   }
 }
 
@@ -116,19 +218,18 @@ const LIMITE_REJEICAO_COMUNIDADE_BYTES = 950 * 1024; // 950 KB — teto antes do
 async function redimensionarEComprimir(
   file: File
 ): Promise<{ blob: Blob; largura: number; altura: number }> {
-  const bitmap = await carregarBitmap(file);
-  const maiorLado = Math.max(bitmap.width, bitmap.height);
+  const imagem = await carregarImagem(file);
+  const maiorLado = Math.max(imagem.largura, imagem.altura);
   const escala = maiorLado > LADO_MAXIMO_COMUNIDADE_PX ? LADO_MAXIMO_COMUNIDADE_PX / maiorLado : 1;
-  const largura = Math.max(1, Math.round(bitmap.width * escala));
-  const altura = Math.max(1, Math.round(bitmap.height * escala));
+  const largura = Math.max(1, Math.round(imagem.largura * escala));
+  const altura = Math.max(1, Math.round(imagem.altura * escala));
 
-  const canvas = document.createElement("canvas");
-  canvas.width = largura;
-  canvas.height = altura;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas indisponível neste navegador.");
-  ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height, 0, 0, largura, altura);
-  bitmap.close?.();
+  const { canvas, ctx } = criarCanvas(largura, altura);
+  try {
+    ctx.drawImage(imagem.fonte, 0, 0, imagem.largura, imagem.altura, 0, 0, largura, altura);
+  } finally {
+    imagem.liberar();
+  }
 
   let qualidade = QUALIDADE_INICIAL;
   let blob = await codificarJpeg(canvas, qualidade);
@@ -168,12 +269,6 @@ export async function prepararImagemComunidade(
     const { blob, largura, altura } = await redimensionarEComprimir(file);
     return { blob, largura, altura, previewUrl: URL.createObjectURL(blob) };
   } catch (e) {
-    if (e instanceof ImagemGrandeDemaisError) {
-      return {
-        erro:
-          "Mesmo comprimida, essa imagem ficou acima de 950 KB. Tente uma foto mais simples ou com menos detalhe.",
-      };
-    }
-    return { erro: "Não foi possível processar essa imagem. Tente outra foto." };
+    return { erro: mensagemDeErro(e, 950) };
   }
 }

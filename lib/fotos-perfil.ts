@@ -13,11 +13,11 @@ import { createServiceRoleClient } from "./supabase/server";
 export const BUCKET_FOTOS_PERFIL = "fotos-perfil";
 /**
  * Teto do arquivo que ESTA função aceita — não é o teto da foto original
- * (essa, até 5 MB, nunca sai do navegador: é recortada/comprimida ali, ver
+ * (essa, de qualquer formato e até 50 MB, nunca sai do navegador: é recortada/comprimida ali, ver
  * lib/imagem-cliente.ts). O que chega aqui já deveria ser o JPEG processado,
  * recusado no cliente acima de 800 KB. 900 KB dá uma margem pequena para um
  * cliente adulterado ou uma variação de encoder, sem reabrir espaço para o
- * arquivo original de 5 MB — e continua bem abaixo do limite padrão de 1 MB
+ * arquivo original — e continua bem abaixo do limite padrão de 1 MB
  * do corpo de uma Server Action (nunca aumentado para isto, de propósito).
  */
 export const TAMANHO_MAXIMO_BYTES = 900 * 1024;
