@@ -57,6 +57,7 @@ next-env.d.ts
 /.test-build-planos
 /.test-build-evolucao
 /.test-build-progressao
+/.test-build-totalpass
 
 # playwright (e2e)
 /test-results/

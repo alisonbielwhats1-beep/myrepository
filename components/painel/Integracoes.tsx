@@ -13,6 +13,7 @@ import {
   LABELS_STATUS_INTEGRACAO,
 } from "@/lib/types";
 import { formatBRL } from "@/lib/utils";
+import ConexaoTotalPass, { type ConexaoTotalPassInfo } from "@/components/painel/ConexaoTotalPass";
 
 const STATUS_OPTIONS: StatusIntegracao[] = [
   "nao_configurada",
@@ -196,8 +197,10 @@ function BlocoParceiro({
   plataforma,
   valorRepasse,
   repasseAtivo,
+  conexao,
   isDemo = false,
 }: {
+  conexao?: React.ReactNode;
   nome: string;
   cor: string;
   slug: string;
@@ -292,9 +295,13 @@ function BlocoParceiro({
         </div>
       )}
 
-      <CampoCopiavel label="URL do webhook (endpoint)" valor={url} />
+      {/* Integração pela API oficial (TotalPass): substitui URL + segredo manuais. */}
+      {conexao}
+
+      {!conexao && <CampoCopiavel label="URL do webhook (endpoint)" valor={url} />}
 
       {/* Segredo mascarado — nunca o valor completo */}
+      {!conexao && (
       <div>
         <span className="mb-1 block text-xs font-medium text-slate-400">
           Segredo (Bearer token)
@@ -314,6 +321,7 @@ function BlocoParceiro({
           </div>
         )}
       </div>
+      )}
 
       {/* Status da integração */}
       <div>
@@ -341,6 +349,7 @@ function BlocoParceiro({
         ativoInicial={repasseAtivo}
       />
 
+      {!conexao && (
       <div className="rounded-lg border border-ink-700 bg-ink-800/50 p-4 text-sm text-slate-300">
         <p className="mb-2 font-medium text-white">Como conectar</p>
         <ol className="list-decimal space-y-1.5 pl-5 text-slate-400">
@@ -364,6 +373,7 @@ function BlocoParceiro({
           </li>
         </ol>
       </div>
+      )}
 
       {erro && (
         <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-300">
@@ -371,14 +381,16 @@ function BlocoParceiro({
         </p>
       )}
 
-      <button
-        onClick={rotacionar}
-        disabled={pendingRotar}
-        className="btn-ghost text-xs"
-      >
-        <RefreshCw className={`h-3.5 w-3.5 ${pendingRotar ? "animate-spin" : ""}`} />
-        {pendingRotar ? "Gerando..." : "Gerar novo segredo"}
-      </button>
+      {!conexao && (
+        <button
+          onClick={rotacionar}
+          disabled={pendingRotar}
+          className="btn-ghost text-xs"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${pendingRotar ? "animate-spin" : ""}`} />
+          {pendingRotar ? "Gerando..." : "Gerar novo segredo"}
+        </button>
+      )}
     </div>
   );
 }
@@ -393,8 +405,10 @@ export default function Integracoes({
   totalpassStatus,
   totalpassValorRepasse,
   totalpassRepasseAtivo,
+  conexaoTotalPass,
   isDemo = false,
 }: {
+  conexaoTotalPass: ConexaoTotalPassInfo;
   slug: string;
   gympassSecretMascarado: string;
   gympassStatus: StatusIntegracao;
@@ -446,6 +460,7 @@ export default function Integracoes({
         plataforma="totalpass"
         valorRepasse={totalpassValorRepasse}
         repasseAtivo={totalpassRepasseAtivo}
+        conexao={<ConexaoTotalPass slug={slug} info={conexaoTotalPass} />}
         isDemo={isDemo}
       />
     </div>

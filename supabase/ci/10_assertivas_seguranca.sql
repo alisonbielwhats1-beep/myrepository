@@ -202,7 +202,8 @@ begin
        'logs_erros',              -- log cruzado; ninguém lê pela API (T6)
        'sessoes_treino',          -- acesso só via iniciar/salvar/finalizar_sessao_treino (045)
        'backup_padronizacao_060', -- backup interno da migration 060
-       'comunidade_curtidas'      -- deny-all intencional: acesso só via RPCs da comunidade (085)
+       'comunidade_curtidas',     -- deny-all intencional: acesso só via RPCs da comunidade (085)
+       'integracao_totalpass'     -- guarda a place_api_key; só service role no servidor (108)
      )
      and not exists (
        select 1 from pg_policies p
