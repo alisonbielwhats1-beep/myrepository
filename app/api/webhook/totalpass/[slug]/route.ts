@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { DecisaoAcesso } from "@/lib/types";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { decidirAcesso, statusLiberacaoDe } from "@/lib/utils";
+import { registrarCheckinParceiro } from "@/lib/checkin-parceiro";
 import { segredoConfere, tokenBearer } from "@/lib/webhook-auth";
 
 function normalizarCpf(raw: string | null | undefined): string | null {
@@ -11,7 +10,11 @@ function normalizarCpf(raw: string | null | undefined): string | null {
 }
 
 /**
- * Webhook do TotalPass — registra um check-in enviado pela plataforma.
+ * Webhook LEGADO do TotalPass (segredo Bearer gerado pelo GestAcad). A
+ * TotalPass real não chama este formato — a integração oficial é
+ * /api/totalpass/checkin/[token] (lib/totalpass.ts). Mantido só para não
+ * quebrar quem já tenha configurado algo apontando para cá.
+ *
  *
  * Formato esperado no corpo (JSON):
  * {
@@ -71,77 +74,19 @@ export async function POST(
     (body?.checkin_id as string | undefined) ??
     null;
 
-  // 5. Buscar aluno pelo CPF
-  let alunoId: string | null = null;
-  let observacao: string | null = null;
-  let decisao: DecisaoAcesso | null = null;
-
-  if (cpf) {
-    const { data: aluno } = await supabase
-      .from("alunos")
-      .select("id, status_matricula")
-      .eq("academia_id", academia.id)
-      .eq("cpf", cpf)
-      .maybeSingle();
-
-    if (aluno) {
-      alunoId = aluno.id;
-
-      const { data: mensalidades } = await supabase
-        .from("receitas")
-        .select("id, competencia, data, valor, status")
-        .eq("academia_id", academia.id)
-        .eq("aluno_id", aluno.id)
-        .eq("tipo", "mensalidade")
-        .eq("status", "pendente");
-
-      // Mesma decisão central da recepção — sem regra paralela nesta rota.
-      decisao = decidirAcesso(
-        aluno.status_matricula,
-        academia.politica_inadimplencia ?? "liberar",
-        mensalidades ?? []
-      );
-      observacao = decisao.motivo;
-    } else {
-      observacao = "CPF não encontrado no cadastro";
-    }
-  }
-
-  // 6. Valor vigente configurado pelo dono (migration 049) — copiado agora
-  // para o acesso, para nunca mudar retroativamente se a config mudar depois.
-  // Sem config ou desativado: null, sem inventar um valor padrão.
-  const { data: config } = await supabase
-    .from("config_repasse_parceiros")
-    .select("valor_por_checkin")
-    .eq("academia_id", academia.id)
-    .eq("plataforma", "totalpass")
-    .eq("ativo", true)
-    .maybeSingle();
-  const valorRepasseVigente = config?.valor_por_checkin ?? null;
-
-  // 7. Registrar o acesso
-  const { error } = await supabase.from("acessos_catraca").insert({
-    academia_id: academia.id,
-    aluno_id: alunoId,
-    origem: "TotalPass",
-    // Check-in bloqueado permanece registrado, mas sem repasse: a entrada não
-    // aconteceu. "alerta" é entrada permitida e mantém o repasse.
-    valor_repasse: decisao?.resultado === "bloqueado" ? 0 : valorRepasseVigente,
-    status_liberacao: decisao ? statusLiberacaoDe(decisao.resultado) : "liberado",
-    evento_externo_id: eventoId,
-    observacao,
-    politica_aplicada: decisao?.politicaAplicada ?? null,
-    mensalidade_id: decisao?.mensalidadeId ?? null,
-    dias_atraso: decisao?.diasAtraso ?? null,
+  // 5–7. Decisão de acesso + registro (mesma lógica do webhook oficial).
+  const r = await registrarCheckinParceiro(supabase, {
+    academiaId: academia.id,
+    politica: academia.politica_inadimplencia,
+    cpf,
+    eventoId,
   });
-
-  if (error) {
-    // 23505 = reenvio do mesmo check-in. Idempotente: responde 200 sem duplicar.
-    if (error.code === "23505") {
-      return NextResponse.json({ ok: true, duplicado: true }, { status: 200 });
-    }
-    console.error("[webhook/totalpass] erro ao inserir acesso:", error.message);
+  if ("erro" in r) {
+    console.error("[webhook/totalpass] erro ao inserir acesso:", r.erro);
     return NextResponse.json({ erro: "Falha interna." }, { status: 500 });
+  }
+  if (r.duplicado) {
+    return NextResponse.json({ ok: true, duplicado: true }, { status: 200 });
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });

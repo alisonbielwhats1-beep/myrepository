@@ -2,7 +2,9 @@ import Breadcrumbs from "@/components/painel/Breadcrumbs";
 import Integracoes from "@/components/painel/Integracoes";
 import UpgradeGuard from "@/components/ui/UpgradeGuard";
 import { requireSecao } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { partnerKeyConfigurada } from "@/lib/totalpass";
+import type { ConexaoTotalPassInfo } from "@/components/painel/ConexaoTotalPass";
 import { getConfigRepasseParceiros } from "@/lib/data";
 import { planoPodeAcessar, planoMinimo } from "@/lib/planos";
 import { mascarar } from "@/lib/utils";
@@ -51,6 +53,31 @@ export default async function IntegracoesPage({
     getConfigRepasseParceiros(),
   ]);
 
+  // Conexão com a API oficial da TotalPass (migração 108). A tabela só é
+  // acessível pela service role; daqui sai apenas o que o dono pode ver —
+  // a place_api_key nunca, só os 4 últimos caracteres. Sem a migração
+  // aplicada, `migracaoPendente` mostra o aviso no lugar do formulário.
+  const { data: tp, error: erroTp } = await createServiceRoleClient()
+    .from("integracao_totalpass")
+    .select(
+      "place_api_key, place_nome, webhook_registrado, validacao_automatica, conectado_em, ultimo_teste_em, ultimo_checkin_em, ultimo_erro"
+    )
+    .eq("academia_id", sessao.academia.id)
+    .maybeSingle();
+  const conexaoTotalPass: ConexaoTotalPassInfo = {
+    migracaoPendente: Boolean(erroTp),
+    partnerKeyConfigurada: partnerKeyConfigurada(),
+    conectada: Boolean(tp),
+    chaveMascarada: tp ? mascarar(tp.place_api_key) : "",
+    unidade: tp?.place_nome ?? null,
+    webhookRegistrado: tp?.webhook_registrado ?? false,
+    validacaoAutomatica: tp?.validacao_automatica ?? true,
+    conectadoEm: tp?.conectado_em ?? null,
+    ultimoTesteEm: tp?.ultimo_teste_em ?? null,
+    ultimoCheckinEm: tp?.ultimo_checkin_em ?? null,
+    ultimoErro: tp?.ultimo_erro ?? null,
+  };
+
   const repasseGympass = configRepasse.find((c) => c.plataforma === "gympass") ?? null;
   const repasseTotalpass = configRepasse.find((c) => c.plataforma === "totalpass") ?? null;
 
@@ -76,6 +103,7 @@ export default async function IntegracoesPage({
         totalpassStatus={(data?.totalpass_status as StatusIntegracao) ?? "nao_configurada"}
         totalpassValorRepasse={repasseTotalpass?.valor_por_checkin ?? null}
         totalpassRepasseAtivo={repasseTotalpass?.ativo ?? false}
+        conexaoTotalPass={conexaoTotalPass}
         isDemo={sessao.academia.is_demo}
       />
     </div>
