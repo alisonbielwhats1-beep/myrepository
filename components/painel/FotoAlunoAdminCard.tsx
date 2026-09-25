@@ -100,7 +100,7 @@ export default function FotoAlunoAdminCard({
     <div className="surface rounded-2xl p-5">
       <h3 className="font-semibold text-white">Foto de perfil</h3>
       <p className="mt-0.5 text-xs text-slate-500">
-        Aparece na ficha, na recepção e no app do aluno. JPG, PNG ou WebP, até 5 MB.
+        Aparece na ficha, na recepção e no app do aluno. Qualquer foto da galeria ou da câmera.
       </p>
 
       <div className="mt-4 flex items-center gap-4">
@@ -130,7 +130,7 @@ export default function FotoAlunoAdminCard({
           <input
             ref={galeriaRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/*"
             className="hidden"
             onChange={(e) => escolherArquivo(e.target.files?.[0])}
           />

@@ -28,6 +28,9 @@ export default function FotoPerfilForm({
   const [blob, setBlob] = useState<Blob | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
+  // Abrir/comprimir a foto leva um instante (HEIC pode levar alguns segundos
+  // enquanto o decodificador carrega) — sem isso o toque parece ignorado.
+  const [processando, setProcessando] = useState(false);
   const [pending, start] = useTransition();
   const galeriaRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -48,7 +51,12 @@ export default function FotoPerfilForm({
     if (!file) return;
     setErro(null);
     setOk(false);
+    setProcessando(true);
     const resultado = await prepararFotoParaEnvio(file);
+    setProcessando(false);
+    // Limpa os inputs para o mesmo arquivo poder ser escolhido de novo.
+    if (galeriaRef.current) galeriaRef.current.value = "";
+    if (cameraRef.current) cameraRef.current.value = "";
     if ("erro" in resultado) {
       setErro(resultado.erro);
       return;
@@ -105,7 +113,7 @@ export default function FotoPerfilForm({
         <AvatarAluno nome={nome} fotoUrl={preview ?? fotoAtual} size={64} />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-white">Foto de perfil</p>
-          <p className="text-xs text-slate-500">JPG, PNG ou WebP, até 5 MB.</p>
+          <p className="text-xs text-slate-500">Qualquer foto da galeria ou da câmera.</p>
         </div>
         <button
           type="button"
@@ -134,14 +142,14 @@ export default function FotoPerfilForm({
       <input
         ref={galeriaRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*"
         className="hidden"
         onChange={(e) => escolherArquivo(e.target.files?.[0])}
       />
       <input
         ref={cameraRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*"
         capture="user"
         className="hidden"
         onChange={(e) => escolherArquivo(e.target.files?.[0])}
@@ -176,6 +184,7 @@ export default function FotoPerfilForm({
           <button
             type="button"
             onClick={() => cameraRef.current?.click()}
+            disabled={processando}
             className="btn-ghost flex-1"
           >
             <Camera className="h-4 w-4" /> Tirar foto
@@ -183,9 +192,15 @@ export default function FotoPerfilForm({
           <button
             type="button"
             onClick={() => galeriaRef.current?.click()}
+            disabled={processando}
             className="btn-ghost flex-1"
           >
-            <ImagePlus className="h-4 w-4" /> Escolher da galeria
+            {processando ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ImagePlus className="h-4 w-4" />
+            )}{" "}
+            Escolher da galeria
           </button>
           {fotoAtual && (
             <button

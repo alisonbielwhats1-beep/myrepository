@@ -13,7 +13,7 @@ export const BUCKET_COMUNIDADE = "comunidade";
  * Teto do arquivo que ESTA função aceita. O que chega aqui já é o JPEG
  * processado no navegador (lib/imagem-cliente.ts → prepararImagemComunidade),
  * recusado no cliente acima de 950 KB. 980 KB dá uma margem pequena para
- * variação de encoder sem reabrir espaço para o arquivo original de 5 MB, e
+ * variação de encoder sem reabrir espaço para o arquivo original, e
  * continua dentro do corpo padrão de 1 MB de uma Server Action do Next.
  */
 export const TAMANHO_MAXIMO_BYTES = 980 * 1024;

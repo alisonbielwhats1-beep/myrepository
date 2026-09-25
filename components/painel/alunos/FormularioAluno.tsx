@@ -281,7 +281,7 @@ export default function FormularioAluno({
           <input
             ref={galeriaRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/*"
             className="hidden"
             onChange={(e) => escolherFoto(e.target.files?.[0])}
           />

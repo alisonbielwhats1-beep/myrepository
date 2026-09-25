@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { carregarImagem, criarCanvas } from "@/lib/imagem-cliente";
 
 /**
  * Upload de imagem com preview. Aceita colar uma URL OU selecionar/tirar uma
@@ -107,39 +108,28 @@ export default function ImageUpload({
 }
 
 /**
- * Lê o arquivo, desenha num canvas reduzido (lado máximo `maxLado`) e exporta
- * como JPEG comprimido (qualidade `qualidade`). Retorna um data URL pequeno,
- * seguro para trafegar numa Server Action.
+ * Abre a foto em qualquer formato que o aparelho consiga ler (inclusive HEIC,
+ * ver lib/imagem-cliente.ts), desenha num canvas reduzido (lado máximo
+ * `maxLado`, fundo branco) e exporta como JPEG comprimido (qualidade
+ * `qualidade`). Retorna um data URL pequeno, seguro para trafegar numa Server
+ * Action.
  */
-function redimensionarImagem(
+async function redimensionarImagem(
   file: File,
   maxLado: number,
   qualidade: number
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("read"));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("decode"));
-      img.onload = () => {
-        const escala = Math.min(1, maxLado / Math.max(img.width, img.height));
-        const largura = Math.round(img.width * escala);
-        const altura = Math.round(img.height * escala);
+  const imagem = await carregarImagem(file);
+  const escala = Math.min(1, maxLado / Math.max(imagem.largura, imagem.altura));
+  const largura = Math.max(1, Math.round(imagem.largura * escala));
+  const altura = Math.max(1, Math.round(imagem.altura * escala));
 
-        const canvas = document.createElement("canvas");
-        canvas.width = largura;
-        canvas.height = altura;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return reject(new Error("canvas"));
-        ctx.drawImage(img, 0, 0, largura, altura);
-
-        // JPEG mantém as fotos pequenas; PNG viraria enorme. Fundo branco para
-        // fotos com transparência não ficarem pretas.
-        resolve(canvas.toDataURL("image/jpeg", qualidade));
-      };
-      img.src = String(reader.result);
-    };
-    reader.readAsDataURL(file);
-  });
+  const { canvas, ctx } = criarCanvas(largura, altura);
+  try {
+    ctx.drawImage(imagem.fonte, 0, 0, largura, altura);
+  } finally {
+    imagem.liberar();
+  }
+  // JPEG mantém as fotos pequenas; PNG viraria enorme.
+  return canvas.toDataURL("image/jpeg", qualidade);
 }
