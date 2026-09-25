@@ -30,7 +30,8 @@ import {
   HeroRecepcao,
 } from "@/components/site/split/Superficies";
 import Conexao from "@/components/site/split/Conexao";
-import { PRECO_MENSAL_LABEL, linkWhatsappComercial } from "@/lib/site-config";
+import Precos from "@/components/site/split/Precos";
+import { DESCONTO_ANUAL, FAIXAS_PRECO, PRECO_MENSAL_LABEL, linkWhatsappComercial } from "@/lib/site-config";
 import { anoSaoPaulo } from "@/lib/utils";
 // Ordem importa: o engine primeiro, os estilos da landing por cima.
 import "@/components/site/split/scrollcraft.css";
@@ -488,10 +489,50 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ============================================ PLANOS
+            As faixas de preço por tamanho de academia (lib/site-config.ts).
+            A do meio atravessa a divisória; embaixo, de um lado quem passa
+            da tabela, do outro o que vem em todas as faixas. */}
+        <section id="planos" className="ls-precos scroll-mt-4" data-sc-act="flow" aria-labelledby="ls-precos-titulo">
+          <Regua />
+          <Precos
+            faixas={FAIXAS_PRECO}
+            descontoAnual={DESCONTO_ANUAL}
+            cta={{ href: HREF_DEMO, externo: !!linkWhatsappComercial, rotulo: ROTULO_CTA }}
+          />
+          <div className="ls-split ls-precos__rodape">
+            <div className="ls-col ls-col--a">
+              <div className="ls-inner ls-inner--a" data-sc-in>
+                <h3 className="ls-h3">Acima de {FAIXAS_PRECO[FAIXAS_PRECO.length - 1].alunos_max} alunos ativos?</h3>
+                <p className="ls-body mt-2 max-w-[40ch]">
+                  Não existe faixa fixa: montamos uma proposta sob medida para a operação da sua academia.
+                </p>
+                <a href={HREF_DEMO} {...PROPS_DEMO} className="ls-link mt-2">
+                  Pedir uma proposta
+                </a>
+              </div>
+            </div>
+            <div className="ls-col ls-col--b">
+              <div className="ls-inner ls-inner--b" data-sc-in>
+                <h3 className="ls-h3">Em todas as faixas</h3>
+                <ul className="ls-fim__incluso">
+                  {INCLUSO_NO_PLANO.map((item) => (
+                    <li key={item}>
+                      <CheckCircle size={18} weight="fill" aria-hidden="true" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ============================================ ATO 6 · DECISÃO
             O colapso: a divisória corre para a borda e o lado do aluno vira
-            o celular dentro da tela do dono. O plano e o botão ficam. */}
-        <section id="planos" className="ls-fim" data-sc-act="pin" data-sc-span="2" aria-labelledby="ls-fim-titulo">
+            o celular dentro da tela do dono. O resumo do preço e o botão
+            ficam; as faixas estão na seção de cima. */}
+        <section id="fechamento" className="ls-fim" data-sc-act="pin" data-sc-span="2" aria-labelledby="ls-fim-titulo">
           <div data-sc-stage>
             <div className="ls-fim__palco">
               <div className="ls-fim__a ls-col--a">
@@ -505,16 +546,11 @@ export default function Home() {
                     <span className="ls-body">/mês</span>
                   </div>
                   <p className="ls-body mt-2 max-w-[52ch]">
-                    O valor acompanha a quantidade de alunos ativos e as necessidades da operação.
+                    O valor acompanha a quantidade de alunos ativos.{" "}
+                    <a href="#planos" className="ls-link">
+                      Ver as faixas
+                    </a>
                   </p>
-                  <ul className="ls-fim__incluso">
-                    {INCLUSO_NO_PLANO.map((item) => (
-                      <li key={item}>
-                        <CheckCircle size={18} weight="fill" aria-hidden="true" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
                   {linkWhatsappComercial ? (
                     <div className="ls-fim__acoes">
                       <a href={linkWhatsappComercial} target="_blank" rel="noopener noreferrer" className="ls-cta">

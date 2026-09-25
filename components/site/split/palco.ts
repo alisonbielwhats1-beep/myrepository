@@ -26,7 +26,7 @@ export function iniciarPalco(root: HTMLElement) {
   const ponteiroFino = matchMedia("(hover: hover) and (pointer: fine)").matches;
 
   const atoSem = root.querySelector("#problemas");
-  const atoFim = root.querySelector("#planos");
+  const atoFim = root.querySelector("#fechamento");
   const hero = root.querySelector<HTMLElement>(".ls-hero");
 
   function medirLargura() {
